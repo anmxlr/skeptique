@@ -1,4 +1,4 @@
-# 05 Demo script (target: 4:30, hard cap 5:00)
+# 05 Demo script (target: 4:00 — ETHGlobal asks for 2-4 min videos and gives finalists 4 min live; Hedera hard cap 5:00)
 
 Every beat below exists because a sponsor requirement needs it on camera.
 
@@ -14,4 +14,4 @@ Every beat below exists because a sponsor requirement needs it on camera.
 | 4:00 | HCS audit log of rounds and spend. | Hedera extra points |
 | 4:15 | Honest limits slide (staged consensus, collusion not defended). Close. | |
 
-Recording checklist: HashScan tab pre-opened with the tx; ENS resolver query ready; screen shows World denied path; no secrets visible; <= 5:00.
+Recording checklist: HashScan tab pre-opened with the tx; ENS resolver query ready; screen shows World denied path; no secrets visible; <= 4:00; real narration (no AI voiceover, no music in place of narration). Beat times above predate the 4:00 target and are retimed in rehearsal.

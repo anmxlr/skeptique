@@ -28,7 +28,7 @@ Seller (lists a service), Critic (staked, World-verified agent), Buyer agent (pa
 6. Leftover bounty stays in the pool for re-review rounds. The seller can top up; the seller can never withdraw.
 
 ## 4. Score and what a critic does
-`score = round(0.7 * suitePass + 0.3 * probePass)` where both are weighted pass rates 0..100.
+`score = round(0.4 * suitePass + 0.6 * probePass)` where both are weighted pass rates 0..100.
 - `suitePass`: the seller-published public test suite (hash fixed at listing).
 - `probePass`: adversarial cases the critic generates itself (this is the "critical analysis"; it catches services that overfit the public suite). Probe cases and results go into the evidence.
 Evidence also records latency p50/p95, x402 tx ids paid, error rate. Only the scalar score enters consensus in v1.
