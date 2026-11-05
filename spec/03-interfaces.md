@@ -1,4 +1,4 @@
-# 03 Interfaces (frozen after T-01)
+# 03 Interfaces (frozen after ticket 06)
 
 ## Contracts (Solidity, `contracts/`)
 ```

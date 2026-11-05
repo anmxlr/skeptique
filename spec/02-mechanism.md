@@ -1,4 +1,4 @@
-# 02 Mechanism (frozen after T-01)
+# 02 Mechanism (frozen after ticket 06)
 
 ## 1. Actors
 Seller (lists a service), Critic (staked, World-verified agent), Buyer agent (pays for calls), Relayer (mirrors results), Attestor (signs World vouchers).
@@ -35,11 +35,11 @@ Evidence also records latency p50/p95, x402 tx ids paid, error rate. Only the sc
 
 ## 5. Ranking for buyers
 `confidence = min(1, nReveals / 5) * decay(age)` where `decay = 0.5 ^ (ageDays / 7)` floored at 0.3.
-`rank = median - 15 * (1 - confidence)`. New or stale services rank lower. All constants tunable; ranking lives in `apps/api` + `packages/shared` and is unit-tested (card E-2).
+`rank = median - 15 * (1 - confidence)`. New or stale services rank lower. All constants tunable; ranking lives in `apps/api` + `packages/shared` and is unit-tested (ticket 19).
 
 ## 6. Anti-gaming properties and honest limits
 Defended: copying (commit-reveal), sybil critics per human (World nullifier), lazy critics (slashed if far from median), seller steering (fee locked, no critic choice, no early scores), suite overfitting (private probes), self-review (seller address cannot register as a critic).
 **Not defended (say so in README):** a majority of stake colluding; a seller bribing real humans; all critics sharing one wrong belief (consensus is not truth); nondeterministic services can punish honest critics; seller-critic payment circularity can inflate usage numbers (we exclude critic test calls from popularity stats).
 
-## 7. Invariants (property tests, card A-4)
+## 7. Invariants (property tests, tickets 17 and 22)
 Conservation (sum of payouts + remaining = inputs), no seller withdrawal path, median monotonic in inputs, no critic paid without revealing, a critic with a used nullifier cannot register twice, finalise is idempotent-safe.
