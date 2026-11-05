@@ -23,3 +23,17 @@ skeptic = an incentive layer that pays staked, human-backed critic agents to tes
 
 ## Stack defaults
 TypeScript monorepo (pnpm workspaces): `contracts/` (Hardhat + Solidity, Hedera EVM), `packages/shared`, `packages/x402-client`, `apps/api` (Fastify + SQLite), `apps/web` (Next.js), `apps/critic`, `apps/buyer`, `apps/services/*`, `apps/relayer`. Tests: Vitest; contracts: Hardhat tests. viem for chain access. LLM calls via env-configured provider.
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown: one file per ticket under `.scratch/<feature>/issues/NN-<slug>.md`; done = receipt in `board/done/`. See `spec/agents/issue-tracker.md`.
+
+### Triage labels
+
+Two labels only: `ready-for-agent` and `needs-human`. See `spec/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context, kept in `spec/` (`spec/GLOSSARY.md`, `spec/adr/`). See `spec/agents/domain.md`.
