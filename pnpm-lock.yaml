@@ -100,6 +100,9 @@ importers:
       canonicalize:
         specifier: ^2.1.0
         version: 2.1.0
+      viem:
+        specifier: ^2.57.16
+        version: 2.57.16(typescript@5.9.3)(zod@4.6.7)
     devDependencies:
       '@skeptique/service-suite-gamer':
         specifier: workspace:*
