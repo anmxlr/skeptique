@@ -17,7 +17,8 @@
     "env:check": "node scripts/env-check.mjs",
     "seed": "pnpm --filter @skeptic/scripts exec tsx seed.ts",
     "drills": "pnpm --filter @skeptic/scripts exec tsx drills.ts",
-    "settle:local": "pnpm --filter @skeptic/contracts settle:local"
+    "settle:local": "pnpm --filter @skeptic/contracts settle:local",
+    "ai-usage": "node scripts/ai-usage.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
