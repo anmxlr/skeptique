@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "fastify": "^5.12.8",
-    "viem": "^2.57.16"
+    "viem": "^2.57.16",
+    "@skeptic/shared": "workspace:*",
+    "canonicalize": "^2.1.0"
   }
 }

@@ -14,7 +14,10 @@
     "test:live": "vitest run --config vitest.live.config.ts",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "env:check": "node scripts/env-check.mjs"
+    "env:check": "node scripts/env-check.mjs",
+    "seed": "pnpm --filter @skeptic/scripts exec tsx seed.ts",
+    "drills": "pnpm --filter @skeptic/scripts exec tsx drills.ts",
+    "settle:local": "pnpm --filter @skeptic/contracts settle:local"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",

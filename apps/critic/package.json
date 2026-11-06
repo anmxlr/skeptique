@@ -13,6 +13,13 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@skeptic/service-unit-convert": "workspace:*",
+    "@skeptic/service-suite-gamer": "workspace:*"
+  },
+  "dependencies": {
+    "@skeptic/shared": "workspace:*",
+    "canonicalize": "^2.1.0",
+    "ajv": "^8.20.0"
   }
 }

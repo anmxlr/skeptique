@@ -32,4 +32,17 @@ jobs:
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm -r build
       - run: pnpm -r test
-      - run: pnpm e2e
+      - name: Local review flow
+        run: pnpm e2e
+        env:
+          DEV2_EVIDENCE_PATH: ${{ runner.temp }}/skeptique-flow.json
+      - name: Local round settlement
+        run: pnpm settle:local
+        env:
+          DEV2_EVIDENCE_PATH: ${{ runner.temp }}/skeptique-flow.json
+          DEV2_SETTLEMENT_PATH: ${{ runner.temp }}/skeptique-settlement.json
+      - name: Repeatable seed and fixture drills
+        run: |
+          pnpm seed
+          pnpm seed
+          pnpm drills
