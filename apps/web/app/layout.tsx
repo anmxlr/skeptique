@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { DemoBanner } from "../components/demo-banner";
 import { SiteNav } from "../components/site-nav";
 import { ThemeToggle } from "../components/theme-toggle";
 import "./globals.css";
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <SiteNav />
           <ThemeToggle />
         </header>
+        <DemoBanner />
         <main id="main" className="page">
           {children}
         </main>
