@@ -1,7 +1,8 @@
-export default function Home() {
+export default function MarketplacePage() {
   return (
-    <main>
-      <h1>skeptic</h1>
-    </main>
+    <>
+      <h1>Marketplace</h1>
+      <p>Services ranked by critic consensus score and confidence.</p>
+    </>
   );
 }
