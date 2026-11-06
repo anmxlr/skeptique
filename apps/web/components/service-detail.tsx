@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchService, type ServiceDetail } from "../lib/api";
+import { EnsName } from "./ens-name";
 import { formatHbar } from "./marketplace";
 
 export type ServiceDetailState =
@@ -27,7 +28,7 @@ export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
         <dt>Price per call</dt>
         <dd>{formatHbar(service.pricePerCall)}</dd>
         <dt>ENS name</dt>
-        <dd>{service.ensName === "" ? "Pending: created after listing" : service.ensName}</dd>
+        <dd>{service.ensName === "" ? "Pending: created after listing" : <EnsName name={service.ensName} />}</dd>
         <dt>Endpoint</dt>
         <dd>{service.endpoint}</dd>
       </dl>
