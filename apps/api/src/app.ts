@@ -1,3 +1,4 @@
+import type { RankingInput } from "@skeptique/shared";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { PublicClient } from "viem";
 import { registerBuyerRunRoutes } from "./buyer-runs";
@@ -7,6 +8,7 @@ import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from 
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
+import { withRounds } from "./round-chain";
 import { type RoundViewSource, registerRoundRoutes } from "./rounds";
 import { registerWorldRoutes, type WorldDeps } from "./world";
 
@@ -32,6 +34,7 @@ export interface AppDeps {
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
+export { type RoundSource } from "./round-chain";
 
 export { createRoundSource, type RoundViewSource } from "./rounds";
 
@@ -50,12 +53,14 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
     }
   });
 
+  const scored = <T extends RankingInput>(source: { list(): Promise<T[]> | T[] }) =>
+    deps.rounds?.all ? withRounds(source, { all: deps.rounds.all.bind(deps.rounds) }) : source;
   if (deps.marketplace) {
     const counter = new PopularityCounter(deps.marketplace.isCritic);
     registerPopularityRoutes(app, counter);
-    registerMarketplaceRoutes(app, withPopularity(deps.marketplace.source, counter));
+    registerMarketplaceRoutes(app, withPopularity(scored(deps.marketplace.source), counter));
   } else if (deps.listings) {
-    registerMarketplaceRoutes(app, deps.listings);
+    registerMarketplaceRoutes(app, scored(deps.listings));
   }
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);

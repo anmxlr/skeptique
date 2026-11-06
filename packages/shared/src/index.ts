@@ -142,6 +142,8 @@ export const RoundViewSchema = z.object({
   commitEnd: z.string(),
   revealEnd: z.string(),
   median: score.nullable(),
+  /** Critics that have committed, in commit order; those who have not yet revealed are still pending. */
+  committed: z.array(address).default([]),
   reveals: z.array(z.object({ critic: address, score, honest: z.boolean().nullable() })),
 });
 export type RoundView = z.infer<typeof RoundViewSchema>;

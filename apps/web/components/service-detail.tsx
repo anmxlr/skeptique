@@ -1,8 +1,8 @@
 "use client";
 
-import { type Evidence, hashscanTxUrl } from "@skeptique/shared";
+import { type Evidence, type RoundView, hashscanTxUrl } from "@skeptique/shared";
 import { useEffect, useState } from "react";
-import { fetchEvidence, fetchService, type ServiceDetail } from "../lib/api";
+import { fetchEvidence, fetchService, fetchServiceRounds, type ServiceDetail } from "../lib/api";
 import { EnsName } from "./ens-name";
 import { LatestRound } from "./latest-round";
 import { formatHbar } from "./marketplace";
@@ -12,7 +12,7 @@ export type ServiceDetailState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "not-found" }
-  | { status: "ready"; service: ServiceDetail; evidence?: Evidence };
+  | { status: "ready"; service: ServiceDetail; evidence?: Evidence; rounds?: RoundView[] };
 
 export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
   if (state.status === "loading") return <Skeleton label="Loading service" count={1} />;
@@ -23,7 +23,7 @@ export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
       </p>
     );
   if (state.status === "not-found") return <p>No such service.</p>;
-  const { service, evidence } = state;
+  const { service, evidence, rounds } = state;
   return (
     <>
       <h1>{service.name}</h1>
@@ -40,8 +40,43 @@ export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
         <dt>Endpoint</dt>
         <dd>{service.endpoint}</dd>
       </dl>
+      {rounds && rounds.length > 0 && <RoundTimeline rounds={rounds} />}
       {evidence && <EvidenceSection evidence={evidence} />}
     </>
+  );
+}
+
+const PHASE_LABEL: Record<RoundView["phase"], string> = {
+  commit: "Commit phase",
+  reveal: "Reveal phase",
+  finalizable: "Ready to finalise",
+  finalized: "Finalised",
+  void: "Void",
+};
+
+function RoundTimeline({ rounds }: { rounds: RoundView[] }) {
+  return (
+    <section aria-label="Round timeline">
+      <h2>Round timeline</h2>
+      <ol>
+        {rounds.map((round) => {
+          const revealed = new Set(round.reveals.map((reveal) => reveal.critic.toLowerCase()));
+          return (
+            <li key={round.id}>
+              <strong>{`Round ${round.id}: ${PHASE_LABEL[round.phase]}`}</strong>
+              {round.median !== null && ` (median ${round.median})`}
+              <ul>
+                {round.committed.map((critic) => (
+                  <li
+                    key={critic}
+                  >{`${critic} ${revealed.has(critic.toLowerCase()) ? "committed and revealed" : "committed"}`}</li>
+                ))}
+              </ul>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -89,12 +124,18 @@ export function ServiceDetailPage({ id }: { id: number }) {
         if (!baseUrl) throw new Error("NEXT_PUBLIC_API_URL must be set");
         // A critic's published evidence is shown when the link carries its hash: /services/1?evidence=0x...
         const hash = new URLSearchParams(window.location.search).get("evidence");
-        return Promise.all([fetchService(id, baseUrl), hash ? fetchEvidence(hash, baseUrl) : null]);
+        return Promise.all([
+          fetchService(id, baseUrl),
+          hash ? fetchEvidence(hash, baseUrl) : null,
+          fetchServiceRounds(id, baseUrl).catch(() => []),
+        ]);
       })
       .then(
-        ([service, evidence]) =>
+        ([service, evidence, rounds]) =>
           active &&
-          setState(service ? { status: "ready", service, ...(evidence ? { evidence } : {}) } : { status: "not-found" }),
+          setState(
+            service ? { status: "ready", service, rounds, ...(evidence ? { evidence } : {}) } : { status: "not-found" },
+          ),
         (cause) =>
           active && setState({ status: "error", message: cause instanceof Error ? cause.message : "Unknown error" }),
       );

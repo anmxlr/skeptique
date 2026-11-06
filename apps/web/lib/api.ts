@@ -56,6 +56,13 @@ export async function fetchService(id: number, baseUrl: string, fetchImpl: typeo
   return (await res.json()) as ServiceDetail;
 }
 
+/** GET /services/:id/rounds: the service's rounds, oldest first. */
+export async function fetchServiceRounds(id: number, baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  const res = await fetchImpl(new URL(`/services/${id}/rounds`, baseUrl));
+  if (!res.ok) throw new ApiError(res.status, `/services/${id}/rounds`);
+  return (await res.json()) as RoundView[];
+}
+
 /** GET /evidence/:hash; null when the API does not know the hash. */
 export async function fetchEvidence(hash: string, baseUrl: string, fetchImpl: typeof fetch = fetch) {
   const res = await fetchImpl(new URL(`/evidence/${encodeURIComponent(hash)}`, baseUrl));
