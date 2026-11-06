@@ -131,6 +131,9 @@ importers:
 
   apps/relayer:
     dependencies:
+      '@hiero-ledger/sdk':
+        specifier: ^2.90.1
+        version: 2.90.1
       '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared

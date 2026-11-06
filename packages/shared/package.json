@@ -8,7 +8,8 @@
     "./deployment": "./src/deployment.ts",
     "./deployment-file": "./src/deployment-file.ts",
     "./abi/*": "./abi/*.ts",
-    "./ens": "./src/ens.ts"
+    "./ens": "./src/ens.ts",
+    "./hcs": "./src/hcs.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
