@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 import { ServiceViewSchema } from "@skeptique/shared";
-import { payAndCallFor, paymentModeFromEnv } from "./mode";
 import { publishBuyerRun, runBuyer, type Strategy } from "./index";
+import { payAndCallFor, paymentModeFromEnv } from "./mode";
 
 // Runs the skeptique and popularity buyers on one task and posts both runs for the Buyer page.
 // Pays on Hedera when the x402 env is set (facilitator + buyer account), otherwise in local mode.

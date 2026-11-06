@@ -115,7 +115,8 @@ export async function paywallFromEnv(
     price,
     onSettled: (txId, payer) => {
       console.log(`x402 settled ${txId}`);
-      if (apiUrl && serviceId !== undefined) void reportPaidCalls({ apiUrl, serviceId: Number(serviceId) })(txId, payer);
+      if (apiUrl && serviceId !== undefined)
+        void reportPaidCalls({ apiUrl, serviceId: Number(serviceId) })(txId, payer);
     },
   });
 }
