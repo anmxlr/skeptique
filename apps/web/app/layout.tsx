@@ -28,7 +28,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <ThemeToggle />
         </header>
         <DemoBanner />
-        <main id="main" className="page">
+        {/* tabIndex lets the skip link move keyboard focus here, so the next Tab starts inside the content. */}
+        <main id="main" className="page" tabIndex={-1}>
           {children}
         </main>
       </body>
