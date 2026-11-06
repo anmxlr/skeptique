@@ -121,6 +121,20 @@ export const ServiceViewSchema = z.object({
 });
 export type ServiceView = z.infer<typeof ServiceViewSchema>;
 
+/** One buyer-agent purchase: which service it picked, why, and what came back (ticket 24). */
+export const BuyerRunSchema = z.object({
+  strategy: z.enum(["skeptic", "popularity"]),
+  category: z.string().min(1),
+  task: jsonValue,
+  pick: ServiceViewSchema,
+  explanation: z.string().min(1),
+  response: jsonValue,
+  txId: z.string().min(1).nullable(),
+  paid: z.boolean(),
+  at: z.string(),
+});
+export type BuyerRun = z.infer<typeof BuyerRunSchema>;
+
 export const RoundViewSchema = z.object({
   id: uint,
   serviceId: uint,
