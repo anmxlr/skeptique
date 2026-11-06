@@ -22,10 +22,18 @@ export async function deployLocal(hre: HardhatRuntimeEnvironment): Promise<Recor
     BigInt(DEFAULT_ROUND_CONFIG.WITHDRAW_COOLDOWN),
   ]);
   const roundManager = await hre.viem.deployContract("RoundManager", [
-    BigInt(DEFAULT_ROUND_CONFIG.COMMIT_SECS), BigInt(DEFAULT_ROUND_CONFIG.REVEAL_SECS),
-    DEFAULT_ROUND_CONFIG.K_MIN, DEFAULT_ROUND_CONFIG.K_MAX, criticRegistry.address,
-    DEFAULT_ROUND_CONFIG.TOLERANCE, DEFAULT_ROUND_CONFIG.SLASH_BPS,
+    BigInt(DEFAULT_ROUND_CONFIG.COMMIT_SECS),
+    BigInt(DEFAULT_ROUND_CONFIG.REVEAL_SECS),
+    DEFAULT_ROUND_CONFIG.K_MIN,
+    DEFAULT_ROUND_CONFIG.K_MAX,
+    criticRegistry.address,
+    DEFAULT_ROUND_CONFIG.TOLERANCE,
+    DEFAULT_ROUND_CONFIG.SLASH_BPS,
   ]);
   await criticRegistry.write.setRoundManager([roundManager.address]);
-  return { ServiceRegistry: serviceRegistry.address, CriticRegistry: criticRegistry.address, RoundManager: roundManager.address };
+  return {
+    ServiceRegistry: serviceRegistry.address,
+    CriticRegistry: criticRegistry.address,
+    RoundManager: roundManager.address,
+  };
 }
