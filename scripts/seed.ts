@@ -1,4 +1,4 @@
-import { seedDemoState } from './demo/seed';
+import { seedDemoState } from "./demo/seed";
 
 async function main(): Promise<void> {
   const seed = await seedDemoState();

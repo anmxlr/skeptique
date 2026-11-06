@@ -1,6 +1,6 @@
-import { createRequire } from 'node:module';
-import { Worker } from 'node:worker_threads';
-import type { TestCase } from 'shared';
+import { createRequire } from "node:module";
+import { Worker } from "node:worker_threads";
+import type { TestCase } from "@skeptic/shared";
 
 // Keep seller-provided regexes and schemas off the main event loop: an ordinary
 // Promise timeout cannot interrupt their synchronous execution.
@@ -40,23 +40,37 @@ export interface BoundedExpectations {
   close(): Promise<void>;
 }
 
-export async function createBoundedExpectations(cases: readonly TestCase[], timeoutMs: number, startupTimeoutMs = 15_000): Promise<BoundedExpectations> {
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647) throw new Error('Invalid expectation timeoutMs');
-  if (!Number.isSafeInteger(startupTimeoutMs) || startupTimeoutMs <= 0 || startupTimeoutMs > 2_147_483_647) throw new Error('Invalid preflight timeoutMs');
+export async function createBoundedExpectations(
+  cases: readonly TestCase[],
+  timeoutMs: number,
+  startupTimeoutMs = 15_000,
+): Promise<BoundedExpectations> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647)
+    throw new Error("Invalid expectation timeoutMs");
+  if (!Number.isSafeInteger(startupTimeoutMs) || startupTimeoutMs <= 0 || startupTimeoutMs > 2_147_483_647)
+    throw new Error("Invalid preflight timeoutMs");
   let resolveReady!: () => void;
   let rejectReady!: (error: Error) => void;
-  const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
+  const ready = new Promise<void>((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
   let active = true;
   let closed = false;
   let startupTimer: ReturnType<typeof setTimeout> | undefined;
-  let pending: { resolve: (passed: boolean) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> } | undefined;
+  let pending:
+    | { resolve: (passed: boolean) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
+    | undefined;
   let termination: Promise<void> | undefined;
   const worker = new Worker(workerSource, {
     eval: true,
     resourceLimits: { maxOldGenerationSizeMb: 64, maxYoungGenerationSizeMb: 16 },
-    workerData: { expectations: cases.map(testCase => testCase.expect), ajvPath: createRequire(import.meta.url).resolve('ajv') },
+    workerData: {
+      expectations: cases.map((testCase) => testCase.expect),
+      ajvPath: createRequire(import.meta.url).resolve("ajv"),
+    },
   });
-  const terminate = () => termination ??= worker.terminate().then(() => undefined);
+  const terminate = () => (termination ??= worker.terminate().then(() => undefined));
   const fail = (error: Error) => {
     active = false;
     clearTimeout(startupTimer);
@@ -69,9 +83,11 @@ export async function createBoundedExpectations(cases: readonly TestCase[], time
     }
     void terminate().catch(() => undefined);
   };
-  worker.on('error', fail);
-  worker.on('exit', code => { if (active) fail(new Error(`Expectation evaluator exited with code ${code}`)); });
-  worker.on('message', (message: { ready?: boolean; passed?: boolean; error?: string }) => {
+  worker.on("error", fail);
+  worker.on("exit", (code) => {
+    if (active) fail(new Error(`Expectation evaluator exited with code ${code}`));
+  });
+  worker.on("message", (message: { ready?: boolean; passed?: boolean; error?: string }) => {
     if (!active) return;
     if (message.ready) {
       clearTimeout(startupTimer);
@@ -79,7 +95,7 @@ export async function createBoundedExpectations(cases: readonly TestCase[], time
     } else if (message.error) {
       fail(new Error(message.error));
     } else if (pending) {
-      if (typeof message.passed !== 'boolean') return fail(new Error('Invalid expectation result'));
+      if (typeof message.passed !== "boolean") return fail(new Error("Invalid expectation result"));
       const request = pending;
       pending = undefined;
       clearTimeout(request.timer);
@@ -88,7 +104,7 @@ export async function createBoundedExpectations(cases: readonly TestCase[], time
   });
   // Startup includes loading Ajv and compiling every expectation before spending;
   // its budget is separate from a deliberately short per-call evaluation timeout.
-  startupTimer = setTimeout(() => fail(new Error('Expectation preflight timed out')), startupTimeoutMs);
+  startupTimer = setTimeout(() => fail(new Error("Expectation preflight timed out")), startupTimeoutMs);
   try {
     await ready;
   } catch (error) {
@@ -97,21 +113,22 @@ export async function createBoundedExpectations(cases: readonly TestCase[], time
   }
   return {
     evaluate(index, output) {
-      if (!active) return Promise.reject(new Error(closed ? 'Expectation evaluator closed' : 'Expectation evaluator unavailable'));
-      if (pending) return Promise.reject(new Error('Expectation evaluation already in progress'));
+      if (!active)
+        return Promise.reject(new Error(closed ? "Expectation evaluator closed" : "Expectation evaluator unavailable"));
+      if (pending) return Promise.reject(new Error("Expectation evaluation already in progress"));
       return new Promise<boolean>((resolve, reject) => {
-        const timer = setTimeout(() => fail(new Error('Expectation evaluation timed out')), timeoutMs);
+        const timer = setTimeout(() => fail(new Error("Expectation evaluation timed out")), timeoutMs);
         pending = { resolve, reject, timer };
         try {
           worker.postMessage({ index, output });
         } catch (error) {
-          fail(error instanceof Error ? error : new Error('Expectation request failed'));
+          fail(error instanceof Error ? error : new Error("Expectation request failed"));
         }
       });
     },
     async close() {
       closed = true;
-      fail(new Error('Expectation evaluator closed'));
+      fail(new Error("Expectation evaluator closed"));
       await terminate();
     },
   };

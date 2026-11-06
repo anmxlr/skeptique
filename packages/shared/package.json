@@ -13,7 +13,8 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "fast-check": "^3.23.2"
   },
   "dependencies": {
     "canonicalize": "^2.1.0",
