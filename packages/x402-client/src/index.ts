@@ -76,3 +76,96 @@ export function createLocalPayAndCall({
     }
   };
 }
+
+export type HederaSigner = { accountId: string; privateKey: string };
+const HBAR = "0.0.0";
+const NETWORK = "hedera:testnet";
+
+function hederaSigner(value: unknown): HederaSigner {
+  const s = value as Partial<HederaSigner> | null;
+  if (
+    !s ||
+    typeof s.accountId !== "string" ||
+    !/^\d+\.\d+\.\d+$/.test(s.accountId) ||
+    typeof s.privateKey !== "string" ||
+    !s.privateKey
+  )
+    throw new PaymentPolicyError("signer must be { accountId: '0.0.x', privateKey }");
+  return { accountId: s.accountId, privateKey: s.privateKey };
+}
+
+/** The settled tx id from a PAYMENT-RESPONSE header; null for a free response or a failed settlement. */
+export function settledTxId(headers: Headers): string | null {
+  const header = headers.get("payment-response");
+  if (!header) return null;
+  try {
+    const settled = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as {
+      success?: boolean;
+      transaction?: string;
+      transactionId?: string;
+    };
+    return settled.success === true ? (settled.transaction ?? settled.transactionId ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+type HederaOptions = {
+  onBeforePay?: (price: string, merchant: string) => Promise<boolean> | boolean;
+  fetchImpl?: typeof fetch;
+};
+
+// Hedera mode: x402 v2 `exact` payments in HBAR (tinybars) on hedera:testnet. The client signs, the
+// facilitator pays fees and settles; no human prompt. maxPrice and onBeforePay run before any signing.
+export function createHederaPayAndCall({ onBeforePay, fetchImpl = fetch }: HederaOptions = {}): PayAndCall {
+  return async ({ url, body, maxPrice, signer, signal }) => {
+    const cap = amount(maxPrice);
+    const { accountId, privateKey } = hederaSigner(signer);
+    const [{ x402Client, wrapFetchWithPayment }, { createClientHederaSigner, PrivateKey }, { ExactHederaScheme }] =
+      await Promise.all([import("@x402/fetch"), import("@x402/hedera"), import("@x402/hedera/exact/client")]);
+    let denied: PaymentPolicyError | undefined;
+    const client = x402Client.fromConfig({
+      schemes: [
+        {
+          network: NETWORK,
+          client: new ExactHederaScheme(
+            createClientHederaSigner(accountId, PrivateKey.fromStringECDSA(privateKey), { network: NETWORK }),
+          ),
+        },
+      ],
+      spendControls: { allowedAssets: [{ network: NETWORK, asset: HBAR, maxAmountPerPayment: cap.toString() }] },
+    });
+    client.onBeforePaymentCreation(async ({ selectedRequirements: r }) => {
+      if (r.asset !== HBAR || r.network !== NETWORK) {
+        denied = new PaymentPolicyError("Only HBAR on hedera:testnet is payable");
+      } else if (amount(r.amount) > cap) {
+        denied = new PaymentPolicyError("Price exceeds maxPrice");
+      } else if (onBeforePay) {
+        try {
+          if (!(await onBeforePay(r.amount, r.payTo))) denied = new PaymentPolicyError("Payment denied");
+        } catch (cause) {
+          denied = new PaymentPolicyError("Payment policy check failed", { cause });
+        }
+      }
+      if (denied) return { abort: true, reason: denied.message };
+    });
+    const paidFetch = wrapFetchWithPayment(fetchImpl, client);
+    let response: Response;
+    try {
+      response = await paidFetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      });
+    } catch (error) {
+      if (!denied && error instanceof Error && error.message.includes("maxAmountPerPayment"))
+        throw new PaymentPolicyError("Price exceeds maxPrice", { cause: error });
+      throw denied ?? error;
+    }
+    if (denied) throw denied;
+    if (!response.ok) throw new Error(`Service returned ${response.status}`);
+    const txId = settledTxId(response.headers);
+    return { response: await response.json(), txId, paid: txId !== null };
+  };
+}
