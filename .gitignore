@@ -4,3 +4,11 @@ node_modules/
 !.env.example
 *.log
 .DS_Store
+dist/
+.next/
+next-env.d.ts
+coverage/
+*.tsbuildinfo
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
