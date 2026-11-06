@@ -12,7 +12,9 @@ export function registerBuyerRunRoutes(app: FastifyInstance): void {
     return reply.code(201).send(parsed.data);
   });
 
-  app.get("/buyer/runs", async () =>
-    (["skeptic", "popularity"] as const).flatMap((strategy) => latest.get(strategy) ?? []),
-  );
+  // Public read-only data fetched by the web app from another origin.
+  app.get("/buyer/runs", async (_request, reply) => {
+    reply.header("access-control-allow-origin", "*");
+    return (["skeptic", "popularity"] as const).flatMap((strategy) => latest.get(strategy) ?? []);
+  });
 }

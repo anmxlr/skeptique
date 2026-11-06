@@ -35,7 +35,9 @@ describe("buyer runs", () => {
     for (const body of [run("skeptic", "old"), run("popularity", "gamer"), run("skeptic", "good")]) {
       expect((await server.inject({ method: "POST", url: "/buyer/runs", payload: body })).statusCode).toBe(201);
     }
-    const runs = (await server.inject({ method: "GET", url: "/buyer/runs" })).json();
+    const response = await server.inject({ method: "GET", url: "/buyer/runs" });
+    expect(response.headers["access-control-allow-origin"]).toBe("*");
+    const runs = response.json();
     expect(runs.map((r: BuyerRun) => [r.strategy, r.pick.name])).toEqual([
       ["skeptic", "good"],
       ["popularity", "gamer"],
