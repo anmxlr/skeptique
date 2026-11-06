@@ -3,37 +3,37 @@
   "network": "hedera-testnet",
   "chainId": 296,
   "ensParentName": "skeptique.eth",
-  "deployedAt": "2026-11-06T22:30:38.102Z",
-  "deploymentBlock": "42756303",
+  "deployedAt": "2026-11-06T23:35:03.706Z",
+  "deploymentBlock": "42758203",
   "contracts": {
-    "ServiceRegistry": "0x5a669fce45bb88dee4ac03def16bb5f0dcf1ee91",
-    "CriticRegistry": "0x132d8b5e054443c1d82defdd705a84f0b86694f7",
-    "RoundManager": "0xf990ee1936d3b2bc9586a43a2cc39fb2084d25fa"
+    "ServiceRegistry": "0x03e9484f2cfc7269ad01bb80a234ca0effecc1c0",
+    "CriticRegistry": "0xbb67d854bfd974a890ddb27196c477b5bd427074",
+    "RoundManager": "0x72e3ed75a431914e740d6d7d322cf4a1dddeaf34"
   },
   "transactions": [
     {
       "name": "ServiceRegistry",
-      "hash": "0x3d6d86962e4527e1f7aaab3a3ea63dc6016fb4dad1e00cdd79aaf05ad8923aba"
+      "hash": "0xc1c3907aa1df80f6c67ccc82aec3bf5d3a04831fec958742e09636f93993b079"
     },
     {
       "name": "CriticRegistry",
-      "hash": "0x39056016d16a5ed1c069009f7ef3a5f5d9e0e486d22da2bdb0e619b540fc14d9"
+      "hash": "0x6c5c5c500e9d14a9059f810f0a62161862bc917984ecf213c80f12801791394c"
     },
     {
       "name": "RoundManager",
-      "hash": "0x5c34ee0f836b11b45145199461e28564468945f81d6c2f20ab16b2616d297455"
+      "hash": "0xfe5fa9916f10a139f33e9355ed97648eaddd0754a10f78a09c60fe5d34d2b4ec"
     },
     {
       "name": "AuthorizeRoundManager",
-      "hash": "0x05b4abfadf7496c692e9330b3e6f7c59e03560658838b718eb96336a1580af94"
+      "hash": "0xe5ac9d0cf3c3c0d72c8a03563d818c4b4597c7057927c77ce8b142c164bc8345"
     },
     {
       "name": "BindServiceRegistry",
-      "hash": "0xcfc309eafcd4e4c8d365ffec7bd1686a0a8fe4993e0a08c0a9695024ae0bbdf8"
+      "hash": "0x66fbf54c3e2e1c76141ebd3019589956ecc9b5f3deb61c0bc5a4448026bf4856"
     },
     {
       "name": "EnableAutomaticRounds",
-      "hash": "0xb86e98b8e113feec04e394e6f5dcbc798a597753f110ce93529d885345f7b1d7"
+      "hash": "0x2ef67e3abb6cd5b5c79d2004d364b823f150d05c78ae54a37f0b6bf2b583d0a6"
     }
   ],
   "config": {

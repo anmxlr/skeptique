@@ -11,6 +11,12 @@ export interface CriticView {
   verdict?: "honest" | "slashed" | "outlier" | "unreviewed";
   lastRoundId?: number;
   slashedAmount?: string;
+  /** Rounds in which the critic was honest and accrued a reward. */
+  honestRounds?: number;
+  /** Times the critic's stake was slashed. */
+  slashes?: number;
+  /** Accrued rewards not yet claimed, in tinybars. */
+  pendingRewards?: string;
 }
 
 export interface CriticSource {
@@ -34,7 +40,7 @@ export function createCriticSource(options: {
       fromBlock: options.fromBlock ?? 0n,
       strict: true,
     });
-    const [reveals, finalized] = options.roundManager
+    const [reveals, finalized, accrued, slashes] = options.roundManager
       ? await Promise.all([
           options.client.getContractEvents({
             address: options.roundManager,
@@ -50,8 +56,30 @@ export function createCriticSource(options: {
             fromBlock: options.fromBlock ?? 0n,
             strict: true,
           }),
+          options.client.getContractEvents({
+            address: options.roundManager,
+            abi: roundManagerAbi,
+            eventName: "RewardAccrued",
+            fromBlock: options.fromBlock ?? 0n,
+            strict: true,
+          }),
+          options.client.getContractEvents({
+            address: options.address,
+            abi: criticRegistryAbi,
+            eventName: "CriticSlashed",
+            fromBlock: options.fromBlock ?? 0n,
+            strict: true,
+          }),
         ])
-      : [[], []];
+      : [[], [], [], []];
+    const countByCritic = (items: readonly { args: { critic: string } }[]) => {
+      const counts = new Map<string, number>();
+      for (const { args } of items)
+        counts.set(args.critic.toLowerCase(), (counts.get(args.critic.toLowerCase()) ?? 0) + 1);
+      return counts;
+    };
+    const honestRoundsByCritic = countByCritic(accrued);
+    const slashesByCritic = countByCritic(slashes);
     const validRounds = new Set(finalized.filter((log) => log.args.isVoid === false).map((log) => log.args.roundId));
     // Index once instead of filtering and sorting the complete reveal history for every critic.
     const latestRoundByCritic = new Map<string, bigint>();
@@ -70,8 +98,21 @@ export function createCriticSource(options: {
           functionName: "stakeOf",
           args: [event.critic as `0x${string}`],
         });
-        const critic: CriticView = { address: event.critic, nullifier: event.nullifier, stake: stake.toString() };
-        if (!options.roundManager) return critic;
+        const base: CriticView = { address: event.critic, nullifier: event.nullifier, stake: stake.toString() };
+        if (!options.roundManager) return base;
+        const key = event.critic.toLowerCase();
+        const pending = await options.client.readContract({
+          address: options.roundManager,
+          abi: roundManagerAbi,
+          functionName: "pendingRewards",
+          args: [event.critic as `0x${string}`],
+        });
+        const critic: CriticView = {
+          ...base,
+          honestRounds: honestRoundsByCritic.get(key) ?? 0,
+          slashes: slashesByCritic.get(key) ?? 0,
+          pendingRewards: pending.toString(),
+        };
         const roundId = latestRoundByCritic.get(event.critic.toLowerCase());
         if (roundId === undefined) return { ...critic, verdict: "unreviewed" };
         const [honest, slashed] = await Promise.all([

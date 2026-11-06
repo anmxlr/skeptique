@@ -112,13 +112,16 @@ describe("CriticRegistry", () => {
     // Equal weight ties low, so the score 72 is the outlier in this two-critic regression.
     assert.equal(await registry.read.activeRound([critic.account.address]), 0n);
     assert.equal(await registry.read.activeRound([other.account.address]), 0n);
-    assert.equal(await registry.read.slashedFunds([1n]), S_MIN / 5n);
+    // The slashed stake moves to the round manager as the honest critic's pending reward.
+    assert.equal(await registry.read.slashedFunds([1n]), 0n);
     assert.equal(await registry.read.stakeOf([other.account.address]), (S_MIN * 4n) / 5n);
-    assert.equal(await publicClient.getBalance({ address: registry.address }), S_MIN * 2n);
+    assert.equal(await manager.read.pendingRewards([critic.account.address]), S_MIN / 5n);
+    assert.equal(await publicClient.getBalance({ address: registry.address }), S_MIN * 2n - S_MIN / 5n);
+    assert.equal(await publicClient.getBalance({ address: manager.address }), S_MIN / 5n);
     await reverted(manager.write.finalize([1n]), "AlreadyFinalized");
+    await reverted(registry.write.releaseSlashed([1n, 1n], { account: critic.account }), "NotRoundManager");
     await registry.write.withdraw([], { account: critic.account });
-    assert.equal(await publicClient.getBalance({ address: registry.address }), S_MIN);
-    assert.equal(await registry.read.slashedFunds([1n]), S_MIN / 5n);
+    assert.equal(await publicClient.getBalance({ address: registry.address }), (S_MIN * 4n) / 5n);
   });
 
   it("registers a critic with a valid voucher and stake, and emits a CriticRegistered that matches the shared schema", async () => {

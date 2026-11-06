@@ -107,6 +107,11 @@
   },
   {
     "inputs": [],
+    "name": "NothingToClaim",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "RegistryAlreadySet",
     "type": "error"
   },
@@ -133,6 +138,16 @@
   {
     "inputs": [],
     "name": "TooManyCritics",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TransferFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnexpectedPayment",
     "type": "error"
   },
   {
@@ -183,6 +198,31 @@
       }
     ],
     "name": "CriticRevealed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "roundId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "critic",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "RewardAccrued",
     "type": "event"
   },
   {
@@ -255,6 +295,19 @@
   },
   {
     "inputs": [],
+    "name": "COST_CAP",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "NOREVEAL_SLASH_BPS",
     "outputs": [
       {
@@ -264,6 +317,13 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "claim",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -554,6 +614,25 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "pendingRewards",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "roundId",
         "type": "uint256"
@@ -575,7 +654,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "claimedCost_",
         "type": "uint256"
       }
     ],
@@ -672,5 +751,9 @@
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
   }
 ]
