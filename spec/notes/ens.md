@@ -7,9 +7,9 @@ Source pin: the docs deployments page links every Sepolia ENSv2 ABI to `ensdomai
 
 ## TL;DR
 - **Yes. ENSv2 is live and usable on Sepolia L1 today** (not Namechain). The public Universal Resolver `0xeEeE…EeEe` resolves through it. `.eth` registration is open and costs about 8 MockUSDC/year, and MockUSDC can be minted by anyone for free.
-- **Recommended parent name: `skeptic.eth`.** `isAvailable("skeptic")` returned `true` on 2026-11-06.
+- **Recommended parent name: `skeptique.eth`.** `isAvailable("skeptique")` returned `true` on 2026-11-06.
 - **spec/03 works with one structural addition.** Permissioned Resolver roles are scoped **per text key, not per name**. So "seller writes only `url`/`description` on their own subname" needs **one resolver per service subname**. The records themselves are fine.
-- Also recommended: rename `skeptic.*` keys to the ENSIP-5 service-key form `eth.skeptic.*`.
+- Also recommended: rename `skeptique.*` keys to the ENSIP-5 service-key form `eth.skeptique.*`.
 - The ENSv1/NameWrapper fallback was **ruled out by the user**: ENSv2 only.
 
 ## 1. Is ENSv2 deployed and usable on Sepolia? Addresses
@@ -41,10 +41,10 @@ There is no separate "resolver factory": a resolver is a `VerifiableFactory` pro
 
 Registrar parameters (on-chain reads):
 - `MIN_COMMITMENT_AGE` = 60 s, `MAX_COMMITMENT_AGE` = 86400 s, `MIN_REGISTER_DURATION` = 2419200 s (28 days).
-- `getRegisterPrice("skeptic", 365 days, MockUSDC)` = `(8000021, 0)`, about 8.00 USDC with no premium. 28 days costs 613701 (about 0.61 USDC).
+- `getRegisterPrice("skeptique", 365 days, MockUSDC)` = `(8000021, 0)`, about 8.00 USDC with no premium. 28 days costs 613701 (about 0.61 USDC).
 
 ## 2. Parent name and subname registries
-**Register `skeptic.eth`** through ETHRegistrar (docs https://docs.ens.domains/ensv2/eth-registrar; source `SRC/src/registrar/ETHRegistrar.sol`):
+**Register `skeptique.eth`** through ETHRegistrar (docs https://docs.ens.domains/ensv2/eth-registrar; source `SRC/src/registrar/ETHRegistrar.sol`):
 ```
 makeCommitment(string label, address owner, bytes32 secret, IRegistry subregistry, address resolver, uint64 duration, bytes32 referrer) pure returns (bytes32)
 commit(bytes32 commitment)
@@ -56,12 +56,12 @@ getRegisterPrice(string label, uint64 duration, IERC20 paymentToken) view return
 - On Sepolia, MockUSDC has an unrestricted `mint(address to, uint256 amount)` (`SRC/test/mocks/MockERC20.sol`). The oracle accepts MockUSDC: the price call returned a value instead of reverting.
 - The owner gets a fixed `REGISTRATION_ROLE_BITMAP` = `ROLE_SET_SUBREGISTRY | ROLE_SET_SUBREGISTRY_ADMIN | ROLE_SET_RESOLVER | ROLE_SET_RESOLVER_ADMIN | ROLE_CAN_TRANSFER_ADMIN` (`ETHRegistrar.sol` line 18).
 
-**Subname registries.** Docs: https://docs.ens.domains/ensv2/subnames ("Option 2: subnames as owned tokens") and https://docs.ens.domains/ensv2/verifiable-factory. The devnet helper `createSubname` (`script/testNames/registry.ts` on `main`) uses the same steps. Do this once for `skeptic.eth`, then once each for `svc` and `critic`:
+**Subname registries.** Docs: https://docs.ens.domains/ensv2/subnames ("Option 2: subnames as owned tokens") and https://docs.ens.domains/ensv2/verifiable-factory. The devnet helper `createSubname` (`script/testNames/registry.ts` on `main`) uses the same steps. Do this once for `skeptique.eth`, then once each for `svc` and `critic`:
 1. Deploy a `UserRegistry` proxy: `VerifiableFactory.deployProxy(UserRegistryImpl, salt, initData)`.
    - `deployProxy(address implementation, uint256 salt, bytes data) returns (address)`. It emits `ProxyDeployed(address sender, address proxyAddress, uint256 salt, address implementation)`.
    - `initData = encodeFunctionData('initialize((address account,uint256 roleBitmap)[] grants)', [[{account: operator, roleBitmap}]])` (`SRC/src/registry/UserRegistry.sol` `initialize(Grant[])`; `Grant{address account; uint256 roleBitmap}` in `SRC/src/access-control/interfaces/IEACGrantInitializable.sol`).
    - Docs salt scheme: `keccak256(abi.encode(keccak256("UserRegistry"), namehash(name), 0))`.
-2. Attach it on the parent's registry: `parentRegistry.setSubregistry(uint256 tokenId, IRegistry registry)`. The caller needs `ROLE_SET_SUBREGISTRY` on the token. For `skeptic.eth` the parent registry is `ETHRegistry`, and the tokenId comes from `ETHRegistry.findTokenId("skeptic")`.
+2. Attach it on the parent's registry: `parentRegistry.setSubregistry(uint256 tokenId, IRegistry registry)`. The caller needs `ROLE_SET_SUBREGISTRY` on the token. For `skeptique.eth` the parent registry is `ETHRegistry`, and the tokenId comes from `ETHRegistry.findTokenId("skeptique")`.
 3. Set the canonical parent: `newRegistry.setParent(IRegistry parent, string label)` (needs root `ROLE_SET_PARENT`).
 4. Create child labels in a registry you hold root `ROLE_REGISTRAR` on: `register(string label, address owner, IRegistry registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)` (`SRC/src/registry/PermissionedRegistry.sol`). The `roleBitmap` is granted to `owner` on that token only.
 
@@ -86,7 +86,7 @@ Docs: https://docs.ens.domains/ensv2/permissioned-resolver and https://docs.ens.
 - `initData = encodeFunctionData('initialize((address account,uint256 roleBitmap)[] grants, bytes[] calls)', [grants, calls])`.
   - Each grant is applied on `ROOT_RESOURCE` (0).
   - `calls` run as a multicall with `_checkRoles` skipped, so initial records can be set in the same transaction.
-- Docs salt: `keccak256(abi.encode(keccak256("OwnedResolver"), owner, version))`. Any `uint256` works. For one resolver per service, use e.g. `keccak256(abi.encode(keccak256("SkepticServiceResolver"), namehash(fullName), 0))`.
+- Docs salt: `keccak256(abi.encode(keccak256("OwnedResolver"), owner, version))`. Any `uint256` works. For one resolver per service, use e.g. `keccak256(abi.encode(keccak256("SkeptiqueServiceResolver"), namehash(fullName), 0))`.
 - Point a name at it with `registry.setResolver(uint256 anyId, address resolver)` (needs `ROLE_SET_RESOLVER`), or pass `resolver` in `register(...)`.
 
 ## 4. Enhanced Access Control
@@ -121,10 +121,10 @@ Docs: https://docs.ens.domains/ensv2/permissioned-resolver and https://docs.ens.
 - Inspection: `decodeSetter(bytes)` is pure and returns `(arg, resource, roleBitmap)`.
 - Limit: at most 15 assignees per role per resource (`EnhancedAccessControl.sol` header).
 
-(a) **Only the relayer writes `skeptic.*` keys:**
-- In each resolver, grant the relayer `ROLE_SET_TEXT` on each skeptic key through `grantSetterRoles`.
+(a) **Only the relayer writes `skeptique.*` keys:**
+- In each resolver, grant the relayer `ROLE_SET_TEXT` on each skeptique key through `grantSetterRoles`.
 - Do **not** grant root `ROLE_SET_TEXT` to anyone.
-- The operator (the deployer, which owns `skeptic.eth`) is initialised with admin bits only: `ROLE_SET_TEXT_ADMIN` (+ `ROLE_UPGRADE_ADMIN`). With those it can grant but not write: `onlyRoles` checks the base bit, which the operator lacks. It could still grant itself the role; that is the operator trust assumption.
+- The operator (the deployer, which owns `skeptique.eth`) is initialised with admin bits only: `ROLE_SET_TEXT_ADMIN` (+ `ROLE_UPGRADE_ADMIN`). With those it can grant but not write: `onlyRoles` checks the base bit, which the operator lacks. It could still grant itself the role; that is the operator trust assumption.
 
 (b) **The seller writes only `url` and `description` on their own subname:** because scope is per key, a seller holding `ROLE_SET_TEXT` on `url` in a *shared* resolver could overwrite every other seller's `url`. So:
 - **Deploy one PermissionedResolver per service subname.**
@@ -150,7 +150,7 @@ Critics have no self-written keys, so all critic subnames can share one resolver
 ```ts
 import { encodeFunctionData, decodeFunctionResult, namehash, parseAbi, toHex } from 'viem'
 import { packetToBytes } from 'viem/ens'
-const dnsName = toHex(packetToBytes('foo.svc.skeptic.eth')) // DNS-encoded bytes, NOT namehash
+const dnsName = toHex(packetToBytes('foo.svc.skeptique.eth')) // DNS-encoded bytes, NOT namehash
 const resolverAbi = parseAbi([
   'function setText(bytes name, string key, string value)',
   'function grantSetterRoles(bytes setter, address account) returns (bool)',
@@ -158,15 +158,15 @@ const resolverAbi = parseAbi([
 ])
 // write (relayer):
 await relayerWallet.writeContract({ address: resolver, abi: resolverAbi, functionName: 'setText',
-  args: [dnsName, 'eth.skeptic.score', '87'] })
+  args: [dnsName, 'eth.skeptique.score', '87'] })
 // read, option 1: viem through the public Universal Resolver (0xeEeE…EeEe is viem's sepolia default)
-await publicClient.getEnsText({ name: 'foo.svc.skeptic.eth', key: 'eth.skeptic.score' })
+await publicClient.getEnsText({ name: 'foo.svc.skeptique.eth', key: 'eth.skeptique.score' })
 // read, option 2: explicit UR call
 const textAbi = parseAbi(['function text(bytes32 node, string key) view returns (string)'])
 const [data] = await publicClient.readContract({ address: '0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe',
   abi: parseAbi(['function resolve(bytes name, bytes data) view returns (bytes, address)']),
   functionName: 'resolve',
-  args: [dnsName, encodeFunctionData({ abi: textAbi, functionName: 'text', args: [namehash('foo.svc.skeptic.eth'), 'eth.skeptic.score'] })] })
+  args: [dnsName, encodeFunctionData({ abi: textAbi, functionName: 'text', args: [namehash('foo.svc.skeptique.eth'), 'eth.skeptique.score'] })] })
 decodeFunctionResult({ abi: textAbi, functionName: 'text', data })
 ```
 - The resolver has **no standalone `text()` getter**. Reads go through `resolve(bytes name, bytes data)` (`SRC/src/resolver/AbstractRecordResolver.sol`, which dispatches the `text(bytes32,string)` selector and ignores the node argument). Docs: "Reads go through `resolve(name, data)` via the Universal Resolver."
@@ -178,25 +178,25 @@ decodeFunctionResult({ abi: textAbi, functionName: 'text', data })
   - `agent-context`: free-form agent description.
   - `agent-endpoint[<protocol>]`: URL, with protocols `mcp`, `a2a`, `web`.
 
-  It defines **no reputation keys**, so skeptic's score keys have nothing to map to. Optional fit: a seller could also write `agent-context` / `agent-endpoint[web|mcp]` (granted per key, like `url`). Not required.
-- **ENSIP-25 AI Agent Registry ENS Name Verification** (https://docs.ens.domains/ensip/25, draft) defines one key, `agent-registration[<ERC-7930 registry address>][<agentId>]`, with a non-empty value (SHOULD be `"1"`). It attests that a name belongs to an agent in an on-chain agent registry such as ERC-8004. It is only relevant if skeptic links names to an ERC-8004 entry; not needed for v1.
+  It defines **no reputation keys**, so skeptique's score keys have nothing to map to. Optional fit: a seller could also write `agent-context` / `agent-endpoint[web|mcp]` (granted per key, like `url`). Not required.
+- **ENSIP-25 AI Agent Registry ENS Name Verification** (https://docs.ens.domains/ensip/25, draft) defines one key, `agent-registration[<ERC-7930 registry address>][<agentId>]`, with a non-empty value (SHOULD be `"1"`). It attests that a name belongs to an agent in an on-chain agent registry such as ERC-8004. It is only relevant if skeptique links names to an ERC-8004 entry; not needed for v1.
 - **ENSIP-5 Text Records** (https://docs.ens.domains/ensip/5, final):
   - `url` and `description` are standard global keys; keep them.
   - "Service Keys must be made up of a _reverse dot notation_ for a namespace which the service owns … must contain at least one dot." The example given is `com.example.users`.
-  - Bare `skeptic.score` does contain a dot, but it reads as the namespace `skeptic`, which skeptic does not own. So it is **not conformant**. Nothing on-chain enforces this, and any string works as a key.
-  - Conformant form under `skeptic.eth`: **`eth.skeptic.score`**, `eth.skeptic.confidence`, `eth.skeptic.round`, `eth.skeptic.hedera.tx`, `eth.skeptic.stake`, `eth.skeptic.honestRounds`, `eth.skeptic.slashes`.
+  - Bare `skeptique.score` does contain a dot, but it reads as the namespace `skeptique`, which skeptique does not own. So it is **not conformant**. Nothing on-chain enforces this, and any string works as a key.
+  - Conformant form under `skeptique.eth`: **`eth.skeptique.score`**, `eth.skeptique.confidence`, `eth.skeptique.round`, `eth.skeptique.hedera.tx`, `eth.skeptique.stake`, `eth.skeptique.honestRounds`, `eth.skeptique.slashes`.
 
 ## Proposed changes to spec/03 (not applied)
 1. **Required (structure, not record names): one PermissionedResolver per service subname.** The seller's subname is registered with `roleBitmap = 0` (it cannot change its resolver and cannot be transferred). In that resolver, the relayer holds `ROLE_SET_TEXT` on the four score keys and the seller holds it on `url` and `description`. All critic subnames share one resolver where only the relayer holds the three critic keys.
    - Smallest alternative if the per-service resolver is too much: one shared resolver where the relayer also writes `url`/`description` on the seller's behalf, so sellers hold no resolver roles.
-2. **Recommended: prefix keys with `eth.`** (`eth.skeptic.score`, …) for ENSIP-5 conformance. This is a pure string change and must follow `ENS_PARENT_NAME` if the parent differs.
+2. **Recommended: prefix keys with `eth.`** (`eth.skeptique.score`, …) for ENSIP-5 conformance. This is a pure string change and must follow `ENS_PARENT_NAME` if the parent differs.
 3. Optional: allow seller-written ENSIP-26 `agent-endpoint[web]` / `agent-context`.
 
 ## Human steps before phase B (ticket 01)
 1. Create two Sepolia EOAs and put their keys in `.env` (never in git): `ENS_OPERATOR_PRIVATE_KEY` (owns the parent, registries and resolver admin) and `RELAYER_PRIVATE_KEY`. They may be the same key, but separate keys demonstrate EAC better.
 2. Fund them with Sepolia ETH: operator about **0.1 SepoliaETH**, relayer about **0.02**. These amounts are estimates (see Unverified).
 3. Get a Sepolia RPC URL and set `SEPOLIA_RPC_URL`. The public `https://ethereum-sepolia-rpc.publicnode.com` worked for reads.
-4. Set `ENS_PARENT_NAME=skeptic.eth`. Re-check availability just before phase B: `ETHRegistrar(0xf633…).isAvailable("skeptic")`.
+4. Set `ENS_PARENT_NAME=skeptique.eth`. Re-check availability just before phase B: `ETHRegistrar(0xf633…).isAvailable("skeptique")`.
 5. Registration of the parent name needs no human: the phase B script mints MockUSDC, approves, commits, waits 61 s and registers. If ticket 01 prefers to register by hand at https://sepolia.app.ens.domains, it must register to the operator address, and then the operator holds the token.
 6. Optional env overrides (defaults are the addresses in §1): `ENS_ETH_REGISTRY`, `ENS_ETH_REGISTRAR`, `ENS_VERIFIABLE_FACTORY`, `ENS_PERMISSIONED_RESOLVER_IMPL`, `ENS_USER_REGISTRY_IMPL`, `ENS_UNIVERSAL_RESOLVER`, `ENS_MOCK_USDC`.
 
@@ -213,13 +213,13 @@ Constants: registry `ROOT_ROLES = REGISTRAR|SET_PARENT|RENEW|UNREGISTER|SET_SUBR
    - `parentReg.setParent(ETHRegistry, label)`.
 3. **`svc` and `critic`**: for each, deploy a UserRegistry (same as step 2, salt with `namehash("svc."+parent)`). Then `parentReg.register("svc", operator, svcReg, 0x0, SET_SUBREGISTRY|SET_RESOLVER (+admins), ETHRegistry.getExpiry(tokenId))` and `svcReg.setParent(parentReg, "svc")`.
 4. **Service resolver**:
-   - `deployProxy(PermissionedResolverImpl, salt("SkepticServiceResolver", namehash(full)), initialize([{operator, ROLE_SET_TEXT_ADMIN}], []))`.
-   - Operator calls `resolver.multicall([grantSetterRoles(setText(dns,k,""), relayer) for each of the 4 skeptic keys, grantSetterRoles(setText(dns,"url",""), seller), grantSetterRoles(setText(dns,"description",""), seller)])`.
+   - `deployProxy(PermissionedResolverImpl, salt("SkeptiqueServiceResolver", namehash(full)), initialize([{operator, ROLE_SET_TEXT_ADMIN}], []))`.
+   - Operator calls `resolver.multicall([grantSetterRoles(setText(dns,k,""), relayer) for each of the 4 skeptique keys, grantSetterRoles(setText(dns,"url",""), seller), grantSetterRoles(setText(dns,"description",""), seller)])`.
 5. **Service subname**: `svcReg.register(slug, seller, 0x0, resolver, 0, expiry)`. The seller address comes from a test fixture or `scripts/seed`, never a product path.
-6. **Write**: the relayer calls `resolver.setText(dns(full), "eth.skeptic.score", <value>)`.
-7. **Read back and print**: `publicClient.getEnsText({ name: full, key: "eth.skeptic.score" })`. This is the "Done when" line.
+6. **Write**: the relayer calls `resolver.setText(dns(full), "eth.skeptique.score", <value>)`.
+7. **Read back and print**: `publicClient.getEnsText({ name: full, key: "eth.skeptique.score" })`. This is the "Done when" line.
 8. **Negative checks** (simulate only):
-   - Seller `setText(dns, "eth.skeptic.score", …)` should revert with `EACUnauthorizedAccountRoles`.
+   - Seller `setText(dns, "eth.skeptique.score", …)` should revert with `EACUnauthorizedAccountRoles`.
    - Seller `svcReg.setResolver(tokenId, x)` should revert.
    - Seller `safeTransferFrom` should revert with `TransferDisallowed`.
 9. Make every step idempotent (check before writing) so the script can be re-run.
