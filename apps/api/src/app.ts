@@ -31,6 +31,10 @@ export { createWorldVerifier, type WorldConfig } from "./world";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   const app = Fastify(options);
+  // Public read models are shared with the separately hosted web app; write routes retain their own policy.
+  app.addHook("onSend", async (request, reply) => {
+    if (request.method === "GET") reply.header("Access-Control-Allow-Origin", "*");
+  });
 
   app.get("/health", async (_req, reply) => {
     try {

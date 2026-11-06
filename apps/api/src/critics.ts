@@ -31,6 +31,7 @@ export function createCriticSource(options: {
       abi: criticRegistryAbi,
       eventName: "CriticRegistered",
       fromBlock: 0n,
+      strict: true,
     });
     const [reveals, finalized] = options.roundManager
       ? await Promise.all([
@@ -39,16 +40,26 @@ export function createCriticSource(options: {
             abi: roundManagerAbi,
             eventName: "CriticRevealed",
             fromBlock: 0n,
+            strict: true,
           }),
           options.client.getContractEvents({
             address: options.roundManager,
             abi: roundManagerAbi,
             eventName: "RoundFinalized",
             fromBlock: 0n,
+            strict: true,
           }),
         ])
       : [[], []];
     const validRounds = new Set(finalized.filter((log) => log.args.isVoid === false).map((log) => log.args.roundId));
+    // Index once instead of filtering and sorting the complete reveal history for every critic.
+    const latestRoundByCritic = new Map<string, bigint>();
+    for (const { args } of reveals) {
+      if (!validRounds.has(args.roundId)) continue;
+      const key = args.critic.toLowerCase();
+      const previous = latestRoundByCritic.get(key);
+      if (previous === undefined || args.roundId > previous) latestRoundByCritic.set(key, args.roundId);
+    }
     return Promise.all(
       logs.map(async (log) => {
         const event = criticRegisteredEvent(log.args);
@@ -60,13 +71,8 @@ export function createCriticSource(options: {
         });
         const critic: CriticView = { address: event.critic, nullifier: event.nullifier, stake: stake.toString() };
         if (!options.roundManager) return critic;
-        const latest = reveals
-          .filter(
-            (log) => log.args.critic?.toLowerCase() === event.critic.toLowerCase() && validRounds.has(log.args.roundId),
-          )
-          .sort((a, b) => (a.args.roundId! > b.args.roundId! ? -1 : 1))[0];
-        if (!latest) return { ...critic, verdict: "unreviewed" };
-        const roundId = latest.args.roundId!;
+        const roundId = latestRoundByCritic.get(event.critic.toLowerCase());
+        if (roundId === undefined) return { ...critic, verdict: "unreviewed" };
         const [honest, slashed] = await Promise.all([
           options.client.readContract({
             address: options.roundManager,

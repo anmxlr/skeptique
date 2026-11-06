@@ -93,8 +93,12 @@ describe("CriticRegistry", () => {
       "NotRoundManager",
     );
     await registry.write.requestWithdraw([], { account: critic.account });
-    const round = await publicClient.readContract({ address: manager.address, abi: roundManagerAbi,
-      functionName: "getRound", args: [1n] });
+    const round = await publicClient.readContract({
+      address: manager.address,
+      abi: roundManagerAbi,
+      functionName: "getRound",
+      args: [1n],
+    });
     await hre.network.provider.send("evm_setNextBlockTimestamp", [Number(round.commitEnd)]);
     for (const [account, score] of [
       [critic, 20],

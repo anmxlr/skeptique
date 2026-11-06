@@ -16,7 +16,13 @@ export function RoundDetailsView({ round }: { round: RoundView }) {
         {round.reveals.map((reveal) => (
           <li key={reveal.critic}>
             <span>{reveal.critic}</span>: {reveal.score} ·{" "}
-            {reveal.honest === null ? "Pending" : reveal.honest ? "Honest" : "Outlier (slash eligible)"}
+            {round.phase === "void"
+              ? "No verdict (void round)"
+              : reveal.honest === null
+                ? "Pending"
+                : reveal.honest
+                  ? "Honest"
+                  : "Outlier (slash eligible)"}
           </li>
         ))}
       </ul>

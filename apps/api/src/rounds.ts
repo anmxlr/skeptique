@@ -31,6 +31,7 @@ export function createRoundSource(options: {
           args: { roundId: BigInt(roundId) },
           fromBlock: 0n,
           toBlock: block.number,
+          strict: true,
         }),
         options.client.getContractEvents({
           address: options.address,
@@ -39,21 +40,24 @@ export function createRoundSource(options: {
           args: { roundId: BigInt(roundId) },
           fromBlock: 0n,
           toBlock: block.number,
+          strict: true,
         }),
       ]);
+      const isVoid = finalizations.some((log) => log.args.isVoid === true);
       const reveals = await Promise.all(
         logs.map(async (log) => ({
-          critic: log.args.critic!,
-          score: log.args.score!,
-          honest: round.finalized
-            ? await options.client.readContract({
-                address: options.address,
-                abi: roundManagerAbi,
-                functionName: "isHonest",
-                args: [BigInt(roundId), log.args.critic!],
-                blockNumber: block.number,
-              })
-            : null,
+          critic: log.args.critic,
+          score: log.args.score,
+          honest:
+            round.finalized && !isVoid
+              ? await options.client.readContract({
+                  address: options.address,
+                  abi: roundManagerAbi,
+                  functionName: "isHonest",
+                  args: [BigInt(roundId), log.args.critic],
+                  blockNumber: block.number,
+                })
+              : null,
         })),
       );
       return toRoundView(
@@ -63,10 +67,10 @@ export function createRoundSource(options: {
           commitEnd: Number(round.commitEnd),
           revealEnd: Number(round.revealEnd),
           finalized: round.finalized,
-          median: round.finalized ? round.median : null,
+          median: round.finalized && !isVoid ? round.median : null,
           committed: [],
           reveals,
-          void: finalizations.some((log) => log.args.isVoid === true),
+          void: isVoid,
         },
         Number(block.timestamp),
       );
