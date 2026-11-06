@@ -4,7 +4,10 @@ import { decodeFunctionData, encodeFunctionResult, parseAbi, zeroHash } from "vi
 // Run with these public URLs configured on Next; all traffic is intercepted, no network keys needed.
 const api = "http://127.0.0.1:43199";
 const rpc = "http://127.0.0.1:43200";
-const configured = process.env.NEXT_PUBLIC_API_URL === api && process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL === rpc;
+const configured =
+  process.env.NEXT_PUBLIC_API_URL === api &&
+  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL === rpc &&
+  process.env.NEXT_PUBLIC_ENS_PARENT_NAME === "skeptique.eth";
 const universal = parseAbi([
   "function findResolver(bytes name) view returns (address,bytes32,uint256)",
   "function resolveWithGateways(bytes name,bytes data,string[] gateways) view returns (bytes,address)",

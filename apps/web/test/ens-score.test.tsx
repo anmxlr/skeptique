@@ -1,12 +1,20 @@
 import { readEnsScore } from "@skeptique/shared/ens";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import { EnsScoreView } from "../components/ens-score";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EnsScore, EnsScoreView } from "../components/ens-score";
 import { MarketplaceView } from "../components/marketplace";
 import { ServiceDetailView } from "../components/service-detail";
 import type { ApiRoutes } from "../lib/api";
 
 describe("ENS scores UI", () => {
+  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_ENS_PARENT_NAME", "skeptique.eth"));
+  afterEach(() => vi.unstubAllEnvs());
+  it("requires a configured namespace rather than assuming a production parent", () => {
+    vi.stubEnv("NEXT_PUBLIC_ENS_PARENT_NAME", undefined);
+    expect(renderToStaticMarkup(<EnsScore name="demo.svc.skeptique.eth" />)).toContain(
+      "ENS reputation is not configured",
+    );
+  });
   it("renders the resolver's value and exact query even when the API mirror differs", async () => {
     const staleApi = { median: 99 };
     const snapshot = await readEnsScore(
