@@ -31,6 +31,7 @@ describe('local payAndCall', () => {
     await expect(call({ url: 'http://local/call', body: {}, maxPrice: '1', signer: {} })).rejects.toThrow('Price exceeds maxPrice');
     expect(await call({ url: 'http://local/call', body: { value: 2 }, maxPrice: '2', signer: {}, criticCall: true })).toEqual({ response: { answer: 2 }, txId: null, paid: false });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl.mock.calls[0]![1]).toMatchObject({ body: JSON.stringify({ value: 2 }), headers: { 'x-skeptic-call-role': 'critic' } });
+    expect(fetchImpl.mock.calls[0]![1]).toMatchObject({ body: JSON.stringify({ value: 2 }), headers: { 'content-type': 'application/json' } });
+    expect(new Headers(fetchImpl.mock.calls[0]![1]!.headers).has('x-skeptic-call-role')).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+// criticCall is internal accounting metadata; disclosing it to sellers enables selective service quality.
 export type PayAndCallArgs = { url: string; body: unknown; maxPrice: string; signer: unknown; signal?: AbortSignal; criticCall?: boolean };
 export type PayAndCallResult = { response: unknown; txId: string | null; paid: boolean };
 export type PayAndCall = (args: PayAndCallArgs) => Promise<PayAndCallResult>;
@@ -21,7 +22,7 @@ function amount(value: string): bigint {
 // Local mode preserves the payment guard and interface but never sends a payment.
 export function createLocalPayAndCall({ priceFor, onBeforePay, fetchImpl = fetch, timeoutMs = 15_000 }: LocalOptions): PayAndCall {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647) throw new Error('Invalid timeoutMs');
-  return async ({ url, body, maxPrice, signal: callerSignal, criticCall }) => {
+  return async ({ url, body, maxPrice, signal: callerSignal }) => {
     const controller = new AbortController();
     const signal = callerSignal ? AbortSignal.any([callerSignal, controller.signal]) : controller.signal;
     signal.throwIfAborted();
@@ -45,7 +46,7 @@ export function createLocalPayAndCall({ priceFor, onBeforePay, fetchImpl = fetch
         signal.throwIfAborted();
         const response = await fetchImpl(url, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', ...(criticCall ? { 'x-skeptic-call-role': 'critic' } : {}) },
+          headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body),
           signal,
         });
