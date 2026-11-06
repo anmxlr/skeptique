@@ -19,4 +19,10 @@ describe('unit-convert service', () => {
       if (testCase.expect.kind === 'judge') expect(output).toEqual({ result: 0, unit: 'C' });
     }
   });
+
+  it('rejects inherited unit names and overflowing results while preserving large finite identities', async () => {
+    await expect(handleUnitConvert({ value: 1, from: 'toString', to: 'constructor' })).rejects.toThrow('Unsupported conversion');
+    await expect(handleUnitConvert({ value: Number.MAX_VALUE, from: 'm', to: 'cm' })).rejects.toThrow('finite');
+    await expect(handleUnitConvert({ value: Number.MAX_VALUE, from: 'kg', to: 'kg' })).resolves.toEqual({ result: Number.MAX_VALUE, unit: 'kg' });
+  });
 });

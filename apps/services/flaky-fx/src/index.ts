@@ -4,7 +4,7 @@ export type FlakyFxInput = { from: string; to: string; amount: number };
 export type FlakyFxOutput = { from: string; to: string; amount: number; rate: number; converted: number; stale: boolean; asOf: string };
 
 function seededRandom(seed: number): () => number {
-  let state = seed >>> 0;
+  let state = seed === 0 ? 0x6d2b79f5 : seed >>> 0;
   return () => {
     state ^= state << 13;
     state ^= state >>> 17;
@@ -14,9 +14,11 @@ function seededRandom(seed: number): () => number {
 }
 
 export function createFlakyFx(options: { seed?: number; staleRate?: number } = {}) {
-  const random = seededRandom(options.seed ?? 1306);
+  const seed = options.seed ?? 1306;
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('seed must be an unsigned 32-bit integer');
+  const random = seededRandom(seed);
   const staleRate = options.staleRate ?? 0.3;
-  if (staleRate < 0 || staleRate > 1) throw new Error('staleRate must be between 0 and 1');
+  if (!Number.isFinite(staleRate) || staleRate < 0 || staleRate > 1) throw new Error('staleRate must be between 0 and 1');
   const rates: Record<string, number> = { 'USD:EUR': 0.92, 'EUR:USD': 1.087, 'USD:INR': 83.2, 'INR:USD': 0.012, 'GBP:USD': 1.27, 'USD:GBP': 0.787 };
   return async (input: unknown): Promise<FlakyFxOutput> => {
     if (!input || typeof input !== 'object') throw new Error('Input must be an object');
