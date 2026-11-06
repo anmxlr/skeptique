@@ -14,6 +14,7 @@
     "tsx": "^4.23.15"
   },
   "dependencies": {
+    "canonicalize": "^2.1.0",
     "@skeptique/shared": "workspace:*",
     "@skeptique/api": "workspace:*",
     "@skeptique/critic": "workspace:*",
