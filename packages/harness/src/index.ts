@@ -18,6 +18,8 @@ import { createPublicClient, http } from "viem";
 export type ServiceStarter = (ctx: { rpcUrl: string }) => Promise<{ url: string; close: () => Promise<void> }>;
 
 export interface StackOptions {
+  /** Override the local round config, e.g. `{ K_MIN: 3 }`. */
+  round?: { K_MIN?: number; COMMIT_SECS?: number; REVEAL_SECS?: number };
   /** Demo services to start, keyed by name. Each starter listens on its own free port. */
   services?: Record<string, ServiceStarter>;
   /** Extra API dependencies, e.g. the marketplace source a test wants served. */
@@ -67,7 +69,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     stoppers.push(() => server.close());
     const rpcUrl = `http://127.0.0.1:${rpcPort}`;
 
-    const contracts = await deployLocal(hre);
+    const contracts = await deployLocal(hre, options.round);
 
     const publicClient = createPublicClient({ transport: http(rpcUrl) });
     const chainId = await publicClient.getChainId();

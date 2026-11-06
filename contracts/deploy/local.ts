@@ -12,7 +12,10 @@ export const LOCAL_ROUND_CONFIG = { COMMIT_SECS: 90, REVEAL_SECS: 45, K_MIN: 1 }
 
 // Deploys every contract the local stack needs and returns name -> address.
 // The local stack harness (packages/harness) calls this.
-export async function deployLocal(hre: HardhatRuntimeEnvironment): Promise<Record<string, Address>> {
+export async function deployLocal(
+  hre: HardhatRuntimeEnvironment,
+  round: { K_MIN?: number; COMMIT_SECS?: number; REVEAL_SECS?: number } = {},
+): Promise<Record<string, Address>> {
   const minListingFee = BigInt(DEFAULT_ROUND_CONFIG.MIN_LISTING_FEE) * TINYBARS_PER_HBAR;
   const serviceRegistry = await hre.viem.deployContract("ServiceRegistry", [minListingFee]);
   // The local attestor is Hardhat's dev account #9; the seed signs vouchers with its key (ATTESTOR_PRIVATE_KEY).
@@ -24,7 +27,7 @@ export async function deployLocal(hre: HardhatRuntimeEnvironment): Promise<Recor
     serviceRegistry.address,
     BigInt(DEFAULT_ROUND_CONFIG.WITHDRAW_COOLDOWN),
   ]);
-  const cfg = { ...DEFAULT_ROUND_CONFIG, ...LOCAL_ROUND_CONFIG };
+  const cfg = { ...DEFAULT_ROUND_CONFIG, ...LOCAL_ROUND_CONFIG, ...round };
   const roundManager = await hre.viem.deployContract("RoundManager", [
     BigInt(cfg.COMMIT_SECS),
     BigInt(cfg.REVEAL_SECS),
