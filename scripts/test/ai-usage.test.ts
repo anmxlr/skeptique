@@ -33,10 +33,10 @@ describe("ai usage", () => {
     write("board/done/15.md", receipt("15", "x402 live", "x402 client written by an agent."));
     write("board/done/16.md", receipt("16", "World onboarding"));
     write("board/done/09-SPLIT.md", "# split proposal\n");
-    write(".scratch/skeptic-v1/issues/04-scaffold.md", ticket("04", "Scaffold", "none"));
-    write(".scratch/skeptic-v1/issues/15-x402.md", ticket("15", "x402", "Hedera"));
-    write(".scratch/skeptic-v1/issues/16-world.md", ticket("16", "World", "World"));
-    write(".scratch/skeptic-v1/issues/24-buyer.md", ticket("24", "Buyer", "Hedera"));
+    write(".scratch/any-feature-name/issues/04-scaffold.md", ticket("04", "Scaffold", "none"));
+    write(".scratch/any-feature-name/issues/15-x402.md", ticket("15", "x402", "Hedera"));
+    write(".scratch/any-feature-name/issues/16-world.md", ticket("16", "World", "World"));
+    write(".scratch/any-feature-name/issues/24-buyer.md", ticket("24", "Buyer", "Hedera"));
   });
 
   afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -49,6 +49,15 @@ describe("ai usage", () => {
     });
     expect(parseReceipt("16.md", receipt("16", "World")).aiUse).toBeNull();
     expect(parseReceipt("16.md", receipt("16", "World", "   ")).aiUse).toBeNull();
+  });
+
+  it("reads the other receipt heading style, `# Receipt NN: title`", () => {
+    const text = "# Receipt 15: Critic test calls pay via Hedera x402\n\n## AI-use note\nWritten by an agent.\n";
+    expect(parseReceipt("15.md", text)).toEqual({
+      ticket: "15",
+      title: "Critic test calls pay via Hedera x402",
+      aiUse: "Written by an agent.",
+    });
   });
 
   it("includes every receipt with an AI-use note, grouped by area, and flags receipts missing one", () => {

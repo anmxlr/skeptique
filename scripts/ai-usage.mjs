@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RECEIPTS = join("board", "done");
-const ISSUES = join(".scratch", "skeptic-v1", "issues");
+const SCRATCH = ".scratch";
 const CORE = "Core";
 
 /**
@@ -18,7 +18,7 @@ export function parseReceipt(fileName, text) {
   const ticket = fileName.slice(0, 2);
   const heading = lines.find((line) => line.startsWith("# ")) ?? "";
   const title = heading
-    .replace(/^#\s+\d+:\s*/, "")
+    .replace(/^#\s+(?:Receipt\s+)?\d+:\s*/i, "")
     .replace(/\s*\(receipt\)\s*$/i, "")
     .trim();
   const start = lines.findIndex((line) => /^##\s+AI[- ]use( note)?\s*$/i.test(line));
@@ -31,15 +31,22 @@ export function parseReceipt(fileName, text) {
   return { ticket, title, aiUse: aiUse || null };
 }
 
-/** @param {string} root @returns {Map<string, string>} ticket number -> area */
+/**
+ * Ticket track by number, read from every `.scratch/<feature>/issues/` folder (the feature name changes).
+ * @param {string} root @returns {Map<string, string>} ticket number -> area
+ */
 function areasByTicket(root) {
   const areas = new Map();
-  const dir = join(root, ISSUES);
-  if (!existsSync(dir)) return areas;
-  for (const file of readdirSync(dir)) {
-    const match = /^\*\*Tracks:\*\*\s*(.+)$/m.exec(readFileSync(join(dir, file), "utf8"));
-    const tracks = match?.[1]?.replace(/\s*\(.*\)\s*$/, "").trim();
-    areas.set(file.slice(0, 2), !tracks || tracks.toLowerCase() === "none" ? CORE : tracks);
+  const scratch = join(root, SCRATCH);
+  if (!existsSync(scratch)) return areas;
+  for (const feature of readdirSync(scratch)) {
+    const dir = join(scratch, feature, "issues");
+    if (!existsSync(dir)) continue;
+    for (const file of readdirSync(dir)) {
+      const match = /^\*\*Tracks:\*\*\s*(.+)$/m.exec(readFileSync(join(dir, file), "utf8"));
+      const tracks = match?.[1]?.replace(/\s*\(.*\)\s*$/, "").trim();
+      areas.set(file.slice(0, 2), !tracks || tracks.toLowerCase() === "none" ? CORE : tracks);
+    }
   }
   return areas;
 }
