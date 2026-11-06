@@ -16,7 +16,7 @@ const HUMAN = `0x${"0c".repeat(32)}`;
 const ACTION = "register-critic";
 
 /** A staging IDKit 4.0 result proving `critic` as the signal (shape from spec/notes/world.md). */
-const idkitResult = (nonce: string, critic: string) => ({
+const idkitResult = (nonce: string, critic: string, proofHead = "mock") => ({
   protocol_version: "4.0",
   nonce,
   action: ACTION,
@@ -26,7 +26,7 @@ const idkitResult = (nonce: string, critic: string) => ({
       identifier: "proof_of_human",
       issuer_schema_id: 1,
       nullifier: HUMAN,
-      proof: ["mock", "1", "2", "3", "4"],
+      proof: [proofHead, "1", "2", "3", "4"],
       expires_at_min: 1_900_000_000,
       signal_hash: hashSignal(critic.toLowerCase()),
     },
@@ -103,9 +103,7 @@ describe("world onboarding", () => {
     const stale = await nonce();
     clock += 301_000;
     await expectDenied(alice, idkitResult(stale, alice), "expired");
-    const altered = idkitResult(await nonce(), alice);
-    altered.responses[0]!.proof[0] = "altered";
-    await expectDenied(alice, altered, "invalid_proof");
+    await expectDenied(alice, idkitResult(await nonce(), alice, "altered"), "invalid_proof");
     await expectDenied(bob, idkitResult(await nonce(), alice), "wrong_signal");
     expect(await critics()).toEqual([]);
 
