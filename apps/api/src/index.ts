@@ -77,6 +77,7 @@ const app = buildApp(
         }),
     },
     world,
+    webOrigin: process.env.WEB_ORIGIN?.trim() || undefined,
   },
   { logger: true },
 );

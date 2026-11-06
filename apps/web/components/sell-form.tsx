@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { apiClient } from "../lib/api";
 import { ListingError, type ListingForm, listService, previewSuite, suiteUrlFor } from "../lib/sell";
 
 const empty: ListingForm = { name: "", category: "", endpoint: "", price: "", suiteUrl: "", fee: "" };
@@ -36,12 +37,13 @@ export function SellForm() {
   async function submit() {
     setError(null);
     const provider = (window as { ethereum?: Parameters<typeof listService>[0]["provider"] }).ethereum;
-    const registry = process.env.NEXT_PUBLIC_SERVICE_REGISTRY as `0x${string}` | undefined;
     if (!provider) return setError("No wallet found. Install a browser wallet to list a service.");
-    if (!registry) return setError("NEXT_PUBLIC_SERVICE_REGISTRY must be set");
     setBusy(true);
     try {
-      const { serviceId } = await listService({ provider, registry, form });
+      const deployment = await apiClient().getDeployment();
+      if (!deployment.ensParentName) throw new ListingError("invalid", "Service naming is not configured yet. Try again later.");
+      const { serviceId } = await listService({ provider, registry: deployment.contracts.ServiceRegistry, form,
+        expectedChainId: deployment.chainId, ensParent: deployment.ensParentName });
       window.location.assign(`/services/${serviceId}`);
     } catch (cause) {
       setError(cause instanceof ListingError ? cause.message : "The listing failed.");

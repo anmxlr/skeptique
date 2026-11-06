@@ -21,3 +21,7 @@ The smoke test checks the RPC chain, actual onchain windows and minimums, reject
 The API loads the manifest at startup and rejects a mismatched RPC chain. Its public `/deployment` route supplies addresses to the web app. The ENS score relayer reads source contracts, chain ID and start block from the same manifest; ENS namespace addresses and explicit name mappings remain in its separate public JSON config. `ENS_NAMES_PATH` can point the API at that config's `serviceNames` map. A service name is exposed only when its namehash matches the service's registered ENS node; absent or mismatched mappings remain unconfigured.
 
 No deployment address file or completion receipt should be invented before the funded live run succeeds.
+
+The Sell and critic-onboarding pages fetch their registry addresses from `/deployment` and reject a mismatched wallet network. The Sell page requires the public ENS parent from the deployment/API configuration and commits the derived service namehash when listing. Its low-level local test helper can still list without ENS. Older listings with a zero ENS node cannot be patched later because the node is immutable: relist them with a configured namespace before ENS score publication.
+
+When the browser and API use different origins, set `WEB_ORIGIN` to the exact web origin (for example `http://localhost:3000`). Only that origin can preflight and POST the two World verification routes; public GET routes remain readable without credentials. An empty setting grants no cross-origin World writes.
