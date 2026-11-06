@@ -200,6 +200,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -216,6 +219,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -235,6 +241,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -251,6 +260,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -267,6 +279,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

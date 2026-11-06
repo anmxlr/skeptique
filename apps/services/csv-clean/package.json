@@ -8,12 +8,14 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "start": "tsx ../start.ts csv-clean"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "tsx": "^4.23.15"
   },
   "dependencies": {
     "@skeptique/shared": "workspace:*"
