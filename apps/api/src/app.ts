@@ -6,7 +6,6 @@ import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from 
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
-import { registerWorldRoutes, type WorldConfig } from "./world";
 
 export interface AppDeps {
   /** Client for the chain the mechanism contracts live on. */
@@ -21,13 +20,10 @@ export interface AppDeps {
   critics?: CriticSource;
   /** Where published evidence is kept, by hash; defaults to memory. */
   evidence?: EvidenceStore;
-  /** World ID critic onboarding; serves `/world/rp-context` and `/world/verify`. */
-  world?: WorldConfig;
 }
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
-export { createWorldVerifier, type WorldConfig } from "./world";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   const app = Fastify(options);
@@ -50,15 +46,6 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
   registerEvidenceRoutes(app, deps.evidence ?? new MemoryEvidenceStore());
-  if (deps.world) {
-    const critics = deps.critics;
-    const isNullifierRegistered =
-      deps.world.isNullifierRegistered ??
-      (critics &&
-        (async (nullifier: string) =>
-          (await critics.list()).some((c) => c.nullifier.toLowerCase() === nullifier.toLowerCase())));
-    registerWorldRoutes(app, { ...deps.world, isNullifierRegistered }, () => deps.publicClient.getChainId());
-  }
   registerBuyerRunRoutes(app);
 
   return app;
