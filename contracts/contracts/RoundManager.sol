@@ -5,6 +5,8 @@ interface ICriticStakeRegistry {
     function stakeOf(address critic) external view returns (uint256);
     function isCritic(address critic) external view returns (bool);
     function slashStake(address critic, uint256 roundId, uint256 amount, string calldata reason) external;
+    function lockStake(address critic, uint256 roundId) external;
+    function releaseStake(address critic, uint256 roundId) external;
 }
 
 contract RoundManager {
@@ -33,6 +35,7 @@ contract RoundManager {
     mapping(uint256 => mapping(address => bool)) private revealed;
     mapping(uint256 => uint8[]) private scores;
     mapping(uint256 => address[]) private revealers;
+    mapping(uint256 => address[]) private committers;
     mapping(uint256 => uint256) private openRoundPlusOne;
     mapping(uint256 => mapping(address => bool)) private honestCritic;
     mapping(uint256 => mapping(address => uint256)) public slashedAmount;
@@ -96,10 +99,12 @@ contract RoundManager {
         if (!criticRegistry.isCritic(msg.sender)) revert CriticNotRegistered();
         uint256 stake = criticRegistry.stakeOf(msg.sender);
         if (stake == 0) revert CriticHasNoStake();
+        criticRegistry.lockStake(msg.sender, roundId);
         committed[roundId][msg.sender] = true;
         stakeAtCommit[roundId][msg.sender] = stake;
         commitments[roundId][msg.sender] = commitment;
         commitCount[roundId]++;
+        committers[roundId].push(msg.sender);
         emit CriticCommitted(roundId, msg.sender);
     }
 
@@ -130,7 +135,7 @@ contract RoundManager {
         for (uint256 i = 0; i < critics.length; i++) {
             address critic = critics[i];
             uint256 stake = stakeAtCommit[roundId][critic];
-            uint8 score = _scoreFor(roundId, critic);
+            uint8 score = scores[roundId][i];
             uint256 distance = score > round.median ? score - round.median : round.median - score;
             if (distance <= tolerance) {
                 honestCritic[roundId][critic] = true;
@@ -142,6 +147,8 @@ contract RoundManager {
                 }
             }
         }
+        address[] storage allCritics = committers[roundId];
+        for (uint256 i = 0; i < allCritics.length; i++) criticRegistry.releaseStake(allCritics[i], roundId);
         emit RoundFinalized(roundId, round.serviceId, round.median, round.nReveals, false);
     }
 
@@ -175,12 +182,6 @@ contract RoundManager {
 
     mapping(uint256 => uint8) private commitCount;
 
-    function _scoreFor(uint256 roundId, address critic) private view returns (uint8) {
-        address[] storage critics = revealers[roundId];
-        for (uint256 i = 0; i < critics.length; i++) if (critics[i] == critic) return scores[roundId][i];
-        revert NotCommitted();
-    }
-
     function _weightedMedian(uint256 roundId) private view returns (uint8) {
         uint8[] storage values = scores[roundId];
         uint256 length = values.length;
@@ -204,7 +205,7 @@ contract RoundManager {
         uint256 cumulative;
         for (uint256 i = 0; i < length; i++) {
             cumulative += weights[i];
-            if (cumulative * 2 >= totalWeight) return ordered[i];
+            if (cumulative >= totalWeight / 2 + totalWeight % 2) return ordered[i];
         }
         revert CriticHasNoStake();
     }
