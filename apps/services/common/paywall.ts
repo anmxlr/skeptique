@@ -9,8 +9,8 @@ export type PaywallOptions = {
   payTo: string;
   /** Price per call in tinybars (HBAR, asset 0.0.0). */
   price: string;
-  /** Called with each settled Hedera tx id. */
-  onSettled?: (txId: string) => void;
+  /** Called with each settled Hedera tx id and the paying account, when the facilitator names one. */
+  onSettled?: (txId: string, payer?: string) => void;
 };
 
 export type Paywall = {
@@ -101,7 +101,7 @@ export async function createPaywall({ facilitatorUrl, payTo, price, onSettled }:
         verified.beforeHandlerSettlement,
       );
       if (!settled.success) return { failure: settled.response };
-      if (settled.transaction) onSettled?.(settled.transaction);
+      if (settled.transaction) onSettled?.(settled.transaction, settled.payer);
       return { headers: settled.headers };
     },
   };

@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { TestSuite } from "@skeptique/shared";
 import { suiteHash } from "@skeptique/shared";
 import { createPaywall, type Paywall } from "./paywall";
+import { reportPaidCalls } from "./report";
 
 export type DemoService = {
   name: string;
@@ -107,10 +108,14 @@ export async function paywallFromEnv(
   const facilitatorUrl = env.X402_FACILITATOR_URL;
   const payTo = env.SELLER_ACCOUNT_ID;
   if (!facilitatorUrl || !payTo) return null;
+  const { API_URL: apiUrl, SERVICE_ID: serviceId } = env;
   return createPaywall({
     facilitatorUrl,
     payTo,
     price,
-    onSettled: (txId) => console.log(`x402 settled ${txId}`),
+    onSettled: (txId, payer) => {
+      console.log(`x402 settled ${txId}`);
+      if (apiUrl && serviceId !== undefined) void reportPaidCalls({ apiUrl, serviceId: Number(serviceId) })(txId, payer);
+    },
   });
 }

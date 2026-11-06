@@ -1,10 +1,10 @@
 import { parseArgs } from "node:util";
 import { ServiceViewSchema } from "@skeptique/shared";
-import { createLocalPayAndCall } from "@skeptique/x402-client";
+import { payAndCallFor, paymentModeFromEnv } from "./mode";
 import { publishBuyerRun, runBuyer, type Strategy } from "./index";
 
 // Runs the skeptique and popularity buyers on one task and posts both runs for the Buyer page.
-// Payments use the x402 client's local mode until ticket 15 adds Hedera mode.
+// Pays on Hedera when the x402 env is set (facilitator + buyer account), otherwise in local mode.
 const { values } = parseArgs({
   options: { api: { type: "string" }, category: { type: "string" }, task: { type: "string" } },
 });
@@ -12,13 +12,13 @@ if (!values.api || !values.category || !values.task)
   throw new Error("Usage: pnpm --filter buyer start --api <url> --category <category> --task '<json>'");
 const apiUrl = values.api;
 
-const payAndCall = createLocalPayAndCall({
-  priceFor: async (url) => {
-    const services = ServiceViewSchema.array().parse(await (await fetch(new URL("/services", apiUrl))).json());
-    const service = services.find((candidate) => candidate.endpoint === url);
-    if (!service) throw new Error(`${url} is not a listed service`);
-    return service.pricePerCall;
-  },
+const { mode, signer } = paymentModeFromEnv();
+console.log(`payment mode: ${mode}`);
+const payAndCall = payAndCallFor(mode, async (url) => {
+  const services = ServiceViewSchema.array().parse(await (await fetch(new URL("/services", apiUrl))).json());
+  const service = services.find((candidate) => candidate.endpoint === url);
+  if (!service) throw new Error(`${url} is not a listed service`);
+  return service.pricePerCall;
 });
 
 for (const strategy of ["skeptique", "popularity"] as Strategy[]) {
@@ -28,7 +28,7 @@ for (const strategy of ["skeptique", "popularity"] as Strategy[]) {
     task: JSON.parse(values.task),
     strategy,
     payAndCall,
-    signer: null,
+    signer,
   });
   await publishBuyerRun(apiUrl, run);
   console.log(`${strategy}: ${run.explanation}`);
