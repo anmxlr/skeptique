@@ -102,6 +102,10 @@ These links are recorded evidence from earlier runs, not claims that the current
 
 Ticket 27 owns the complete integrated evidence run. Tickets 20/21 code is integrated without claiming their still-missing funded acceptance receipts.
 
+## Arena: does Skeptique help a buyer?
+
+`/arena` runs one task through two buyer agents side by side, one without Skeptique and one with it. Both use the same model, prompt and budget, and both pay with real x402 payments on Hedera testnet. A deterministic oracle grades the answers. In a live 8-task must-buy run, the status-quo agent spent 37.5% of its tinybars on wrong answers from a suite-gaming service. The Skeptique agent wasted nothing and got 0 answers wrong, at the cost of blocking an unreviewed service. Method, fairness rules, tx links and limits: [docs/arena.md](docs/arena.md).
+
 ## Ranking and trust limits
 
 The API computes `confidence = min(1, reveals / 5) × max(0.3, 0.5^(ageDays / 7))` and `rank = median − 15 × (1 − confidence)`. This is a ranking heuristic, not statistical confidence. ENS displays the published snapshot; it does not silently fall back to an API score if resolution fails.
