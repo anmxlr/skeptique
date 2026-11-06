@@ -1,4 +1,4 @@
-import { type TestSuite, TestSuiteSchema, suiteHash } from "@skeptique/shared";
+import { suiteHash, type TestSuite, TestSuiteSchema } from "@skeptique/shared";
 import { serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import { createPublicClient, createWalletClient, custom, type EIP1193Provider, parseEventLogs, zeroHash } from "viem";
 import { formatHbar } from "../components/marketplace";

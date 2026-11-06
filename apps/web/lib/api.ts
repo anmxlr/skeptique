@@ -38,7 +38,7 @@ export async function fetchService(id: number, baseUrl: string, fetchImpl: typeo
   return (await res.json()) as ServiceDetail;
 }
 
-export type ApiClient =ReturnType<typeof createApiClient>;
+export type ApiClient = ReturnType<typeof createApiClient>;
 
 /** Client for the API configured by NEXT_PUBLIC_API_URL. */
 export function apiClient(): ApiClient {
