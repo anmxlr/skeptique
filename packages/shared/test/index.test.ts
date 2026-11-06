@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { packageName } from "../src/index";
+import { DEFAULT_ROUND_CONFIG, RoundConfigSchema } from "../src/index";
 
-it("exports its package name", () => {
-  expect(packageName).toBe("@skeptic/shared");
+it("exports a valid default round configuration", () => {
+  expect(RoundConfigSchema.parse(DEFAULT_ROUND_CONFIG)).toEqual(DEFAULT_ROUND_CONFIG);
 });
