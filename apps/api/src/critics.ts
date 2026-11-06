@@ -1,4 +1,5 @@
 import { criticRegisteredEvent, criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
+import { roundManagerAbi } from "@skeptique/shared/abi/RoundManager";
 import type { FastifyInstance } from "fastify";
 import type { PublicClient } from "viem";
 
@@ -7,6 +8,9 @@ export interface CriticView {
   address: string;
   nullifier: string;
   stake: string;
+  verdict?: "honest" | "slashed" | "outlier" | "unreviewed";
+  lastRoundId?: number;
+  slashedAmount?: string;
 }
 
 export interface CriticSource {
@@ -19,6 +23,7 @@ export interface CriticSource {
 export function createCriticSource(options: {
   client: Pick<PublicClient, "getContractEvents" | "readContract">;
   address: `0x${string}`;
+  roundManager?: `0x${string}`;
 }): CriticSource {
   const list = async (): Promise<CriticView[]> => {
     const logs = await options.client.getContractEvents({
@@ -26,7 +31,35 @@ export function createCriticSource(options: {
       abi: criticRegistryAbi,
       eventName: "CriticRegistered",
       fromBlock: 0n,
+      strict: true,
     });
+    const [reveals, finalized] = options.roundManager
+      ? await Promise.all([
+          options.client.getContractEvents({
+            address: options.roundManager,
+            abi: roundManagerAbi,
+            eventName: "CriticRevealed",
+            fromBlock: 0n,
+            strict: true,
+          }),
+          options.client.getContractEvents({
+            address: options.roundManager,
+            abi: roundManagerAbi,
+            eventName: "RoundFinalized",
+            fromBlock: 0n,
+            strict: true,
+          }),
+        ])
+      : [[], []];
+    const validRounds = new Set(finalized.filter((log) => log.args.isVoid === false).map((log) => log.args.roundId));
+    // Index once instead of filtering and sorting the complete reveal history for every critic.
+    const latestRoundByCritic = new Map<string, bigint>();
+    for (const { args } of reveals) {
+      if (!validRounds.has(args.roundId)) continue;
+      const key = args.critic.toLowerCase();
+      const previous = latestRoundByCritic.get(key);
+      if (previous === undefined || args.roundId > previous) latestRoundByCritic.set(key, args.roundId);
+    }
     return Promise.all(
       logs.map(async (log) => {
         const event = criticRegisteredEvent(log.args);
@@ -36,7 +69,30 @@ export function createCriticSource(options: {
           functionName: "stakeOf",
           args: [event.critic as `0x${string}`],
         });
-        return { address: event.critic, nullifier: event.nullifier, stake: stake.toString() };
+        const critic: CriticView = { address: event.critic, nullifier: event.nullifier, stake: stake.toString() };
+        if (!options.roundManager) return critic;
+        const roundId = latestRoundByCritic.get(event.critic.toLowerCase());
+        if (roundId === undefined) return { ...critic, verdict: "unreviewed" };
+        const [honest, slashed] = await Promise.all([
+          options.client.readContract({
+            address: options.roundManager,
+            abi: roundManagerAbi,
+            functionName: "isHonest",
+            args: [roundId, event.critic as `0x${string}`],
+          }),
+          options.client.readContract({
+            address: options.roundManager,
+            abi: roundManagerAbi,
+            functionName: "slashedAmount",
+            args: [roundId, event.critic as `0x${string}`],
+          }),
+        ]);
+        return {
+          ...critic,
+          lastRoundId: Number(roundId),
+          slashedAmount: slashed.toString(),
+          verdict: honest ? "honest" : slashed > 0n ? "slashed" : "outlier",
+        };
       }),
     );
   };

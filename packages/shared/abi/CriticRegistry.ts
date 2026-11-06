@@ -10,6 +10,8 @@ export const criticRegistryAbi = parseAbi([
   "function isCritic(address critic) view returns (bool)",
   "function minStake() view returns (uint256)",
   "function attestor() view returns (address)",
+  "function activeRound(address critic) view returns (uint256)",
+  "function slashedFunds(uint256 roundId) view returns (uint256)",
   "event CriticRegistered(address indexed critic, bytes32 nullifier, uint256 stake)",
   "event CriticSlashed(address indexed critic, uint256 indexed roundId, uint256 amount, string reason)",
   "error DuplicateNullifier(bytes32 nullifier)",

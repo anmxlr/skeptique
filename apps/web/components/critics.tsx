@@ -23,6 +23,30 @@ export function CriticsView({ state }: { state: CriticsState }) {
           <dl className="market-stats">
             <dt>Stake</dt>
             <dd>{formatHbar(critic.stake)}</dd>
+            <dt>Last review</dt>
+            <dd>
+              {critic.verdict === "honest"
+                ? "Honest"
+                : critic.verdict === "slashed"
+                  ? "Slashed"
+                  : critic.verdict === "outlier"
+                    ? "Outlier"
+                    : "No finalized review"}
+            </dd>
+            {critic.lastRoundId && (
+              <>
+                <dt>Round</dt>
+                <dd>
+                  <a href={`/rounds/${critic.lastRoundId}`}>#{critic.lastRoundId}</a>
+                </dd>
+              </>
+            )}
+            {critic.verdict === "slashed" && (
+              <>
+                <dt>Stake slashed</dt>
+                <dd>{formatHbar(critic.slashedAmount ?? "0")}</dd>
+              </>
+            )}
           </dl>
         </li>
       ))}
