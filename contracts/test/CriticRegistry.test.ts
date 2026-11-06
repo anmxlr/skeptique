@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import hre from "hardhat";
 import { describe, it } from "mocha";
-import { encodeAbiParameters, keccak256, parseAbiParameters } from "viem";
+import { encodeAbiParameters, getAddress, keccak256, parseAbiParameters } from "viem";
 import { criticRegisteredEvent, criticRegistryAbi } from "../../packages/shared/abi/CriticRegistry";
 import { EventSchemas, eventFixtures } from "../../packages/shared/src/index";
 
@@ -75,7 +75,7 @@ describe("CriticRegistry", () => {
     const event = criticRegisteredEvent(log.args);
     assert.deepEqual(EventSchemas.CriticRegistered.parse(event), event);
     assert.deepEqual(Object.keys(event).sort(), Object.keys(eventFixtures.CriticRegistered).sort());
-    assert.deepEqual(event, { critic: critic.account.address, nullifier, stake: S_MIN.toString() });
+    assert.deepEqual(event, { critic: getAddress(critic.account.address), nullifier, stake: S_MIN.toString() });
   });
 
   it("reverts a second critic for the same human nullifier", async () => {

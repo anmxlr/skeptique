@@ -18,6 +18,8 @@ contract ServiceRegistry {
     uint256 public serviceCount;
 
     mapping(uint256 => Service) private services;
+    /// Addresses that have listed a service; CriticRegistry bars them from critiquing (spec/02 §6).
+    mapping(address => bool) public isSeller;
 
     error FeeTooLow(uint256 sent, uint256 minimum);
     error UnknownService(uint256 serviceId);
@@ -43,6 +45,7 @@ contract ServiceRegistry {
     {
         if (msg.value < minListingFee) revert FeeTooLow(msg.value, minListingFee);
         serviceId = ++serviceCount;
+        isSeller[msg.sender] = true;
         services[serviceId] = Service(msg.sender, specHash, endpoint, pricePerCall, ensNode, msg.value);
         emit ServiceListed(serviceId, msg.sender, specHash, endpoint, pricePerCall, ensNode);
     }
