@@ -12,4 +12,15 @@ describe('round API route', () => {
     expect((await app.inject({ method: 'GET', url: '/rounds/99' })).statusCode).toBe(404);
     await app.close();
   });
+
+  it('rejects zero and unsafe integer IDs before reading the index', async () => {
+    const app = Fastify();
+    let reads = 0;
+    registerRoundRoutes(app, { get: () => { reads++; return undefined; } });
+    for (const id of ['0', '9007199254740993', '9'.repeat(100)]) {
+      expect((await app.inject({ method: 'GET', url: `/rounds/${id}` })).statusCode).toBe(400);
+    }
+    expect(reads).toBe(0);
+    await app.close();
+  });
 });

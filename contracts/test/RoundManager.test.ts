@@ -45,6 +45,11 @@ describe('RoundManager', () => {
     assert.equal(vectorCommit, commitmentVector.expected);
   });
 
+  it('rejects service zero instead of creating an unusable open round', async () => {
+    await reverted(manager.openRound(0), 'InvalidService');
+    assert.equal(await manager.nextRoundId(), roundId);
+  });
+
   it('opens, commits, reveals and finalizes a round with validated events', async () => {
     const opened = await manager.openRound(1);
     const openReceipt = await opened.wait();
@@ -97,9 +102,14 @@ describe('RoundManager', () => {
     await manager.openRound(1);
     const critic = signers[2]!;
     const client: RoundAgentContract = {
-      commit: async (id, hash) => manager.connect(critic).commit(id, hash),
-      reveal: async (id, score, revealSalt, hash, cost) => manager.connect(critic).reveal(id, score, revealSalt, hash, cost),
+      commit: async (id, hash) => (await manager.connect(critic).commit(id, hash)).hash,
+      reveal: async (id, score, revealSalt, hash, cost) => (await manager.connect(critic).reveal(id, score, revealSalt, hash, cost)).hash,
+      waitForReceipt: async hash => {
+        const receipt = await (await ethers.provider.getTransaction(hash))?.wait();
+        return { status: receipt?.status === 1 ? 'success' : 'reverted' };
+      },
       isCommitted: async (id, address) => manager.hasCommitted(id, address),
+      isRevealed: async (id, address) => manager.hasRevealed(id, address),
     };
     const path = join(temporaryDirectory, 'critic-state.json');
     const firstProcess = createRoundAgent({ critic: await critic.getAddress(), contract: client, store: new FileRoundStateStore(path), saltFactory: () => salt });
