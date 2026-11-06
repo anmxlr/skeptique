@@ -19,6 +19,10 @@ import { paywallFromEnv, startService } from "../../services/common/server";
  *   shown separately on Hedera (ticket 15); paying ~100 critic calls per demo would make it slow.
  * - Probes are the fixed held-out cases below, not LLM-generated, so the scores are reproducible.
  * - flaky-fx is listed but never reviewed, so it stays unrated.
+ * - The probe judge always answers "fail" (judge: async () => false), which costs the honest service
+ *   about 3 points of median.
+ * - The 3 critics per service run identical deterministic code, so their scores agree by construction;
+ *   the stake-weighted median here shows the mechanism, not independent opinions.
  * Buyer calls go to the listed endpoints, which require real x402 payment on Hedera testnet.
  */
 const REVIEWED = ["unit-convert", "suite-gamer"] as const;

@@ -1,4 +1,5 @@
 import type { Llm } from "./llm";
+import { CURRENCY_CODES, UNIT_KEYS } from "./oracle";
 import { type Task, TaskSchema } from "./schema";
 
 export type PresetTask = { id: string; prompt: string; task: Task; why: string };
@@ -59,14 +60,14 @@ export const TASK_PACK: readonly PresetTask[] = [
 ];
 
 export const PARSER_SYSTEM_PROMPT = `You turn a user's request into a structured task. Supported categories:
-- "conversion": physical units. input = { value, from, to } with unit symbols exactly from: mm cm m km in ft mi g kg lb mL L C F K.
-- "currency-conversion": input = { amount, from, to } with ISO 4217 codes (e.g. USD, EUR, INR, GBP).
+- "conversion": physical units. input = { value, from, to } with unit symbols exactly from: ${UNIT_KEYS.join(" ")}.
+- "currency-conversion": input = { amount, from, to } with ISO 4217 codes, only: ${CURRENCY_CODES.join(", ")}.
 If the request is anything else, return category "unsupported" with a short reason. Do not solve the task.`;
 
 /** Free text → one structured task, parsed once and shared by both agents so they get identical input. */
-export async function parseTask(llm: Llm, prompt: string): Promise<Task> {
+export async function parseTask(llm: Llm, prompt: string): Promise<{ task: Task; source: "preset" | "parser" }> {
   const preset = TASK_PACK.find((t) => t.prompt.toLowerCase() === prompt.trim().toLowerCase());
-  if (preset) return preset.task;
+  if (preset) return { task: preset.task, source: "preset" };
   const { value } = await llm.ask({ system: PARSER_SYSTEM_PROMPT, prompt, schema: TaskSchema });
-  return value;
+  return { task: value, source: "parser" };
 }

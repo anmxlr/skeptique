@@ -7,7 +7,8 @@ export const BUYER_SYSTEM_PROMPT = `You are an autonomous buyer agent with a cry
 Rules:
 - Use only the listing data provided. Never assume facts that are not in it.
 - Pick the service most likely to return a correct answer. Price matters only between equally trustworthy options.
-- If no listed service is likely to be correct, return serviceId null; buying nothing is allowed.
+- Option numbers are assigned at random for each run and carry no meaning.
+- If no listed service is likely to be correct, return option null; buying nothing is allowed.
 - Explain your choice in two sentences or fewer and list the listing fields you relied on in signalsUsed.`;
 
 /*
@@ -15,17 +16,17 @@ Rules:
  * internal names like "suite-gamer" that would leak the answer; a real bad actor picks a flattering
  * name. So both agents see the same neutral label instead of the name, never one side only.
  */
-const baselineListing = (s: ServiceView) => ({
-  id: s.id,
-  label: `Service #${s.id}`,
+const baselineListing = (s: ServiceView, index: number) => ({
+  option: index + 1,
+  label: `Service #${index + 1}`,
   category: s.category,
   priceTinybars: s.pricePerCall,
   paidCallsByBuyers: s.popularityCalls,
 });
 
 /** The same listing plus Skeptique's stake-backed review evidence. */
-const skeptiqueListing = (s: ServiceView) => ({
-  ...baselineListing(s),
+const skeptiqueListing = (s: ServiceView, index: number) => ({
+  ...baselineListing(s, index),
   skeptiqueMedianScore: s.median,
   skeptiqueConfidence: Number(s.confidence.toFixed(2)),
   skeptiqueRank: Number(s.rank.toFixed(1)),
@@ -36,19 +37,18 @@ const skeptiqueListing = (s: ServiceView) => ({
 const LEGEND: Record<Side, string> = {
   baseline: "paidCallsByBuyers = number of paid calls other buyers made (popularity).",
   skeptique:
-    "paidCallsByBuyers = number of paid calls other buyers made (popularity). skeptiqueMedianScore = stake-weighted median 0-100 from staked critics who paid to run the public test suite (40%) and their own private probes (60%); null = never reviewed. skeptiqueConfidence 0-1 grows with reviews and decays with age.",
+    "paidCallsByBuyers = number of paid calls other buyers made (popularity). skeptiqueMedianScore = stake-weighted median 0-100 from staked critics who ran the public test suite (40%) and their own private probes (60%); null = never reviewed. skeptiqueConfidence 0-1 grows with reviews and decays with age.",
 };
 
+/** `options` are the in-category services in option order: options[k - 1] is shown as option k. */
 export function buildPrompt(
   side: Side,
   userPrompt: string,
   task: GradedTask,
-  services: readonly ServiceView[],
+  options: readonly ServiceView[],
   budgetTinybars: bigint,
 ): string {
-  const listings = services
-    .filter((s) => s.category === task.category)
-    .map(side === "baseline" ? baselineListing : skeptiqueListing);
+  const listings = options.map(side === "baseline" ? baselineListing : skeptiqueListing);
   return [
     `User request: ${userPrompt}`,
     `Structured task (sent to the chosen service): ${JSON.stringify(task.input)}`,

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 import { z } from "zod";
 
 export type LlmAnswer<T> = { value: T; model: string; costUsd: number | null; ms: number; raw: string };
@@ -18,11 +19,22 @@ const CliOutputSchema = z.object({
   total_cost_usd: z.number().optional(),
 });
 
+/** Only what the CLI needs to find itself and its login: never the buyer's keys. */
+const childEnv = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) =>
+        ["PATH", "HOME", "USER", "LANG", "TERM"].includes(key) ||
+        key.startsWith("ANTHROPIC_") ||
+        key.startsWith("CLAUDE_"),
+    ),
+  );
+
 type ClaudeCliOptions = { model?: string; bin?: string; timeoutMs?: number; retries?: number };
 
 /**
- * Runs `claude -p` with no tools, no MCP servers, no settings and no saved session, so the only
- * thing the model can do is answer the given prompt in the given JSON schema.
+ * Runs `claude -p` in safe mode with no tools, no MCP servers, no settings and no saved session, from
+ * a temp dir with a minimal env, so the only thing the model can do is answer in the given JSON schema.
  */
 export function createClaudeCliLlm({
   model = "claude-haiku-5-5",
@@ -50,8 +62,9 @@ export function createClaudeCliLlm({
           "--setting-sources",
           "",
           "--strict-mcp-config",
+          "--safe-mode",
         ],
-        { stdio: ["pipe", "pipe", "pipe"] },
+        { stdio: ["pipe", "pipe", "pipe"], cwd: tmpdir(), env: childEnv() },
       );
       let out = "";
       let err = "";
@@ -74,6 +87,7 @@ export function createClaudeCliLlm({
         if (code === 0) resolve(out);
         else reject(new LlmError(`claude CLI exited ${code}: ${err.slice(0, 300)}`));
       });
+      child.stdin.on("error", () => {}); // the close handler reports a child that died early
       child.stdin.end(prompt);
     });
 

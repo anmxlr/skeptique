@@ -1,6 +1,7 @@
 import type { ServiceView } from "@skeptique/shared";
 import type { PayAndCall } from "@skeptique/x402-client";
 import type { Llm } from "../src/llm";
+import { expectedConversion } from "../src/oracle";
 import type { SpendPolicy } from "../src/policy";
 import type { Decision } from "../src/schema";
 
@@ -43,13 +44,30 @@ export function fakeLlm(choose: (prompt: string) => Decision | Error): Llm {
   };
 }
 
-/** Behaves like the real services: the good one converts, the gamer echoes the value. */
+/** An unreviewed FX service. */
+export const FX = service({
+  id: 3,
+  name: "flaky-fx",
+  category: "currency-conversion",
+  endpoint: "http://fx.test/call",
+  median: null,
+  confidence: 0,
+  rank: 0,
+  nRounds: 0,
+  lastRoundAt: null,
+});
+
+/** Behaves like the real services: the good one converts, the gamer echoes the value, FX is stale. */
 export const fakePay =
   (calls: string[] = []): PayAndCall =>
   async ({ url, body }) => {
     calls.push(url);
-    const { value, to } = body as { value: number; to: string };
-    const response = url.includes("good") ? { result: value * 100, unit: to } : { result: value, unit: to };
+    const { value, from, to } = body as { value: number; from: string; to: string };
+    const response = url.includes("good")
+      ? { result: expectedConversion(value, from, to), unit: to }
+      : url.includes("fx")
+        ? { converted: 0 }
+        : { result: value, unit: to };
     return { response, txId: `0.0.1@${calls.length}.0`, paid: true };
   };
 
@@ -58,3 +76,26 @@ export const policy = (evidence: SpendPolicy["evidence"]): SpendPolicy => ({
   maxPerCallTinybars: 5_000n,
   evidence,
 });
+
+type Listing = { option: number; paidCallsByBuyers: number; skeptiqueMedianScore?: number | null };
+
+/** The listings JSON a buyer agent was shown, in option order. */
+export const listingsIn = (prompt: string): Listing[] =>
+  JSON.parse(prompt.split("Listings (the only data you have):\n")[1] ?? "[]");
+
+export const isSkeptique = (prompt: string) => prompt.includes("skeptiqueMedianScore");
+
+/** The option a buyer would pick by popularity (baseline) or by review score (skeptique). */
+export const byPopularity = (prompt: string) =>
+  [...listingsIn(prompt)].sort((a, b) => b.paidCallsByBuyers - a.paidCallsByBuyers)[0]?.option ?? null;
+export const byScore = (prompt: string) =>
+  [...listingsIn(prompt)].sort((a, b) => (b.skeptiqueMedianScore ?? -1) - (a.skeptiqueMedianScore ?? -1))[0]?.option ??
+  null;
+
+/** Baseline follows popularity, Skeptique follows review score: the scripted demo outcome. */
+export const scriptedLlm = () =>
+  fakeLlm((prompt) => ({
+    option: isSkeptique(prompt) ? byScore(prompt) : byPopularity(prompt),
+    reason: "scripted",
+    signalsUsed: [],
+  }));

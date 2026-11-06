@@ -7,8 +7,8 @@ import { buildArenaServer } from "./server";
 
 /*
  * Starts the arena against a running Skeptique API. Payments always settle on Hedera testnet: the
- * process refuses to start without the facilitator and buyer account, and checks that every listed
- * endpoint actually demands payment (HTTP 402) before accepting runs.
+ * process refuses to start without the facilitator and buyer account, if a buyer is also the seller,
+ * or if any listed endpoint does not demand payment (HTTP 402).
  */
 export const fail = (message: string): never => {
   console.error(`arena: ${message}`);
@@ -36,13 +36,17 @@ export async function startArena(apiUrl: string, env: Record<string, string | un
     env.ARENA_BASELINE_ACCOUNT_ID && env.ARENA_BASELINE_PRIVATE_KEY
       ? { accountId: env.ARENA_BASELINE_ACCOUNT_ID, privateKey: env.ARENA_BASELINE_PRIVATE_KEY }
       : buyer;
+  if (env.SELLER_ACCOUNT_ID && [buyer.accountId, baselineSigner.accountId].includes(env.SELLER_ACCOUNT_ID))
+    fail("SELLER_ACCOUNT_ID must differ from the buyer accounts, or payments would move no money");
 
   const shared = baselineSigner === buyer ? serial(createHederaPayAndCall()) : null;
   const budgetTinybars = BigInt(env.ARENA_BUDGET_TINYBARS ?? "100000000");
   const maxPerCallTinybars = BigInt(env.ARENA_MAX_PER_CALL_TINYBARS ?? "50000000");
   const basePolicy: SpendPolicy = { budgetTinybars, maxPerCallTinybars, evidence: null };
 
-  const res = await fetch(new URL("/services", apiUrl)).catch((e) => fail(`cannot reach ${apiUrl}: ${e.message}`));
+  const res = await fetch(new URL("/services", apiUrl), { signal: AbortSignal.timeout(10_000) }).catch((e) =>
+    fail(`cannot reach ${apiUrl}: ${e.message}`),
+  );
   if (!res.ok) fail(`GET ${apiUrl}/services responded ${res.status}`);
   const services = ServiceViewSchema.array().parse(await res.json());
   const paywall: Record<string, string> = {};
@@ -62,17 +66,29 @@ export async function startArena(apiUrl: string, env: Record<string, string | un
       }
     }),
   );
+  for (const [name, status] of Object.entries(paywall)) console.log(`  ${name}: ${status}`);
+  const open = Object.entries(paywall).filter(([, status]) => !status.startsWith("402"));
+  if (open.length > 0) fail(`every listed endpoint must answer 402; not: ${open.map(([name]) => name).join(", ")}`);
 
+  const provenance = env.ARENA_PROVENANCE ?? "api";
   const app = buildArenaServer({
     apiUrl,
     webOrigin,
     network: "hedera:testnet",
+    provenance,
+    port,
     llm: createClaudeCliLlm({ model: env.ARENA_MODEL ?? "claude-haiku-5-5" }),
     sides: {
-      baseline: { payAndCall: shared ?? createHederaPayAndCall(), signer: baselineSigner, policy: basePolicy },
+      baseline: {
+        payAndCall: shared ?? createHederaPayAndCall(),
+        signer: baselineSigner,
+        payer: baselineSigner.accountId,
+        policy: basePolicy,
+      },
       skeptique: {
         payAndCall: shared ?? createHederaPayAndCall(),
         signer: buyer,
+        payer: buyer.accountId,
         policy: { ...basePolicy, evidence: { minMedian: Number(env.ARENA_MIN_MEDIAN ?? 70), minRounds: 1 } },
       },
     },
@@ -80,11 +96,10 @@ export async function startArena(apiUrl: string, env: Record<string, string | un
       paywall,
       buyer: buyer.accountId,
       baselineBuyer: baselineSigner.accountId,
-      provenance: env.ARENA_PROVENANCE ?? "api",
+      provenance,
     }),
   });
   await app.listen({ port, host: "127.0.0.1" });
   console.log(`arena on http://127.0.0.1:${port} · api ${apiUrl} · buyer ${buyer.accountId}`);
-  for (const [name, status] of Object.entries(paywall)) console.log(`  ${name}: ${status}`);
   return app;
 }

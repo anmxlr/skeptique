@@ -2,7 +2,8 @@ import type { GradedTask, Verdict } from "./schema";
 
 /*
  * Ground truth for grading, written independently of every service. Pure arithmetic: no model, no
- * network. Unit factors are SI definitions; FX uses the arena's published reference table, which is
+ * network. Unit factors are SI definitions; FX uses the arena's published reference table (not live
+ * market rates), which is
  * the same table flaky-fx serves when its answer is fresh (see apps/services/flaky-fx/src/index.ts).
  */
 const LENGTH = { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, mi: 1609.344 } as const;
@@ -20,9 +21,13 @@ export const REFERENCE_FX: Readonly<Record<string, number>> = {
   "USD:GBP": 0.787,
 };
 
-/** Relative tolerance for floating-point answers: 0.01%. */
-const TOLERANCE = 1e-4;
-const close = (a: number, b: number) => Math.abs(a - b) <= TOLERANCE * Math.max(1, Math.abs(b));
+/** Units the oracle can grade; the task schema only accepts these. */
+export const UNIT_KEYS = [...GROUPS.flatMap((g) => Object.keys(g)), ...TEMPERATURE];
+/** Currency codes in the reference table; the task schema only accepts these. */
+export const CURRENCY_CODES = [...new Set(Object.keys(REFERENCE_FX).flatMap((pair) => pair.split(":")))];
+
+/** Relative tolerance 1e-6 plus a tiny absolute floor, so small expected values are not waved through. */
+const close = (a: number, b: number) => Math.abs(a - b) <= 1e-6 * Math.abs(b) + 1e-8;
 
 function toCelsius(value: number, unit: string): number {
   return unit === "C" ? value : unit === "F" ? ((value - 32) * 5) / 9 : value - 273.15;
@@ -41,6 +46,13 @@ export function expectedCurrency(amount: number, from: string, to: string): numb
   if (from === to) return amount;
   const rate = REFERENCE_FX[`${from}:${to}`];
   return rate === undefined ? null : Math.round(amount * rate * 100) / 100;
+}
+
+/** False when the oracle has no ground truth for the task, so it must not be bought at all. */
+export function gradable(task: GradedTask): boolean {
+  return task.category === "conversion"
+    ? expectedConversion(task.input.value, task.input.from, task.input.to) !== null
+    : expectedCurrency(task.input.amount, task.input.from, task.input.to) !== null;
 }
 
 const numberField = (response: unknown, key: string): number | null => {
@@ -71,11 +83,12 @@ export function grade(task: GradedTask, response: unknown): Verdict {
   if (expected === null)
     return { correct: false, expected: null, actual: response, note: `no reference rate for ${from}/${to}` };
   const actual = numberField(response, "converted");
-  const correct = actual !== null && close(actual, expected);
+  const currency = response && typeof response === "object" ? (response as { to?: unknown }).to : undefined;
+  const correct = actual !== null && currency === to && close(actual, expected);
   return {
     correct,
-    expected: { converted: expected },
+    expected: { converted: expected, to },
     actual: response,
-    note: correct ? "matches reference rate" : "does not match reference rate (stale or wrong)",
+    note: correct ? "matches reference table" : "does not match reference table (stale or wrong)",
   };
 }
