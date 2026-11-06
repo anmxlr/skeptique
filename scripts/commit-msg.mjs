@@ -28,7 +28,8 @@ if (isMain) {
   const [flag, value] = process.argv.slice(2);
   const messages =
     flag === "--range"
-      ? execFileSync("git", ["log", "--format=%B%x00", value], { encoding: "utf8" })
+      ? // Preserve existing merge history, including custom merge subjects. Ordinary commits still require the convention.
+        execFileSync("git", ["log", "--no-merges", "--format=%B%x00", value], { encoding: "utf8" })
           .split("\0")
           .map((m) => m.trim())
           .filter(Boolean)

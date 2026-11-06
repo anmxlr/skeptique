@@ -14,5 +14,9 @@
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@skeptic/shared": "workspace:*",
+    "ajv": "^8.20.0"
   }
 }
