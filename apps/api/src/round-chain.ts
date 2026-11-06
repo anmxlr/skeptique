@@ -10,22 +10,31 @@ export interface RoundSource extends RoundViewSource {
 
 /** Indexes RoundManager events from the chain into RoundViews. */
 export function createRoundSource(options: {
-  client: Pick<PublicClient, "getContractEvents" | "readContract">;
+  client: Pick<PublicClient, "getContractEvents" | "readContract" | "getBlock">;
   address: `0x${string}`;
   now?: () => number;
+  fromBlock?: bigint;
 }): RoundSource {
-  const fetchEvents = <E extends "RoundOpened" | "CriticCommitted" | "CriticRevealed" | "RoundFinalized">(
-    eventName: E,
-  ) => options.client.getContractEvents({ address: options.address, abi: roundManagerAbi, eventName, fromBlock: 0n });
-
   const all = async (): Promise<RoundView[]> => {
+    const block = await options.client.getBlock();
+    const fetchEvents = <E extends "RoundOpened" | "CriticCommitted" | "CriticRevealed" | "RoundFinalized">(
+      eventName: E,
+    ) =>
+      options.client.getContractEvents({
+        address: options.address,
+        abi: roundManagerAbi,
+        eventName,
+        fromBlock: options.fromBlock ?? 0n,
+        toBlock: block.number,
+        strict: true,
+      });
     const [opened, committed, revealed, finalized] = await Promise.all([
       fetchEvents("RoundOpened"),
       fetchEvents("CriticCommitted"),
       fetchEvents("CriticRevealed"),
       fetchEvents("RoundFinalized"),
     ]);
-    const now = options.now?.() ?? Math.floor(Date.now() / 1000);
+    const now = options.now?.() ?? Number(block.timestamp);
     const views: RoundView[] = [];
     for (const log of opened) {
       const { roundId, serviceId, commitEnd, revealEnd } = log.args;
@@ -38,14 +47,16 @@ export function createRoundSource(options: {
           .map(async ({ args }) => ({
             critic: args.critic as string,
             score: Number(args.score),
-            honest: done
-              ? await options.client.readContract({
-                  address: options.address,
-                  abi: roundManagerAbi,
-                  functionName: "isHonest",
-                  args: [roundId, args.critic as `0x${string}`],
-                })
-              : null,
+            honest:
+              done && !done.args.isVoid
+                ? await options.client.readContract({
+                    address: options.address,
+                    abi: roundManagerAbi,
+                    functionName: "isHonest",
+                    args: [roundId, args.critic as `0x${string}`],
+                    blockNumber: block.number,
+                  })
+                : null,
           })),
       );
       const snapshot: RoundSnapshot = {
@@ -54,7 +65,7 @@ export function createRoundSource(options: {
         commitEnd: Number(commitEnd),
         revealEnd: Number(revealEnd),
         finalized: done !== undefined,
-        median: done ? Number(done.args.median) : null,
+        median: done && !done.args.isVoid ? Number(done.args.median) : null,
         committed: committed
           .filter((entry) => entry.args.roundId === roundId)
           .map((entry) => entry.args.critic as string),

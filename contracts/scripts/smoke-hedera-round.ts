@@ -159,13 +159,7 @@ export async function smokeHederaRound(env: NodeJS.ProcessEnv = process.env) {
     args: [serviceId],
   });
   if (service.bounty !== minFee) throw new Error("20 HBAR listing did not arrive in tinybars");
-  const opened = await write(seller, {
-    address: RoundManager,
-    abi: roundManagerAbi,
-    functionName: "openRound",
-    args: [serviceId],
-  });
-  const [roundLog] = parseEventLogs({ abi: roundManagerAbi, eventName: "RoundOpened", logs: opened.logs });
+  const [roundLog] = parseEventLogs({ abi: roundManagerAbi, eventName: "RoundOpened", logs: listed.logs });
   if (!roundLog) throw new Error("Opening emitted no RoundOpened event");
   const roundId = roundLog.args.roundId;
   const scores = [68, 72, 76];

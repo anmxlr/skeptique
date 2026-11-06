@@ -81,6 +81,7 @@ const app = buildApp(
       fromBlock,
     }),
     rounds: createRoundSource({ client: publicClient, address: RoundManager, fromBlock }),
+    events: { client: publicClient, address: RoundManager, fromBlock },
     evidence: evidenceStore,
     serviceReviews: createServiceReviewSource({
       client: publicClient,

@@ -7,8 +7,7 @@ export type Address = `0x${string}`;
 // Contract amounts are tinybars (spec/notes/hedera-x402.md); the local chain uses the same numbers.
 const TINYBARS_PER_HBAR = 10n ** 8n;
 
-// The local chain runs the spec's demo windows, and one critic is enough to finalise (stake-weighted quorum
-// arrives with real K_MIN in a later ticket).
+// The single-critic recovery fixture uses demo windows and K_MIN=1; Hedera deployment retains K_MIN=3.
 export const LOCAL_ROUND_CONFIG = { COMMIT_SECS: 90, REVEAL_SECS: 45, K_MIN: 1 } as const;
 
 // Deploys every contract the local stack needs and returns name -> address.

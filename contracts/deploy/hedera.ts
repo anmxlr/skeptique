@@ -97,16 +97,35 @@ export async function deployHedera(env: NodeJS.ProcessEnv = process.env): Promis
     config.tolerance,
     config.slashBps,
   ]);
-  const hash = await wallet.writeContract({
-    address: CriticRegistry,
-    abi: artifacts[1]!.abi,
-    functionName: "setRoundManager",
-    args: [RoundManager],
-  });
-  console.log(`Authorize RoundManager: ${hashscanTransaction(hash)}`);
-  if ((await client.waitForTransactionReceipt({ hash })).status !== "success")
-    throw new Error("RoundManager authorization failed");
-  transactions.push({ name: "AuthorizeRoundManager", hash });
+  for (const authorization of [
+    {
+      address: CriticRegistry,
+      abi: artifacts[1]!.abi,
+      functionName: "setRoundManager",
+      args: [RoundManager],
+      name: "AuthorizeRoundManager",
+    },
+    {
+      address: RoundManager,
+      abi: artifacts[2]!.abi,
+      functionName: "setServiceRegistry",
+      args: [ServiceRegistry],
+      name: "BindServiceRegistry",
+    },
+    {
+      address: ServiceRegistry,
+      abi: artifacts[0]!.abi,
+      functionName: "setRoundManager",
+      args: [RoundManager],
+      name: "EnableAutomaticRounds",
+    },
+  ]) {
+    const { name, ...request } = authorization;
+    const hash = await wallet.writeContract(request);
+    console.log(`${name}: ${hashscanTransaction(hash)}`);
+    if ((await client.waitForTransactionReceipt({ hash })).status !== "success") throw new Error(`${name} failed`);
+    transactions.push({ name, hash });
+  }
   const deployment = DeploymentSchema.parse({
     version: 1,
     network: "hedera-testnet",

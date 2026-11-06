@@ -51,13 +51,15 @@ async function mockApi(page: Page) {
     const body =
       path === "/services"
         ? SERVICES
-        : path.startsWith("/services/")
-          ? SERVICES.find((s) => s.id === Number(path.split("/")[2]))
-          : path === "/critics"
-            ? CRITICS
-            : path === "/buyer/runs"
-              ? RUNS
-              : undefined;
+        : /^\/services\/\d+\/(rounds|reviews)$/.test(path)
+          ? []
+          : path.startsWith("/services/")
+            ? SERVICES.find((s) => s.id === Number(path.split("/")[2]))
+            : path === "/critics"
+              ? CRITICS
+              : path === "/buyer/runs"
+                ? RUNS
+                : undefined;
     await route.fulfill(
       body === undefined
         ? { status: 404, json: { error: "Not found" }, headers: { "access-control-allow-origin": "*" } }
@@ -160,6 +162,7 @@ test("live updates: a round phase change appears on an open service page without
         commitEnd: "2026-11-06T10:00:00.000Z",
         revealEnd: "2026-11-06T10:05:00.000Z",
         median: finalized ? 88 : null,
+        committed: [],
         reveals: [],
       },
       headers: { "access-control-allow-origin": "*" },

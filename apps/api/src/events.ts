@@ -8,6 +8,7 @@ export interface ChainEventDeps {
   /** RoundManager address. */
   address: `0x${string}`;
   pollMs?: number;
+  fromBlock?: bigint;
 }
 
 export type ChainEvent = { type: keyof typeof EventSchemas; data: unknown };
@@ -90,7 +91,7 @@ export function registerEventRoutes(app: FastifyInstance, deps: ChainEventDeps):
     open.add(close);
     request.raw.on("close", close);
 
-    let fromBlock = 0n;
+    let fromBlock = deps.fromBlock ?? 0n;
     const poll = async () => {
       try {
         const toBlock = await deps.client.getBlockNumber();

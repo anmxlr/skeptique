@@ -57,6 +57,11 @@
   },
   {
     "inputs": [],
+    "name": "BountyExhausted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "CommitPhaseActive",
     "type": "error"
   },
@@ -98,6 +103,11 @@
   {
     "inputs": [],
     "name": "NotCommitted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RegistryAlreadySet",
     "type": "error"
   },
   {
@@ -319,6 +329,19 @@
     "outputs": [
       {
         "internalType": "contract ICriticStakeRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "deployer",
+    "outputs": [
+      {
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -564,6 +587,32 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "serviceRegistry",
+    "outputs": [
+      {
+        "internalType": "contract IServiceBounty",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "serviceRegistry_",
+        "type": "address"
+      }
+    ],
+    "name": "setServiceRegistry",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

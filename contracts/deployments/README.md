@@ -10,7 +10,7 @@ HEDERA_DEMO_WINDOWS=true pnpm --filter @skeptique/contracts deploy:hedera
 pnpm test:live -t 'round on hedera testnet'
 ```
 
-The deployment command compiles and deploys ServiceRegistry, CriticRegistry and RoundManager, authorizes the manager in CriticRegistry, checks successful receipts and writes `hedera-testnet.json`. Every submitted transaction prints its HashScan link. Repeating the command deploys fresh contracts and atomically replaces the manifest only after all transactions succeed. Failed runs leave the previous manifest intact; earlier successful transaction links remain in the console.
+The deployment command compiles and deploys ServiceRegistry, CriticRegistry and RoundManager, authorizes the manager in CriticRegistry, binds the service registry and enables automatic first rounds, checks successful receipts and writes `hedera-testnet.json`. Every submitted transaction prints its HashScan link. Repeating the command deploys fresh contracts and atomically replaces the manifest only after all transactions succeed. Failed runs leave the previous manifest intact; earlier successful transaction links remain in the console.
 
 `DEPLOYMENT_PATH` can override the manifest location. Empty or whitespace values use the default. Relative overrides always resolve against the repository root, including when pnpm changes the working directory. Full generated ABI JSON is exported to `packages/shared/abi/generated/`; clients also retain the existing typed ABI modules.
 

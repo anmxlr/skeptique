@@ -56,7 +56,7 @@ describe("marketplace ranks services", () => {
       },
     });
     expect(listed).toHaveLength(3);
-    for (let i = 2; i < 7; i++) {
+    for (const i of [0, 2, 3, 4, 5, 6, 7, 8]) {
       await registerDemoCritic({
         rpcUrl: stack.rpcUrl,
         registry: stack.contracts.CriticRegistry,
@@ -70,25 +70,24 @@ describe("marketplace ranks services", () => {
       await hre.network.provider.request({ method: "evm_setNextBlockTimestamp", params: [Number(timestamp)] });
       await hre.network.provider.request({ method: "evm_mine", params: [] });
     };
-    // Same score, different sample sizes: listing order is deliberately opposite confidence order.
-    for (const [serviceId, count] of [
-      [1n, 3],
-      [2n, 5],
-    ] as const) {
-      const roundId = await manager.read.nextRoundId();
-      await manager.write.openRound([serviceId]);
-      const round = await manager.read.getRound([roundId]);
-      for (let i = 2; i < count + 2; i++) {
+    // Listings open concurrent rounds; distinct critics cannot reuse locked collateral across them.
+    const plans = [
+      { roundId: 1n, critics: [0, 2, 3] },
+      { roundId: 2n, critics: [4, 5, 6, 7, 8] },
+    ];
+    for (const plan of plans)
+      for (const i of plan.critics) {
         const commitment = await manager.read.commitmentFor([80, salt, evidence, wallets[i].account.address]);
-        await manager.write.commit([roundId, commitment], { account: wallets[i].account });
+        await manager.write.commit([plan.roundId, commitment], { account: wallets[i].account });
       }
-      await moveTo(round.commitEnd);
-      for (let i = 2; i < count + 2; i++) {
-        await manager.write.reveal([roundId, 80, salt, evidence, 0n], { account: wallets[i].account });
-      }
-      await moveTo(round.revealEnd);
-      await client.waitForTransactionReceipt({ hash: await manager.write.finalize([roundId]) });
-    }
+    const rounds = await Promise.all(plans.map((plan) => manager.read.getRound([plan.roundId])));
+    await moveTo(rounds.reduce((latest, round) => (round.commitEnd > latest ? round.commitEnd : latest), 0n));
+    for (const plan of plans)
+      for (const i of plan.critics)
+        await manager.write.reveal([plan.roundId, 80, salt, evidence, 0n], { account: wallets[i].account });
+    await moveTo(rounds.reduce((latest, round) => (round.revealEnd > latest ? round.revealEnd : latest), 0n));
+    for (const plan of plans)
+      await client.waitForTransactionReceipt({ hash: await manager.write.finalize([plan.roundId]) });
     const response = await fetch(`${stack.apiUrl}/services`);
     expect(response.status).toBe(200);
     const services = await response.json();

@@ -77,7 +77,7 @@ describe("suite-gamer exposed", () => {
       seller: accounts[1],
       origins: stack.services,
     });
-    const critics = accounts.slice(2, 5);
+    const critics = accounts.slice(2, 8);
     for (const [i, critic] of critics.entries())
       await registerDemoCritic({
         rpcUrl: stack.rpcUrl,
@@ -87,19 +87,11 @@ describe("suite-gamer exposed", () => {
         attestorKey,
       });
     const medians: number[] = [];
+    const pendingRounds = [];
     for (const [index, name] of ["unit-convert", "suite-gamer"].entries()) {
       const id = index + 1;
-      await wait(
-        await owner.writeContract({
-          address,
-          abi: artifact.abi,
-          functionName: "openRound",
-          args: [BigInt(id)],
-          chain: null,
-        }),
-      );
       const reviews = [];
-      for (const critic of critics) {
+      for (const critic of critics.slice(index * 3, index * 3 + 3)) {
         const review = await runServiceReview({
           suiteUrl: `${stack.services[name]}/suite.json`,
           specHash: serviceByName(name)!.specHash,
@@ -151,7 +143,10 @@ describe("suite-gamer exposed", () => {
         functionName: "getRound",
         args: [BigInt(id)],
       })) as { commitEnd: bigint; revealEnd: bigint };
-      await rpc(stack.rpcUrl, "evm_setNextBlockTimestamp", [Number(round.commitEnd)]);
+      pendingRounds.push({ id, index, reviews, round });
+    }
+    await rpc(stack.rpcUrl, "evm_setNextBlockTimestamp", [Number(pendingRounds.at(-1)!.round.commitEnd)]);
+    for (const { id, reviews } of pendingRounds) {
       for (const { review, wallet, salt } of reviews)
         await wait(
           await wallet.writeContract({
@@ -162,7 +157,9 @@ describe("suite-gamer exposed", () => {
             chain: null,
           }),
         );
-      await rpc(stack.rpcUrl, "evm_setNextBlockTimestamp", [Number(round.revealEnd)]);
+    }
+    await rpc(stack.rpcUrl, "evm_setNextBlockTimestamp", [Number(pendingRounds.at(-1)!.round.revealEnd)]);
+    for (const { id } of pendingRounds) {
       await wait(
         await owner.writeContract({
           address,
@@ -184,7 +181,13 @@ describe("suite-gamer exposed", () => {
       expect(visible).toHaveLength(3);
       const services = await (await fetch(`${stack.apiUrl}/services`)).json();
       const html = renderToString(
-        createElement(ServiceDetailView, { state: { status: "ready", service: services[index], reviews: visible } }),
+        createElement(ServiceDetailView, {
+          state: {
+            status: "ready",
+            service: services.find((entry: { id: number }) => entry.id === id),
+            reviews: visible,
+          },
+        }),
       );
       expect(html).toContain("Public suite");
       expect(html).toContain("Private probes");

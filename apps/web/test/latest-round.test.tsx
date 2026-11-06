@@ -10,6 +10,7 @@ const round = (phase: RoundView["phase"], median: number | null = null): RoundVi
   commitEnd: "2026-11-06T10:00:00.000Z",
   revealEnd: "2026-11-06T10:05:00.000Z",
   median,
+  committed: [],
   reveals: [],
 });
 

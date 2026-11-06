@@ -1,11 +1,11 @@
 "use client";
 
-import { type CaseResult, type Evidence, type RoundView, hashscanTxUrl } from "@skeptique/shared";
+import { type CaseResult, type Evidence, hashscanTxUrl, type RoundView } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { ApiError, apiClient, fetchEvidence, fetchService, fetchServiceRounds, type ServiceDetail } from "../lib/api";
 import { EnsName } from "./ens-name";
-import { LatestRound } from "./latest-round";
 import { EnsScore } from "./ens-score";
+import { LatestRound } from "./latest-round";
 import { formatHbar } from "./marketplace";
 import { Skeleton } from "./states";
 

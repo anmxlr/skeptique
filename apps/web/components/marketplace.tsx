@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type ApiRoutes, apiClient } from "../lib/api";
 import { EnsName } from "./ens-name";
-import { Skeleton } from "./states";
 import { EnsScore } from "./ens-score";
+import { Skeleton } from "./states";
 
 type MarketplaceService = ApiRoutes["/services"][number];
 

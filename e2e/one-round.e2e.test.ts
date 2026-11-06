@@ -133,7 +133,7 @@ describe("one round end to end", () => {
     const html = renderToString(
       createElement(ServiceDetailView, { state: { status: "ready", service: listed[0], rounds } }),
     );
-    expect(html).toContain(`Score ${evidence.score}`);
+    expect(html).toContain(`median ${evidence.score}`);
     expect(html).toContain("Round timeline");
     expect(html).toContain("Round 1: Finalised");
     expect(html).toContain("committed and revealed");

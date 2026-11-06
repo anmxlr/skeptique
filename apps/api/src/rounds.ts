@@ -2,6 +2,7 @@ import { type RoundView, RoundViewSchema } from "@skeptique/shared";
 import { roundManagerAbi } from "@skeptique/shared/abi/RoundManager";
 import type { FastifyInstance } from "fastify";
 import type { PublicClient } from "viem";
+import { createRoundSource as createRoundIndex } from "./round-chain";
 import { getServiceRoundTimeline, toRoundView } from "./round-view";
 
 export interface RoundViewSource {
@@ -15,6 +16,7 @@ export function createRoundSource(options: {
   fromBlock?: bigint;
 }): RoundViewSource {
   return {
+    all: createRoundIndex(options).all,
     async get(roundId) {
       const block = await options.client.getBlock();
       const round = await options.client.readContract({
@@ -25,7 +27,7 @@ export function createRoundSource(options: {
         blockNumber: block.number,
       });
       if (round.serviceId === 0n) return undefined;
-      const [logs, finalizations] = await Promise.all([
+      const [logs, finalizations, commits] = await Promise.all([
         options.client.getContractEvents({
           address: options.address,
           abi: roundManagerAbi,
@@ -39,6 +41,15 @@ export function createRoundSource(options: {
           address: options.address,
           abi: roundManagerAbi,
           eventName: "RoundFinalized",
+          args: { roundId: BigInt(roundId) },
+          fromBlock: options.fromBlock ?? 0n,
+          toBlock: block.number,
+          strict: true,
+        }),
+        options.client.getContractEvents({
+          address: options.address,
+          abi: roundManagerAbi,
+          eventName: "CriticCommitted",
           args: { roundId: BigInt(roundId) },
           fromBlock: options.fromBlock ?? 0n,
           toBlock: block.number,
@@ -70,7 +81,7 @@ export function createRoundSource(options: {
           revealEnd: Number(round.revealEnd),
           finalized: round.finalized,
           median: round.finalized && !isVoid ? round.median : null,
-          committed: [],
+          committed: commits.map((log) => log.args.critic),
           reveals,
           void: isVoid,
         },

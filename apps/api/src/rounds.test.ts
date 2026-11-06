@@ -4,6 +4,37 @@ import { describe, expect, it } from "vitest";
 import { createRoundSource, registerRoundRoutes } from "./rounds";
 
 describe("round API route", () => {
+  it("serves the timeline and committer state from the deployment block at one pinned head", async () => {
+    const critic = "0x0000000000000000000000000000000000000001";
+    const client = {
+      getBlock: async () => ({ number: 42n, timestamp: 250n }),
+      getContractEvents: async (request: { fromBlock: bigint; toBlock: bigint; eventName: string }) => {
+        expect(request.fromBlock).toBe(20n);
+        expect(request.toBlock).toBe(42n);
+        const args = { roundId: 1n, serviceId: 3n, commitEnd: 100n, revealEnd: 200n, critic, score: 72 };
+        return request.eventName === "RoundFinalized" ? [] : [{ args }];
+      },
+      readContract: async () => {
+        throw new Error("An unfinished round must not publish an honesty verdict");
+      },
+    } as unknown as Pick<PublicClient, "getBlock" | "readContract" | "getContractEvents">;
+    const app = Fastify();
+    registerRoundRoutes(app, createRoundSource({ client, address: critic, fromBlock: 20n }));
+    const response = await app.inject({ method: "GET", url: "/services/3/rounds" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject([
+      {
+        id: 1,
+        serviceId: 3,
+        phase: "finalizable",
+        median: null,
+        committed: [critic],
+        reveals: [{ score: 72, honest: null }],
+      },
+    ]);
+    await app.close();
+  });
+
   it("pins chain reads to one block and never publishes verdicts or median for a void round", async () => {
     const client = {
       getBlock: async () => ({ number: 42n, timestamp: 250n }),
