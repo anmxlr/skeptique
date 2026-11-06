@@ -162,6 +162,7 @@ a {
 .buyer-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  margin-top: 24px;
   gap: 16px;
 }
 
@@ -183,15 +184,16 @@ a {
   color: var(--muted);
 }
 
-.buyer-muted {
+.buyer-card .buyer-muted {
   margin-top: 4px;
   color: var(--muted);
 }
 
-.buyer-pick {
+.buyer-card .buyer-pick {
   margin: 12px 0 8px;
   font-size: 1.25rem;
   font-weight: 600;
+  color: var(--fg);
 }
 
 .buyer-stats {
