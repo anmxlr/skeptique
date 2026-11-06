@@ -6,7 +6,7 @@ import {
   suiteHash,
   type TestSuite,
   TestSuiteSchema,
-} from "@skeptic/shared";
+} from "@skeptique/shared";
 import canonicalize from "canonicalize";
 import { createBoundedExpectations } from "./bounded-expectations";
 

@@ -123,7 +123,7 @@ export type ServiceView = z.infer<typeof ServiceViewSchema>;
 
 /** One buyer-agent purchase: which service it picked, why, and what came back (ticket 24). */
 export const BuyerRunSchema = z.object({
-  strategy: z.enum(["skeptic", "popularity"]),
+  strategy: z.enum(["skeptique", "popularity"]),
   category: z.string().min(1),
   task: jsonValue,
   pick: ServiceViewSchema,
@@ -253,3 +253,6 @@ export const eventFixtures = {
   RoundFinalized: { roundId: 1, serviceId: 1, median: 73, nReveals: 3, void: false },
   RewardAccrued: { roundId: 1, critic: addr, amount: "1" },
 } as const;
+export { ensKeyPrefix, SELLER_KEYS, scoreKeys, serviceEnsName, serviceSlug } from "./ens";
+
+export { hashscanTxUrl } from "./hashscan";

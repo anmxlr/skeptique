@@ -13,15 +13,15 @@
 - size: M
 - tracks: ENS
 - read: spec/notes/ens.md, spec/03-interfaces.md (ENS records)
-- do: script to create `svc.skeptic.eth` and `critic.skeptic.eth` registries, Permissioned Resolver, and roles: seller edits only `url/description` on their subname; the relayer address alone may write `skeptic.*` keys. Provide `createServiceSubname` and `createCriticSubname` helpers.
-- done when: script run on Sepolia prints created names; a test proves a seller write to `skeptic.score` reverts and a relayer write succeeds.
+- do: script to create `svc.skeptique.eth` and `critic.skeptique.eth` registries, Permissioned Resolver, and roles: seller edits only `url/description` on their subname; the relayer address alone may write `skeptique.*` keys. Provide `createServiceSubname` and `createCriticSubname` helpers.
+- done when: script run on Sepolia prints created names; a test proves a seller write to `skeptique.score` reverts and a relayer write succeeds.
 
 ## D-3 · ENS publisher (relayer)
 - deps: D-2, T-01
 - size: M
 - tracks: ENS, Hedera
 - read: spec/03-interfaces.md, spec/02-mechanism.md §5
-- do: `apps/relayer` watches `RoundFinalized` and writes `skeptic.score`, `skeptic.confidence`, `skeptic.round`, `skeptic.hedera.tx`; updates critic honesty/slash counts; idempotent and restart-safe.
+- do: `apps/relayer` watches `RoundFinalized` and writes `skeptique.score`, `skeptique.confidence`, `skeptique.round`, `skeptique.hedera.tx`; updates critic honesty/slash counts; idempotent and restart-safe.
 - done when: replaying fixtures against a Sepolia fork or live resolver results in correct records and re-running makes no duplicate writes.
 
 ## D-4 · HCS audit publisher
@@ -37,5 +37,5 @@
 - size: S
 - tracks: ENS
 - read: spec/notes/ens.md
-- do: resolve service/critic subnames and read `skeptic.*` text records through the resolver (no hard-coded values); used by web and buyer.
+- do: resolve service/critic subnames and read `skeptique.*` text records through the resolver (no hard-coded values); used by web and buyer.
 - done when: unit test with a mocked resolver and one live Sepolia read pass.

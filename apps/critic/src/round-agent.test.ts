@@ -130,7 +130,7 @@ describe("file round state store", () => {
   });
 
   it("retains both payloads when different rounds are saved concurrently", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "skeptic-state-"));
+    const directory = await mkdtemp(join(tmpdir(), "skeptique-state-"));
     directories.push(directory);
     const store = new FileRoundStateStore(join(directory, "state.json"));
     await Promise.all([store.save({ ...input, critic, salt }), store.save({ ...input, roundId: 2, critic, salt })]);

@@ -1,0 +1,14 @@
+{
+  "name": "spike-ens-sepolia",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Ticket 03 spike: ENSv2 namespace on Sepolia, one relayer-written text record read back through the Universal Resolver. Plain node, outside the pnpm workspace.",
+  "scripts": {
+    "spike": "node ens.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "viem": "^2.57.16"
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "name": "skeptic",
+  "name": "skeptique",
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@9.15.0",
@@ -15,14 +15,14 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "env:check": "node scripts/env-check.mjs",
-    "seed": "pnpm --filter @skeptic/scripts exec tsx seed.ts",
-    "drills": "pnpm --filter @skeptic/scripts exec tsx drills.ts",
-    "settle:local": "pnpm --filter @skeptic/contracts settle:local",
+    "seed": "pnpm --filter @skeptique/scripts exec tsx seed.ts",
+    "drills": "pnpm --filter @skeptique/scripts exec tsx drills.ts",
+    "settle:local": "pnpm --filter @skeptique/contracts settle:local",
     "ai-usage": "node scripts/ai-usage.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.5",
-    "@skeptic/harness": "workspace:^",
+    "@skeptique/harness": "workspace:^",
     "@types/node": "^20.19.43",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"

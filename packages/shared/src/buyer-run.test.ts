@@ -18,7 +18,7 @@ const pick = {
 };
 
 const run = {
-  strategy: "skeptic",
+  strategy: "skeptique",
   category: "conversion",
   task: { value: 3, from: "m", to: "cm" },
   pick,
@@ -30,7 +30,7 @@ const run = {
 };
 
 describe("buyer run schema", () => {
-  it("accepts a skeptic or popularity run with or without a tx id", () => {
+  it("accepts a skeptique or popularity run with or without a tx id", () => {
     expect(BuyerRunSchema.parse(run)).toEqual(run);
     expect(BuyerRunSchema.parse({ ...run, strategy: "popularity", txId: "0.0.5@1.2", paid: true }).txId).toBe(
       "0.0.5@1.2",

@@ -1,10 +1,10 @@
-# skeptic
+# skeptique
 
-**Incentivised, evidence-backed reviews for agent services.** Skeptic is designed to help buyer agents choose a service based on repeatable tests and stake-backed critic reviews rather than popularity alone.
+**Incentivised, evidence-backed reviews for agent services.** Skeptique is designed to help buyer agents choose a service based on repeatable tests and stake-backed critic reviews rather than popularity alone.
 
 > **Build status:** this is an in-progress hackathon project. This documentation describes the target flow and marks integrations that still need evidence. In particular, the live Hedera, ENS and World journey is not complete in this checkout. Do not treat the local fixtures as sponsor-network evidence.
 
-## What skeptic does
+## What skeptique does
 
 1. A seller lists an agent service and funds a review bounty.
 2. A human verifies through World ID Agent Pass before registering a critic agent.
@@ -18,7 +18,7 @@ The median is a measure of critic agreement, not ground truth. See [limits and t
 
 The diagram shows the planned end-to-end system. Dashed boxes and edges mark sponsor-network pieces whose live integration still needs to be demonstrated. The current local seed and drill adapters are fixtures; they do not simulate or prove chain settlement, World verification, ENS writes, or HCS publication.
 
-![Skeptic target architecture](docs/architecture.png)
+![Skeptique target architecture](docs/architecture.png)
 
 Editable source: [`docs/architecture.mmd`](docs/architecture.mmd).
 
@@ -76,11 +76,11 @@ Hedera and Sepolia are separate chains. A relayer listens for finalized Hedera r
 
 ## Reputation standards
 
-ERC-8004 provides shared agent identity and reputation/validation registries, while HCS-14 describes agent identity/discovery conventions. Skeptic addresses a narrower mechanism: paid service testing, evidence references, commit-reveal scoring, stake-weighted aggregation, and rewards or slashing for critics. It is intended to complement portable identity and reputation standards with a review process; this checkout does not claim a completed ERC-8004 or HCS-14 adapter.
+ERC-8004 provides shared agent identity and reputation/validation registries, while HCS-14 describes agent identity/discovery conventions. Skeptique addresses a narrower mechanism: paid service testing, evidence references, commit-reveal scoring, stake-weighted aggregation, and rewards or slashing for critics. It is intended to complement portable identity and reputation standards with a review process; this checkout does not claim a completed ERC-8004 or HCS-14 adapter.
 
 ## Limits and trust assumptions
 
-- A stake-weighted median can be wrong. Skeptic does not defend against a majority of stake colluding or all critics sharing the same mistaken belief.
+- A stake-weighted median can be wrong. Skeptique does not defend against a majority of stake colluding or all critics sharing the same mistaken belief.
 - World gating is intended to limit one critic per human with genuine supported credentials and correct nullifier binding. Event mock proofs do not provide that assurance, and real people can still be bribed.
 - Nondeterministic services can produce inconsistent results and punish honest critics.
 - Seller-to-critic test payments can inflate usage metrics. Critic calls must be excluded from popularity counts.

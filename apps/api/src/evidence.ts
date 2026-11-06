@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { type Evidence, EvidenceSchema } from "@skeptic/shared";
+import { type Evidence, EvidenceSchema } from "@skeptique/shared";
 import canonicalize from "canonicalize";
 import type { FastifyInstance } from "fastify";
 

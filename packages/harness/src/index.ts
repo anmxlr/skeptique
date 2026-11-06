@@ -1,8 +1,8 @@
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
-import { type AppDeps, buildApp } from "@skeptic/api";
-import { type Address, deployLocal } from "@skeptic/contracts/deploy";
+import { type AppDeps, buildApp, createCriticSource, createRegistrySource, createRoundSource } from "@skeptique/api";
+import { type Address, deployLocal } from "@skeptique/contracts/deploy";
 import type { HardhatRuntimeEnvironment, JsonRpcServer } from "hardhat/types";
 import { createPublicClient, http } from "viem";
 
@@ -12,7 +12,7 @@ export interface StackOptions {
   /** Demo services to start, keyed by name. Each starter listens on its own free port. */
   services?: Record<string, ServiceStarter>;
   /** Extra API dependencies, e.g. the marketplace source a test wants served. */
-  api?: Pick<AppDeps, "marketplace">;
+  api?: Pick<AppDeps, "marketplace" | "world">;
 }
 
 export interface Stack {
@@ -25,7 +25,7 @@ export interface Stack {
 }
 
 const require = createRequire(import.meta.url);
-const contractsDir = dirname(require.resolve("@skeptic/contracts/package.json"));
+const contractsDir = dirname(require.resolve("@skeptique/contracts/package.json"));
 
 function loadHardhat(): HardhatRuntimeEnvironment {
   const contractsRequire = createRequire(join(contractsDir, "package.json"));
@@ -63,7 +63,20 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     const publicClient = createPublicClient({ transport: http(rpcUrl) });
     const chainId = await publicClient.getChainId();
 
-    const api = buildApp({ ...options.api, publicClient, contracts });
+    const listings = contracts.ServiceRegistry
+      ? createRegistrySource({ client: publicClient, address: contracts.ServiceRegistry })
+      : undefined;
+    const critics = contracts.CriticRegistry
+      ? createCriticSource({
+          client: publicClient,
+          address: contracts.CriticRegistry,
+          roundManager: contracts.RoundManager,
+        })
+      : undefined;
+    const rounds = contracts.RoundManager
+      ? createRoundSource({ client: publicClient, address: contracts.RoundManager })
+      : undefined;
+    const api = buildApp({ ...options.api, publicClient, contracts, listings, critics, rounds });
     stoppers.push(() => api.close());
     await api.listen({ port: 0, host: "127.0.0.1" });
     const apiUrl = `http://127.0.0.1:${(api.server.address() as AddressInfo).port}`;

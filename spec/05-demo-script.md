@@ -10,7 +10,7 @@ Every beat below exists because a sponsor requirement needs it on camera.
 | 1:20 | Round runs: critics call the service via x402 (show a payment settling), generate probes, commit, reveal. | Hedera: x402 payment, **HashScan link shown** |
 | 2:20 | Finalise. Median published. Honest critics paid; lazy critic slashed. Score written to ENS records (not hard-coded: show the resolver query). | ENS records via role-limited writer |
 | 3:00 | Suite-gaming service exposed by probes: its score collapses. | |
-| 3:20 | Skeptic-backed buyer agent picks the good service and pays with no human approving. Show spend caps and one over-threshold purchase that asks for approval. | Hedera: agent pays with no human approving; spending controls |
+| 3:20 | Skeptique-backed buyer agent picks the good service and pays with no human approving. Show spend caps and one over-threshold purchase that asks for approval. | Hedera: agent pays with no human approving; spending controls |
 | 4:00 | HCS audit log of rounds and spend. | Hedera extra points |
 | 4:15 | Honest limits slide (staged consensus, collusion not defended). Close. | |
 

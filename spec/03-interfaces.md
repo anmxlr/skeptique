@@ -39,7 +39,8 @@ RoundView   = { id:number; serviceId:number; phase:'commit'|'reveal'|'finalizabl
 ## API (`apps/api`, Fastify, JSON)
 `GET /services` `GET /services/:id` `GET /services/:id/suite` (must hash to specHash) `GET /rounds/:id` `GET /critics` `GET /critics/:address`
 `POST /evidence` (body Evidence, returns `{hash}`) `GET /evidence/:hash`
-`POST /world/verify` (body: Agent Pass result; returns `{nullifier, expiry, sig}` or 403 with `{reason}`)
+`POST /world/rp-context` (returns `{rp_id, nonce, created_at, expires_at, signature}`, signed server-side; the client needs it to start an IDKit request)
+`POST /world/verify` (body: World ID 4.0 IDKit result `{protocol_version, nonce, action, environment, responses[]}` forwarded unchanged, plus `critic` = the address used as the signal; returns `{nullifier, expiry, sig}` or 403 with `{reason}`; `nullifier` = `responses[0].nullifier` as bytes32, `expiry` = the attestor voucher expiry, not a World value)
 `GET /events` (SSE stream of chain events for the UI) `GET /health`
 
 ## Service contract (each demo service, `apps/services/*`)
@@ -50,7 +51,9 @@ RoundView   = { id:number; serviceId:number; phase:'commit'|'reveal'|'finalizabl
 `payAndCall({url, body, maxPrice, signer}) -> {response, txId, paid}`. Hooks: `onBeforePay(price, merchant)` returns allow/deny (used by spend controls and approval). No human prompt in the default path.
 
 ## ENS records (written by relayer, see `spec/notes/ens.md` for real key names)
-Service subname `<slug>.svc.skeptic.eth`: `skeptic.score`, `skeptic.confidence`, `skeptic.round`, `skeptic.hedera.tx` (relayer-writable only); `url`/`description` (seller-writable). Critic subname `<handle>.critic.skeptic.eth`: `skeptic.stake`, `skeptic.honestRounds`, `skeptic.slashes`.
+Key prefix is `eth.` + `ENS_PARENT_NAME` labels reversed (ENSIP-5), e.g. `eth.skeptique.*`.
+Service subname `<slug>.svc.skeptique.eth`: own PermissionedResolver per service; subname registered to the seller with no registry roles (seller cannot change resolver or transfer). In it the relayer alone may set `eth.skeptique.score`, `eth.skeptique.confidence`, `eth.skeptique.round`, `eth.skeptique.hedera.tx`; the seller alone may set `url`/`description`.
+Critic subname `<handle>.critic.skeptique.eth`: all critics share one PermissionedResolver where only the relayer may set `eth.skeptique.stake`, `eth.skeptique.honestRounds`, `eth.skeptique.slashes`.
 
 ## HCS audit topic messages
 `{type:'round_finalized'|'agent_spend'|'critic_slashed', ...fields, ts}` JSON, one message per event.

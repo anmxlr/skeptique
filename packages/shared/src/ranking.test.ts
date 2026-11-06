@@ -12,7 +12,7 @@ function service(overrides: Partial<RankingInput> = {}): RankingInput {
     endpoint: "http://localhost:3000/call",
     pricePerCall: "1",
     seller: address,
-    ensName: "converter.svc.skeptic.eth",
+    ensName: "converter.svc.skeptique.eth",
     median: 80,
     nReveals: 5,
     nRounds: 1,

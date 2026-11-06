@@ -5,7 +5,7 @@
 - size: M
 - tracks: Hedera
 - read: spec/notes/hedera-x402.md, spec/03-interfaces.md (Service contract)
-- do: reusable Fastify template: `POST /call` paywalled per `pricePerCall`, `GET /suite.json`, `GET /health`, configurable facilitator, logs settled tx ids. Calls from critics are tagged (header `x-skeptic-role: critic`) so popularity stats can exclude them.
+- do: reusable Fastify template: `POST /call` paywalled per `pricePerCall`, `GET /suite.json`, `GET /health`, configurable facilitator, logs settled tx ids. Calls from critics are tagged (header `x-skeptique-role: critic`) so popularity stats can exclude them.
 - done when: integration test pays on testnet and returns the response plus tx id.
 
 ## B-2 · Service: unit-convert (good, deterministic)

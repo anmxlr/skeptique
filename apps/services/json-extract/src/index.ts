@@ -1,4 +1,4 @@
-import { suiteHash, type TestSuite } from "@skeptic/shared";
+import { suiteHash, type TestSuite } from "@skeptique/shared";
 import Ajv from "ajv";
 
 export type JsonExtractor = { extract(text: string, fields: string[]): Promise<unknown> };

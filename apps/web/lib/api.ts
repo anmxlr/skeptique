@@ -1,9 +1,22 @@
-import type { BuyerRun } from "@skeptic/shared";
+import type { BuyerRun, Evidence, RoundView, ServiceView } from "@skeptique/shared";
 
-/** Response body of each API route (spec/03). Later tickets add routes with types from @skeptic/shared. */
+/** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
+export interface CriticView {
+  address: string;
+  nullifier: string;
+  /** Current stake in tinybars. */
+  stake: string;
+  verdict?: "honest" | "slashed" | "outlier" | "unreviewed";
+  lastRoundId?: number;
+  slashedAmount?: string;
+}
+
 export interface ApiRoutes {
   "/health": { ok: true; chainId: number } | { ok: false };
   "/buyer/runs": BuyerRun[];
+  "/critics": CriticView[];
+  /** Ranked services; registry-indexed listings also carry their specHash and bounty (tinybars). */
+  "/services": (ServiceView & { specHash?: string; bounty?: string })[];
 }
 
 export class ApiError extends Error {
@@ -17,12 +30,38 @@ export class ApiError extends Error {
 
 export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch) {
   return {
+    async getRound(id: number): Promise<RoundView> {
+      if (!Number.isSafeInteger(id) || id < 1) throw new Error("Invalid round ID");
+      const path = `/rounds/${id}`;
+      const res = await fetchImpl(new URL(path, baseUrl));
+      if (!res.ok) throw new ApiError(res.status, path);
+      return res.json() as Promise<RoundView>;
+    },
     async get<P extends keyof ApiRoutes>(path: P): Promise<ApiRoutes[P]> {
       const res = await fetchImpl(new URL(path, baseUrl));
       if (!res.ok) throw new ApiError(res.status, path);
       return (await res.json()) as ApiRoutes[P];
     },
   };
+}
+
+/** One service, as returned by GET /services/:id. */
+export type ServiceDetail = ApiRoutes["/services"][number];
+
+/** GET /services/:id; null when the API does not know the id. */
+export async function fetchService(id: number, baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  const res = await fetchImpl(new URL(`/services/${id}`, baseUrl));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(res.status, `/services/${id}`);
+  return (await res.json()) as ServiceDetail;
+}
+
+/** GET /evidence/:hash; null when the API does not know the hash. */
+export async function fetchEvidence(hash: string, baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  const res = await fetchImpl(new URL(`/evidence/${encodeURIComponent(hash)}`, baseUrl));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(res.status, `/evidence/${hash}`);
+  return (await res.json()) as Evidence;
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;

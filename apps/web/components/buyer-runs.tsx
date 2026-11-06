@@ -1,11 +1,12 @@
 "use client";
 
-import type { BuyerRun } from "@skeptic/shared";
+import type { BuyerRun } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { apiClient } from "../lib/api";
+import { Skeleton, Toast } from "./states";
 
 const BUYERS: { strategy: BuyerRun["strategy"]; title: string; ranksBy: string }[] = [
-  { strategy: "skeptic", title: "Skeptic buyer", ranksBy: "Ranks by critic score" },
+  { strategy: "skeptique", title: "Skeptique buyer", ranksBy: "Ranks by critic score" },
   { strategy: "popularity", title: "Popularity buyer", ranksBy: "Ranks by paid calls" },
 ];
 
@@ -31,9 +32,26 @@ function RunCard({ run }: { run: BuyerRun }) {
   );
 }
 
-export function BuyerRunsView({ runs }: { runs: readonly BuyerRun[] }) {
+export function BuyerRunsView({
+  runs,
+  loading = false,
+  error,
+}: {
+  runs: readonly BuyerRun[];
+  loading?: boolean;
+  /** The last load's failure; with runs on screen it is a refresh failure. */
+  error?: string;
+}) {
+  if (loading) return <Skeleton label="Loading buyer runs" count={2} />;
+  if (error && runs.length === 0)
+    return (
+      <p role="alert" className="notice-error">
+        Could not load buyer runs: {error}
+      </p>
+    );
   return (
     <div className="buyer-grid">
+      {error && <Toast message={`Could not refresh buyer runs: ${error}`} />}
       {BUYERS.map(({ strategy, title, ranksBy }) => {
         const run = runs.find((candidate) => candidate.strategy === strategy);
         return (
@@ -51,7 +69,8 @@ export function BuyerRunsView({ runs }: { runs: readonly BuyerRun[] }) {
 /** Latest buyer runs from the API, refreshed every few seconds. */
 export function BuyerRuns() {
   const [runs, setRuns] = useState<BuyerRun[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
     let active = true;
@@ -60,10 +79,12 @@ export function BuyerRuns() {
         const latest = await apiClient().get("/buyer/runs");
         if (active) {
           setRuns(latest);
-          setError(null);
+          setError(undefined);
         }
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "Could not load buyer runs");
+        if (active) setError(cause instanceof Error ? cause.message : "unknown error");
+      } finally {
+        if (active) setLoading(false);
       }
     };
     load();
@@ -74,10 +95,5 @@ export function BuyerRuns() {
     };
   }, []);
 
-  return (
-    <>
-      {error && <p role="status">Buyer runs unavailable: {error}</p>}
-      <BuyerRunsView runs={runs} />
-    </>
-  );
+  return <BuyerRunsView runs={runs} loading={loading} error={error} />;
 }

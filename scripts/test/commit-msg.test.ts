@@ -3,7 +3,7 @@ import { checkCommitMessage } from "../commit-msg.mjs";
 
 describe("commit message check", () => {
   it("checks ordinary commits while preserving custom merge history", () => {
-    const directory = mkdtempSync(join(tmpdir(), "skeptic-commit-check-"));
+    const directory = mkdtempSync(join(tmpdir(), "skeptique-commit-check-"));
     const git = (...args: string[]) => execFileSync("git", args, { cwd: directory, stdio: "pipe" });
     const commit = (name: string, message: string) => {
       writeFileSync(join(directory, name), name);
