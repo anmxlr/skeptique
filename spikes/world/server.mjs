@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { signRequest } from '@worldcoin/idkit-server';
 
-export function createWorldServer({ rpId, signingKey, action, environment }) {
+export function createWorldServer({ rpId, signingKey, action, environment, verifyBase }) {
   const usedNullifiers = new Set();
 
   const routes = {
@@ -11,7 +11,25 @@ export function createWorldServer({ rpId, signingKey, action, environment }) {
       const { sig, nonce, createdAt, expiresAt } = signRequest({ signingKeyHex: signingKey, action });
       return [200, { rp_id: rpId, nonce, created_at: createdAt, expires_at: expiresAt, signature: sig }];
     },
-    'POST /world/verify': async (_body) => [501, { reason: 'not_implemented' }],
+    'POST /world/verify': async (result) => {
+      if (result.environment !== environment) return [403, { reason: 'wrong_environment' }];
+      if (result.action !== action) return [403, { reason: 'wrong_action' }];
+      const res = await fetch(`${verifyBase}/api/v4/verify/${rpId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...result, environment }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || out.success !== true || (out.environment && out.environment !== environment)) {
+        return [403, { reason: out.code ?? `world_http_${res.status}`, detail: out.detail }];
+      }
+      const response = result.responses[0];
+      const nullifier = `0x${BigInt(response.nullifier).toString(16).padStart(64, '0')}`;
+      if (usedNullifiers.has(nullifier)) return [403, { reason: 'nullifier_already_registered' }];
+      usedNullifiers.add(nullifier);
+      return [200, { nullifier, expires_at_min: response.expires_at_min }];
+    },
   };
 
   return createServer(async (req, res) => {

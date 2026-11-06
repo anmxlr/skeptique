@@ -12,6 +12,7 @@ const SIMULATOR_MCP = 'https://simulator.worldcoin.org/api/mcp';
 const ACTION = 'register-critic';
 const ENVIRONMENT = 'staging';
 const SIGNAL = 'spike-05-critic';
+const VERIFY_BASE = 'https://developer.world.org';
 
 const need = (k) => {
   if (!process.env[k]) throw new Error(`missing env ${k}`);
@@ -44,7 +45,7 @@ async function simulatorComplete(connectUrl) {
   return JSON.parse(msg.result?.content?.[0]?.text ?? JSON.stringify(msg.error ?? msg));
 }
 
-const server = createWorldServer({ rpId, signingKey, action: ACTION, environment: ENVIRONMENT });
+const server = createWorldServer({ rpId, signingKey, action: ACTION, environment: ENVIRONMENT, verifyBase: VERIFY_BASE });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`;
 const post = async (path, body) => {
@@ -53,7 +54,7 @@ const post = async (path, body) => {
 };
 
 try {
-  console.log(`spike 05 ${new Date().toISOString()} environment=${ENVIRONMENT} action=${ACTION}`);
+  console.log(`spike 05 ${new Date().toISOString()} environment=${ENVIRONMENT} action=${ACTION} verify=${VERIFY_BASE}`);
 
   // 1. Server signs the request; client builds the IDKit request from it.
   const ctx = await post('/world/rp-context');
