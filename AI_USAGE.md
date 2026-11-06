@@ -93,3 +93,7 @@ Claude Code (Claude Sonnet 5.5) wrote the contract, ABI module, API source, web 
 ### 16: World Agent Pass critic onboarding, with denied paths
 
 Implemented with Claude (Claude Code); failing API tests were committed first, then the routes.
+
+### 32: WORLD_FEEDBACK and AI_USAGE
+
+Compiler, tests and debrief written by Claude Code (Claude Opus 5.5) from the ticket, spec/04 and AGENTS.md. The debrief only restates times and findings from the team's raw `WORLD_FEEDBACK.md` notes and git history; nothing in it is estimated. The human reviews and merges.
