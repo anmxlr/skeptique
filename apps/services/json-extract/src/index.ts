@@ -101,4 +101,3 @@ export const jsonExtractSuite: TestSuite = {
   ],
 };
 export const jsonExtractSpecHash = suiteHash(jsonExtractSuite);
-
