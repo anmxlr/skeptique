@@ -12,3 +12,5 @@ coverage/
 contracts/artifacts/
 contracts/cache/
 contracts/typechain-types/
+test-results/
+playwright-report/
