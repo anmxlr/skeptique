@@ -1,5 +1,8 @@
 export const packageName = "@skeptique/relayer";
 export { createEnsTarget } from "./ens-target";
+export { createAuditLog } from "./hcs";
+export { createHederaTopicPublisher } from "./hcs-hedera";
+export { relayAuditFromChain } from "./hcs-source";
 export { provisionCriticNamespace } from "./provision-critics";
 export { relayScoresFromChain } from "./score-source";
 export { createScoreRelayer } from "./scores";
