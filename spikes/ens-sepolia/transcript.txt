@@ -1,0 +1,153 @@
+# Ticket 03 spike transcript: ENSv2 on Sepolia (2026-11-06). Command: cd spikes/ens-sepolia && node ens.mjs
+# Env from the worktree .env (keys not printed). Addresses and tx hashes only.
+
+## Run 1 (stopped at step 3: a load-balanced RPC returned the parent expiry as 0 right after register;
+## svc register simulation reverted with CannotSetPastExpiry(0) [selector 0xf1d446c3], nothing was sent for it)
+ENSv2 spike on Sepolia (chain 11155111), block 12075405
+parent skeptique.eth, service subname spike.svc.skeptique.eth, score key eth.skeptique.score
+  operator 0x6f1842bC9d1198eC49d21B60C336296f9fc8DCA2 0.1 ETH
+  relayer  0x2C060856c9519dFb143fB25f35D406d43FC60cd3 2.3996930999957034 ETH
+  seller   0x46E668f64795AeE081c6270279c11A1Ba7b3d6cf 1.774277071002297699 ETH
+
+[1] parent name skeptique.eth
+  price 8000021 MockUSDC units (base 8000021, premium 0)
+  tx commit: 0xa9aaa2d0e12133693acf7d61441319193e69c65d4c751b34b1492beed1266ff3 (gas 127458)
+  tx MockUSDC.mint: 0xb3058355a49a3c77844ae6f8bfa53097d996654aaadf306145ebd61a08162b87 (gas 140589)
+  tx MockUSDC.approve: 0x2377901d9742331bdbe0239a2de4b9661f0af8a54b4cd14ee7d6f785aadc8fc2 (gas 128274)
+  waiting 25s for MIN_COMMITMENT_AGE (60s)
+  waiting 1s for MIN_COMMITMENT_AGE (60s)
+  tx register skeptique.eth: 0xcda90be21082d8b1de3d96ae4ab5c9252c24c60a65c12dacc1561ce6d157c3aa (gas 653517)
+  tokenId 34288037171642719910259714089246498122915330434099635922772267943874833416192, expiry 1970-01-01T00:00:00.000Z
+
+[2] registry for skeptique.eth
+  tx deployProxy UserRegistry(skeptique.eth): 0x5ac34ae79080ac7903ec44fe2a6d8069bdd5fdb05462b9eb35ebc89d8b81a51f (gas 903034)
+  UserRegistry(skeptique.eth): deployed at 0x2790d7A94541fC80eAC82a2653EB4cdD9a4097Fb
+  tx ETHRegistry.setSubregistry skeptique: 0x0c8ac81761e6600e707062f922b2301335f3a1db69757f46055a977d44c6062a (gas 139540)
+  tx setParent skeptique: 0xbf1b46f25be8d938f477f886bf54d8606c0ba181eeb7586262383bb220b368b9 (gas 251623)
+
+[3] registry for svc.skeptique.eth
+  tx deployProxy UserRegistry(svc.skeptique.eth): 0xeeea8f696e2f9e581b315cb2d0fbf4abd0a9376dbf40dc5c09f6a92cc408a2fc (gas 903034)
+  UserRegistry(svc.skeptique.eth): deployed at 0x9A7a52082010ac8bd51d502afE7E1974916c06dF
+ContractFunctionExecutionError: The contract function "register" reverted with the following signature: 0xf1d446c3 (CannotSetPastExpiry(uint64 expiry), expiry=0)
+[stack trace trimmed]
+
+## Run 2 (after fix 'pin reads to the latest receipt block'): completes the setup, writes and reads back
+ENSv2 spike on Sepolia (chain 11155111), block 12075425
+parent skeptique.eth, service subname spike.svc.skeptique.eth, score key eth.skeptique.score
+  operator 0x6f1842bC9d1198eC49d21B60C336296f9fc8DCA2 0.099999999941552758 ETH
+  relayer  0x2C060856c9519dFb143fB25f35D406d43FC60cd3 2.3996930999957034 ETH
+  seller   0x46E668f64795AeE081c6270279c11A1Ba7b3d6cf 1.774277071002297699 ETH
+
+[1] parent name skeptique.eth
+  already owned by operator
+  tokenId 34288037171642719910259714089246498122915330434099635922772267943874833416192, expiry 2027-11-06T08:33:36.000Z
+
+[2] registry for skeptique.eth
+  UserRegistry(skeptique.eth): exists at 0x2790d7A94541fC80eAC82a2653EB4cdD9a4097Fb
+
+[3] registry for svc.skeptique.eth
+  UserRegistry(svc.skeptique.eth): exists at 0x9A7a52082010ac8bd51d502afE7E1974916c06dF
+  tx register svc.skeptique.eth: 0x29dbc6f43ccda1c6aa6b01c7ac8955a4c783364242b38a68df57f7fb10604572 (gas 713672)
+  tx setParent svc: 0xf11fc36714b097343b7612085399b3f67f0ea595466b4c71af16df9158094f51 (gas 251551)
+
+[3] registry for critic.skeptique.eth
+  tx deployProxy UserRegistry(critic.skeptique.eth): 0x86f7548c04130d4c6c48d93f54a1a35f7d1ad5eff1cef9845010a22563d7db03 (gas 903034)
+  UserRegistry(critic.skeptique.eth): deployed at 0x70571E87e6dDD98e44E4d9F8AB7eDD50b5234dCb
+  tx register critic.skeptique.eth: 0x37d22318520ff92602826f4cf0239efd1d7a4c18bf7bc9afb6783747f8d67320 (gas 713708)
+  tx setParent critic: 0xece6958026514d31e06516785cf2b99655d8ca2458986e595be7d4f07e9e8032 (gas 251587)
+
+[4] PermissionedResolver for spike.svc.skeptique.eth
+  tx deployProxy PermissionedResolver(spike.svc.skeptique.eth): 0x94f926971f29727e2bce80e32464e1fad199ceb94da6f66f1ba22b88a4f1062e (gas 790998)
+  PermissionedResolver(spike.svc.skeptique.eth): deployed at 0xD11036E3Dc1281912aaA44F088Fe61d3Bb68ad1a
+  grant ROLE_SET_TEXT on "eth.skeptique.score" to relayer
+  grant ROLE_SET_TEXT on "eth.skeptique.confidence" to relayer
+  grant ROLE_SET_TEXT on "eth.skeptique.round" to relayer
+  grant ROLE_SET_TEXT on "eth.skeptique.hedera.tx" to relayer
+  grant ROLE_SET_TEXT on "url" to seller
+  grant ROLE_SET_TEXT on "description" to seller
+  tx resolver.multicall 6 grantSetterRoles: 0xb0ae692dfa37da9eafb6848271f914aca9268071d956bfdf433303e1021cac3f (gas 1439783)
+
+[5] service subname spike.svc.skeptique.eth (owner seller, roleBitmap 0)
+  tx register spike.svc.skeptique.eth: 0x3d24e41a403e8bfd99d2400a9426ae48731232a6199f1b38715161e0e0673df2 (gas 279495)
+
+[6] relayer writes eth.skeptique.score = "87"
+  tx setText eth.skeptique.score: 0x4f73dcc9ea626354344792a1182ea002037be6ecd58386d2fe2cb4a75c52873f (gas 373372)
+
+[7] read back through Universal Resolver 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
+  resolver for spike.svc.skeptique.eth: 0xD11036E3Dc1281912aaA44F088Fe61d3Bb68ad1a
+READ BACK: spike.svc.skeptique.eth text("eth.skeptique.score") = "87"
+
+[8] negative checks (simulated, nothing sent)
+  PASS seller setText score key: EACUnauthorizedAccountRoles
+  PASS seller setText url (allowed): NO REVERT
+  PASS relayer setText url: EACUnauthorizedAccountRoles
+  PASS seller setResolver on own subname: EACUnauthorizedAccountRoles
+  PASS seller safeTransferFrom subname: TransferUnsafeUntilRegistryIsEmancipated
+  PASS seller unsafeTransfer subname: TransferDisallowed
+
+summary
+  parent registry  0x2790d7A94541fC80eAC82a2653EB4cdD9a4097Fb
+  svc registry     0x9A7a52082010ac8bd51d502afE7E1974916c06dF
+  critic registry  0x70571E87e6dDD98e44E4d9F8AB7eDD50b5234dCb
+  service resolver 0xD11036E3Dc1281912aaA44F088Fe61d3Bb68ad1a
+  register svc.skeptique.eth: https://sepolia.etherscan.io/tx/0x29dbc6f43ccda1c6aa6b01c7ac8955a4c783364242b38a68df57f7fb10604572
+  setParent svc: https://sepolia.etherscan.io/tx/0xf11fc36714b097343b7612085399b3f67f0ea595466b4c71af16df9158094f51
+  deployProxy UserRegistry(critic.skeptique.eth): https://sepolia.etherscan.io/tx/0x86f7548c04130d4c6c48d93f54a1a35f7d1ad5eff1cef9845010a22563d7db03
+  register critic.skeptique.eth: https://sepolia.etherscan.io/tx/0x37d22318520ff92602826f4cf0239efd1d7a4c18bf7bc9afb6783747f8d67320
+  setParent critic: https://sepolia.etherscan.io/tx/0xece6958026514d31e06516785cf2b99655d8ca2458986e595be7d4f07e9e8032
+  deployProxy PermissionedResolver(spike.svc.skeptique.eth): https://sepolia.etherscan.io/tx/0x94f926971f29727e2bce80e32464e1fad199ceb94da6f66f1ba22b88a4f1062e
+  resolver.multicall 6 grantSetterRoles: https://sepolia.etherscan.io/tx/0xb0ae692dfa37da9eafb6848271f914aca9268071d956bfdf433303e1021cac3f
+  register spike.svc.skeptique.eth: https://sepolia.etherscan.io/tx/0x3d24e41a403e8bfd99d2400a9426ae48731232a6199f1b38715161e0e0673df2
+  setText eth.skeptique.score: https://sepolia.etherscan.io/tx/0x4f73dcc9ea626354344792a1182ea002037be6ecd58386d2fe2cb4a75c52873f
+  operator spent 0.000000000090845076 ETH this run, balance 0.099999999850707682 ETH
+  explorer: https://sepolia.app.ens.domains/spike.svc.skeptique.eth
+
+## Run 3 (re-run, idempotency check: sends nothing)
+ENSv2 spike on Sepolia (chain 11155111), block 12075436
+parent skeptique.eth, service subname spike.svc.skeptique.eth, score key eth.skeptique.score
+  operator 0x6f1842bC9d1198eC49d21B60C336296f9fc8DCA2 0.099999999850707682 ETH
+  relayer  0x2C060856c9519dFb143fB25f35D406d43FC60cd3 2.399693099989356076 ETH
+  seller   0x46E668f64795AeE081c6270279c11A1Ba7b3d6cf 1.774277071002297699 ETH
+
+[1] parent name skeptique.eth
+  already owned by operator
+  tokenId 34288037171642719910259714089246498122915330434099635922772267943874833416192, expiry 2027-11-06T08:33:36.000Z
+
+[2] registry for skeptique.eth
+  UserRegistry(skeptique.eth): exists at 0x2790d7A94541fC80eAC82a2653EB4cdD9a4097Fb
+
+[3] registry for svc.skeptique.eth
+  UserRegistry(svc.skeptique.eth): exists at 0x9A7a52082010ac8bd51d502afE7E1974916c06dF
+
+[3] registry for critic.skeptique.eth
+  UserRegistry(critic.skeptique.eth): exists at 0x70571E87e6dDD98e44E4d9F8AB7eDD50b5234dCb
+
+[4] PermissionedResolver for spike.svc.skeptique.eth
+  PermissionedResolver(spike.svc.skeptique.eth): exists at 0xD11036E3Dc1281912aaA44F088Fe61d3Bb68ad1a
+  all text-key grants already in place
+
+[5] service subname spike.svc.skeptique.eth (owner seller, roleBitmap 0)
+  already registered to 0x46E668f64795AeE081c6270279c11A1Ba7b3d6cf
+
+[6] relayer writes eth.skeptique.score = "87"
+  already "87"
+
+[7] read back through Universal Resolver 0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe
+  resolver for spike.svc.skeptique.eth: 0xD11036E3Dc1281912aaA44F088Fe61d3Bb68ad1a
+READ BACK: spike.svc.skeptique.eth text("eth.skeptique.score") = "87"
+
+[8] negative checks (simulated, nothing sent)
+  PASS seller setText score key: EACUnauthorizedAccountRoles
+  PASS seller setText url (allowed): NO REVERT
+  PASS relayer setText url: EACUnauthorizedAccountRoles
+  PASS seller setResolver on own subname: EACUnauthorizedAccountRoles
+  PASS seller safeTransferFrom subname: TransferUnsafeUntilRegistryIsEmancipated
+  PASS seller unsafeTransfer subname: TransferDisallowed
+
+summary
+  parent registry  0x2790d7A94541fC80eAC82a2653EB4cdD9a4097Fb
+  svc registry     0x9A7a52082010ac8bd51d502afE7E1974916c06dF
+  critic registry  0x70571E87e6dDD98e44E4d9F8AB7eDD50b5234dCb
+  service resolver 0xD11036E3Dc1281912aaA44F088Fe61d3Bb68ad1a
+  operator spent 0 ETH this run, balance 0.099999999850707682 ETH
+  explorer: https://sepolia.app.ens.domains/spike.svc.skeptique.eth
