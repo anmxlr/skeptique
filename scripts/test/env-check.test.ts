@@ -5,10 +5,7 @@ const example = `# Hedera\nHEDERA_RPC_URL=\n# World\nWORLD_CLIENT_ID=\nWORLD_CLI
 
 describe("env check", () => {
   it("names every key from .env.example that .env lacks", () => {
-    expect(missingKeys(example, "HEDERA_RPC_URL=https://rpc\n")).toEqual([
-      "WORLD_CLIENT_ID",
-      "WORLD_CLIENT_SECRET",
-    ]);
+    expect(missingKeys(example, "HEDERA_RPC_URL=https://rpc\n")).toEqual(["WORLD_CLIENT_ID", "WORLD_CLIENT_SECRET"]);
   });
 
   it("treats an empty value as missing", () => {
