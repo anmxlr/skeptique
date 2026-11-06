@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./abi/*": "./abi/*.ts"
+    "./abi/*": "./abi/*.ts",
+    "./ens": "./src/ens.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

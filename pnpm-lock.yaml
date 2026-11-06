@@ -127,10 +127,20 @@ importers:
         version: 3.2.7(@types/node@20.19.43)(lightningcss@1.33.0)(tsx@4.23.15)
 
   apps/relayer:
+    dependencies:
+      '@skeptique/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      viem:
+        specifier: ^2.57.16
+        version: 2.57.16(typescript@5.9.3)(zod@4.6.7)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
