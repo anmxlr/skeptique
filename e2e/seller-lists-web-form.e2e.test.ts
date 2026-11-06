@@ -123,7 +123,7 @@ describe("seller lists from the web form", () => {
   });
 
   it("previews the suite hash, lists from the seller's wallet, and the service page shows the bounty and a pending ENS name", async () => {
-    const [, seller] = await rpc<`0x${string}`[]>(stack.rpcUrl, "eth_accounts");
+    const [seller] = await rpc<`0x${string}`[]>(stack.rpcUrl, "eth_accounts");
     const suite = await (await fetch(form.suiteUrl)).json();
     const listed = await listService({ provider: wallet(stack.rpcUrl), registry, form });
     expect(listed.specHash).toBe(suiteHash(suite));
