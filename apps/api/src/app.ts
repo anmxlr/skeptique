@@ -5,6 +5,7 @@ import { type CriticSource, registerCriticRoutes } from "./critics";
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
+import { type RoundViewSource, registerRoundRoutes } from "./rounds";
 import { registerWorldRoutes, type WorldConfig } from "./world";
 
 export interface AppDeps {
@@ -20,10 +21,12 @@ export interface AppDeps {
   critics?: CriticSource;
   /** World ID critic onboarding; serves `/world/rp-context` and `/world/verify`. */
   world?: WorldConfig;
+  rounds?: RoundViewSource;
 }
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
+export { createRoundSource, type RoundViewSource } from "./rounds";
 export { createWorldVerifier, type WorldConfig } from "./world";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
@@ -46,6 +49,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   }
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
+  if (deps.rounds) registerRoundRoutes(app, deps.rounds);
   if (deps.world) {
     const critics = deps.critics;
     const isNullifierRegistered =
