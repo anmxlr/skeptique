@@ -1,13 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ServiceView } from "@skeptique/shared";
 import type { PayAndCall } from "@skeptique/x402-client";
-import { BUYER_SYSTEM_PROMPT, buildPrompt, decide } from "./agent";
+import { buildPrompt, buyerSystemPrompt, decide } from "./agent";
 import { summarise } from "./batch";
 import type { Llm } from "./llm";
 import { gradable, grade } from "./oracle";
 import { checkPolicy, type SpendPolicy } from "./policy";
 import { hashRecord } from "./record";
-import type { ArenaEvent, ArenaRecord, GradedTask, Side, SideResult, Task } from "./schema";
+import type { ArenaEvent, ArenaRecord, BuyMode, GradedTask, Side, SideResult, Task } from "./schema";
 
 /** `payer` is the Hedera account id that signs this side's payments. */
 export type SideConfig = { payAndCall: PayAndCall; signer: unknown; payer: string; policy: SpendPolicy };
@@ -25,6 +25,8 @@ export type RunArenaArgs = {
   taskSource: ArenaRecord["taskSource"];
   emit?: (event: ArenaEvent) => void;
   now?: () => Date;
+  /** Same for both sides; defaults to "may-refuse". */
+  mode?: BuyMode;
   /** Seed for the option shuffle. Defaults to 16 random bytes; tests pass a fixed one. */
   seed?: string;
 };
@@ -75,7 +77,7 @@ async function runSide(
   const prompt = buildPrompt(side, args.prompt, task, options, config.policy.budgetTinybars);
   const result = emptyResult(side, prompt);
   try {
-    const answer = await decide(llm, prompt);
+    const answer = await decide(llm, prompt, args.mode ?? "may-refuse");
     result.decision = answer.value;
     result.llm = { model: answer.model, costUsd: answer.costUsd, ms: answer.ms, raw: answer.raw };
     emit({ type: "decided", side, decision: answer.value });
@@ -165,7 +167,8 @@ export async function runArena(args: RunArenaArgs): Promise<{ record: ArenaRecor
     prompt: args.prompt,
     task,
     model: args.llm.model,
-    systemPrompt: BUYER_SYSTEM_PROMPT,
+    mode: args.mode ?? "may-refuse",
+    systemPrompt: buyerSystemPrompt(args.mode ?? "may-refuse"),
     network: args.network,
     provenance: args.provenance,
     taskSource: args.taskSource,

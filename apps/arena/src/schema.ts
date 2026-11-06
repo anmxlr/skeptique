@@ -82,8 +82,12 @@ export type SideSummary = {
 };
 export type RunSummary = Record<Side, SideSummary>;
 
+export const BUY_MODES = ["may-refuse", "must-buy"] as const;
+export type BuyMode = (typeof BUY_MODES)[number];
+
 export type ArenaRecord = {
   version: 2;
+  mode: BuyMode;
   runId: string;
   at: string;
   prompt: string;

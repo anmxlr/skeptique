@@ -34,6 +34,7 @@ export type ArenaRecord = {
   prompt: string;
   task: unknown;
   model: string;
+  mode?: BuyMode;
   systemPrompt: string;
   network: string;
   sides: { baseline: SideResult; skeptique: SideResult };
@@ -203,3 +204,6 @@ export function pickedOption(decision: Decision): number | null {
 export function arenaUrl(): string {
   return process.env.NEXT_PUBLIC_ARENA_URL || "http://127.0.0.1:4320";
 }
+
+/** Mirrors BUY_MODES in apps/arena/src/schema.ts. */
+export type BuyMode = "may-refuse" | "must-buy";

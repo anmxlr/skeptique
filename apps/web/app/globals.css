@@ -582,3 +582,13 @@ a {
   font-size: 0.875rem;
   color: var(--muted);
 }
+
+.arena-mode {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+}
+.arena-mode label {
+  margin-right: 1rem;
+}

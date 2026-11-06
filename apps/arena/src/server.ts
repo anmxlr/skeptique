@@ -5,7 +5,7 @@ import { z } from "zod";
 import { hashBatch, scoreBatch } from "./batch";
 import type { Llm } from "./llm";
 import { runArena, type SideConfig } from "./runner";
-import type { ArenaEvent, ArenaRecord, BatchEvent, Side } from "./schema";
+import { type ArenaEvent, type ArenaRecord, type BatchEvent, BUY_MODES, type Side } from "./schema";
 import { parseTask, TASK_PACK } from "./tasks";
 
 export type ArenaServerDeps = {
@@ -26,7 +26,9 @@ export type ArenaServerDeps = {
 
 type Stream<E> = { events: E[]; listeners: Set<(e: E) => void>; done: boolean };
 
-const RunRequestSchema = z.object({ prompt: z.string().trim().min(3).max(300) });
+const ModeSchema = z.enum(BUY_MODES).default("may-refuse");
+const RunRequestSchema = z.object({ prompt: z.string().trim().min(3).max(300), mode: ModeSchema });
+const BatchRequestSchema = z.object({ mode: ModeSchema }).default({ mode: "may-refuse" });
 const KEEPALIVE_MS = 15_000;
 const SERVICES_TIMEOUT_MS = 10_000;
 const MAX_RUNS = 50;
@@ -96,6 +98,7 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
         await runArena({
           runId,
           prompt: body.data.prompt,
+          mode: body.data.mode,
           task,
           services,
           apiUrl: deps.apiUrl,
@@ -124,7 +127,10 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
   });
 
   // Runs every TASK_PACK task in order through runArena, then publishes a hashed scoreboard.
-  app.post("/batches", async (_req, reply) => {
+  app.post("/batches", async (req, reply) => {
+    const body = BatchRequestSchema.safeParse(req.body ?? undefined);
+    if (!body.success) return reply.code(400).send({ error: `mode must be one of ${BUY_MODES.join(", ")}` });
+    const { mode } = body.data;
     if (busy) return reply.code(409).send({ error: "a run is in progress" });
     busy = true;
     const batchId = randomUUID();
@@ -142,6 +148,7 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
             runId,
             prompt: preset.prompt,
             task: preset.task,
+            mode,
             services,
             apiUrl: deps.apiUrl,
             llm: deps.llm,

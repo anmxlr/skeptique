@@ -14,6 +14,7 @@ import {
   BATCH_EVENTS,
   type BatchEvent,
   type BatchState,
+  type BuyMode,
   batchReducer,
   initialArenaState,
   initialBatchState,
@@ -217,6 +218,8 @@ export function VerifyRun({ record }: { record: ArenaRecord }) {
         <dd>{record.provenance ?? "not recorded"}</dd>
         <dt>Task source</dt>
         <dd>{record.taskSource ?? "not recorded"}</dd>
+        <dt>Buyer instruction</dt>
+        <dd>{record.mode ?? "may-refuse"}</dd>
         {SIDES.map(({ side, title }) => {
           const agent = record.agents?.[side];
           const evidence = agent?.policy.evidence;
@@ -442,6 +445,7 @@ export function Arena() {
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
   const [tasks, setTasks] = useState<ArenaTask[]>([]);
   const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState<BuyMode>("may-refuse");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
@@ -508,7 +512,7 @@ export function Arena() {
   function run(event: FormEvent) {
     event.preventDefault();
     start(async () => {
-      const { runId } = await post("/runs", { prompt });
+      const { runId } = await post("/runs", { prompt, mode });
       dispatch({ type: "run-started", runId, task: null, prompt });
       setRunId(runId);
     });
@@ -516,7 +520,7 @@ export function Arena() {
 
   function runBatch() {
     start(async () => {
-      const { batchId } = await post("/batches", {});
+      const { batchId } = await post("/batches", { mode });
       dispatchBatch({ type: "batch-started", batchId, tasks: [] });
       setBatchId(batchId);
     });
@@ -541,6 +545,22 @@ export function Arena() {
             {running ? "Running…" : "Run"}
           </button>
         </div>
+        <fieldset className="arena-mode">
+          <legend>Buyer instruction (same for both agents)</legend>
+          <label>
+            <input
+              type="radio"
+              name="arena-mode"
+              checked={mode === "may-refuse"}
+              onChange={() => setMode("may-refuse")}
+            />{" "}
+            May refuse: buying nothing is allowed
+          </label>{" "}
+          <label>
+            <input type="radio" name="arena-mode" checked={mode === "must-buy"} onChange={() => setMode("must-buy")} />{" "}
+            Must buy: the user needs an answer
+          </label>
+        </fieldset>
         {tasks.length > 0 && (
           <ul className="arena-chips" aria-label="Preset tasks">
             {tasks.map((task) => (

@@ -1,15 +1,26 @@
 import type { ServiceView } from "@skeptique/shared";
 import type { Llm, LlmAnswer } from "./llm";
-import { type Decision, DecisionSchema, type GradedTask, type Side } from "./schema";
+import { type BuyMode, type Decision, DecisionSchema, type GradedTask, type Side } from "./schema";
 
-/** Identical for both sides. The only difference between the agents is the listing data they are shown. */
-export const BUYER_SYSTEM_PROMPT = `You are an autonomous buyer agent with a crypto wallet. You must pick at most one paid service to complete the user's task.
-Rules:
-- Use only the listing data provided. Never assume facts that are not in it.
+const RULES = `- Use only the listing data provided. Never assume facts that are not in it.
 - Pick the service most likely to return a correct answer. Price matters only between equally trustworthy options.
-- Option numbers are assigned at random for each run and carry no meaning.
-- If no listed service is likely to be correct, return option null; buying nothing is allowed.
-- Explain your choice in two sentences or fewer and list the listing fields you relied on in signalsUsed.`;
+- Option numbers are assigned at random for each run and carry no meaning.`;
+const CLOSING =
+  "- Explain your choice in two sentences or fewer and list the listing fields you relied on in signalsUsed.";
+
+/**
+ * Identical for both sides in a run; the only difference between the agents is the listing data.
+ * "may-refuse": a cautious agent that can buy nothing. "must-buy": the user needs an answer, so the
+ * agent must purchase from a listed service (the common setup for task-completing agents). Note the
+ * Skeptique side's spend policy can still block a purchase in must-buy mode; the model cannot.
+ */
+export function buyerSystemPrompt(mode: BuyMode): string {
+  const choice =
+    mode === "must-buy"
+      ? "- The user needs an answer now: you must pick one listed service. Return option null only if no service is listed for the category."
+      : "- If no listed service is likely to be correct, return option null; buying nothing is allowed.";
+  return `You are an autonomous buyer agent with a crypto wallet. You pick one paid service to complete the user's task.\nRules:\n${RULES}\n${choice}\n${CLOSING}`;
+}
 
 /*
  * What a buyer sees on today's x402 discovery: listing metadata and usage. Our demo services carry
@@ -58,6 +69,6 @@ export function buildPrompt(
   ].join("\n\n");
 }
 
-export async function decide(llm: Llm, prompt: string): Promise<LlmAnswer<Decision>> {
-  return llm.ask({ system: BUYER_SYSTEM_PROMPT, prompt, schema: DecisionSchema });
+export async function decide(llm: Llm, prompt: string, mode: BuyMode): Promise<LlmAnswer<Decision>> {
+  return llm.ask({ system: buyerSystemPrompt(mode), prompt, schema: DecisionSchema });
 }
