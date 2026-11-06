@@ -8,19 +8,22 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "start": "tsx src/cli.ts"
   },
   "devDependencies": {
     "@skeptique/service-suite-gamer": "workspace:*",
     "@skeptique/service-unit-convert": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "tsx": "^4.23.15"
   },
   "dependencies": {
     "@skeptique/shared": "workspace:*",
     "ajv": "^8.20.0",
     "canonicalize": "^2.1.0",
-    "viem": "^2.57.16"
+    "viem": "^2.57.16",
+    "@skeptique/x402-client": "workspace:*"
   }
 }

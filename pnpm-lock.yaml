@@ -103,6 +103,9 @@ importers:
       '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@skeptique/x402-client':
+        specifier: workspace:*
+        version: link:../../packages/x402-client
       ajv:
         specifier: ^8.20.0
         version: 8.20.0
@@ -122,6 +125,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

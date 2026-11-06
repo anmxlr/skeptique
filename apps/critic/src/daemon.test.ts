@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCriticDaemon } from "./daemon";
+import { createCriticDaemon, type ReviewResult } from "./daemon";
 import type { PendingReveal } from "./round-agent";
 
 const critic = `0x${"11".repeat(20)}`;
@@ -11,7 +11,11 @@ const round = (roundId: number, commitEnd = 1000, revealEnd = 1500) => ({
   revealEnd,
 });
 
-function setup(options: { rounds?: ReturnType<typeof round>[]; locked?: number; reviewImpl?: () => Promise<unknown> }) {
+function setup(options: {
+  rounds?: ReturnType<typeof round>[];
+  locked?: number;
+  reviewImpl?: () => Promise<ReviewResult>;
+}) {
   const clock = { now: 100 };
   const pending = new Map<number, PendingReveal>();
   const committed = new Set<number>();
@@ -26,12 +30,14 @@ function setup(options: { rounds?: ReturnType<typeof round>[]; locked?: number; 
     isRevealed: async (id: bigint) => revealed.has(Number(id)),
   };
   const agent = {
-    commit: vi.fn(async (input: { roundId: number; score: number; evidenceHash: `0x${string}`; claimedCost: string }) => {
-      const state: PendingReveal = { ...input, critic, salt: `0x${"22".repeat(32)}` };
-      pending.set(input.roundId, state);
-      committed.add(input.roundId);
-      return state;
-    }),
+    commit: vi.fn(
+      async (input: { roundId: number; score: number; evidenceHash: `0x${string}`; claimedCost: string }) => {
+        const state: PendingReveal = { ...input, critic, salt: `0x${"22".repeat(32)}` };
+        pending.set(input.roundId, state);
+        committed.add(input.roundId);
+        return state;
+      },
+    ),
     reveal: vi.fn(async (id: number) => {
       revealed.add(id);
       pending.delete(id);
@@ -39,8 +45,7 @@ function setup(options: { rounds?: ReturnType<typeof round>[]; locked?: number; 
   };
   const store = { get: async (id: number) => pending.get(id) };
   const review = vi.fn(
-    options.reviewImpl ??
-      (async () => ({ evidenceHash, evidence: { score: 80, claimedCost: "0" } })),
+    options.reviewImpl ?? (async () => ({ evidenceHash, evidence: { score: 80, claimedCost: "0" } })),
   );
   const log = vi.fn();
   const daemon = createCriticDaemon({
@@ -124,7 +129,7 @@ describe("critic daemon", () => {
   });
 
   it("abandons a review that overruns its deadline without committing", async () => {
-    const { daemon, agent } = setup({ reviewImpl: () => new Promise(() => {}) });
+    const { daemon, agent } = setup({ reviewImpl: () => new Promise<ReviewResult>(() => {}) });
     await expect(daemon.tick()).resolves.toBeUndefined();
     expect(agent.commit).not.toHaveBeenCalled();
   });
