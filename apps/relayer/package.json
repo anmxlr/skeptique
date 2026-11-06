@@ -11,7 +11,8 @@
     "scores": "tsx src/run-scores.ts",
     "test": "vitest run",
     "ens:setup": "tsx src/ens/setup-cli.ts",
-    "start": "tsx src/cli.ts"
+    "start": "tsx src/cli.ts",
+    "keeper": "tsx src/run-keeper.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
