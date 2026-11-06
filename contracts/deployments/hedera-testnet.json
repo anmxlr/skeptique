@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "network": "hedera-testnet",
+  "chainId": 296,
+  "ensParentName": "skeptique.eth",
+  "deployedAt": "2026-11-06T22:30:38.102Z",
+  "deploymentBlock": "42756303",
+  "contracts": {
+    "ServiceRegistry": "0x5a669fce45bb88dee4ac03def16bb5f0dcf1ee91",
+    "CriticRegistry": "0x132d8b5e054443c1d82defdd705a84f0b86694f7",
+    "RoundManager": "0xf990ee1936d3b2bc9586a43a2cc39fb2084d25fa"
+  },
+  "transactions": [
+    {
+      "name": "ServiceRegistry",
+      "hash": "0x3d6d86962e4527e1f7aaab3a3ea63dc6016fb4dad1e00cdd79aaf05ad8923aba"
+    },
+    {
+      "name": "CriticRegistry",
+      "hash": "0x39056016d16a5ed1c069009f7ef3a5f5d9e0e486d22da2bdb0e619b540fc14d9"
+    },
+    {
+      "name": "RoundManager",
+      "hash": "0x5c34ee0f836b11b45145199461e28564468945f81d6c2f20ab16b2616d297455"
+    },
+    {
+      "name": "AuthorizeRoundManager",
+      "hash": "0x05b4abfadf7496c692e9330b3e6f7c59e03560658838b718eb96336a1580af94"
+    },
+    {
+      "name": "BindServiceRegistry",
+      "hash": "0xcfc309eafcd4e4c8d365ffec7bd1686a0a8fe4993e0a08c0a9695024ae0bbdf8"
+    },
+    {
+      "name": "EnableAutomaticRounds",
+      "hash": "0xb86e98b8e113feec04e394e6f5dcbc798a597753f110ce93529d885345f7b1d7"
+    }
+  ],
+  "config": {
+    "minStakeTinybars": "500000000",
+    "minListingFeeTinybars": "2000000000",
+    "withdrawCooldown": 300,
+    "commitSeconds": 90,
+    "revealSeconds": 45,
+    "kMin": 3,
+    "kMax": 7,
+    "tolerance": 10,
+    "slashBps": 2000
+  }
+}
