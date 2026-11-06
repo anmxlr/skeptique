@@ -9,3 +9,5 @@
 - Missing docs: nullifier wire format conflicts (type comment says decimal, integrate guide says convert hex to decimal, verify examples show 0x hex).
 - Missing docs: which verify host and `environment` value to use for simulator (staging) proofs is not stated; `staging-developer.worldcoin.org` is listed but the simulator resolves RP context against `developer.worldcoin.org`.
 - Nice: the simulator ships an MCP tool (`complete_test_request`) that delivers a real staging proof headlessly. Found only by reading source; not mentioned in the docs.
+- 2026-11-06T08:35:00Z: Simulator MCP answered initialize from plain curl (no Origin header, no auth). Its instructions say the RP must be 'registered in the staging registry'; unclear whether a portal-registered RP counts. Docs never mention a staging registry.
+- 2026-11-06T08:36:10Z: FIRST STAGING PROOF received in Node via simulator MCP + idkit-core 4.6.0 on the first run (3h14m after timer start; ~13 min of hands-on spike work). The portal-registered RP was accepted by the simulator's staging check. Server verify still a stub (red run).

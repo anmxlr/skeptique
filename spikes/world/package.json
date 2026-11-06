@@ -1,0 +1,15 @@
+{
+  "name": "spike-world",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Ticket 05 spike: validate one World ID 4.0 proof and reject one denied case on a server. Plain node, outside the pnpm workspace.",
+  "scripts": {
+    "spike": "node spike.mjs"
+  },
+  "dependencies": {
+    "@worldcoin/idkit-core": "^4.6.0",
+    "@worldcoin/idkit-server": "^1.2.0",
+    "dotenv": "^18.0.9"
+  }
+}
