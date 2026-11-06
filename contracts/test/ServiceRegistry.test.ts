@@ -24,7 +24,14 @@ async function deploy() {
   const registry = await hre.viem.deployContract("ServiceRegistry", [MIN_FEE]);
   const [, seller, other] = await hre.viem.getWalletClients();
   const publicClient = await hre.viem.getPublicClient();
-  return { registry, seller, other, publicClient };
+  const getService = (serviceId: bigint) =>
+    publicClient.readContract({
+      address: registry.address,
+      abi: serviceRegistryAbi,
+      functionName: "getService",
+      args: [serviceId],
+    });
+  return { registry, seller, other, publicClient, getService };
 }
 
 function sortedKeys(value: object) {
@@ -33,10 +40,10 @@ function sortedKeys(value: object) {
 
 describe("ServiceRegistry", () => {
   it("locks the listing fee as the service's bounty and emits a ServiceListed that matches the shared schema", async () => {
-    const { registry, seller, publicClient } = await deploy();
+    const { registry, seller, publicClient, getService } = await deploy();
     await registry.write.listService([specHash, endpoint, 1n, ensNode], { value: MIN_FEE, account: seller.account });
 
-    const service = await registry.read.getService([1n]);
+    const service = await getService(1n);
     assert.equal(service.seller.toLowerCase(), seller.account.address.toLowerCase());
     assert.equal(service.specHash, specHash);
     assert.equal(service.endpoint, endpoint);
@@ -66,12 +73,12 @@ describe("ServiceRegistry", () => {
   });
 
   it("adds a top-up to the bounty and emits a BountyToppedUp that matches the shared schema", async () => {
-    const { registry, seller, other, publicClient } = await deploy();
+    const { registry, seller, other, publicClient, getService } = await deploy();
     await registry.write.listService([specHash, endpoint, 1n, ensNode], { value: MIN_FEE, account: seller.account });
     await registry.write.topUp([1n], { value: 5n, account: seller.account });
     await registry.write.topUp([1n], { value: 7n, account: other.account });
 
-    assert.equal((await registry.read.getService([1n])).bounty, MIN_FEE + 12n);
+    assert.equal((await getService(1n)).bounty, MIN_FEE + 12n);
     const logs = await publicClient.getContractEvents({
       address: registry.address,
       abi: serviceRegistryAbi,
@@ -116,7 +123,9 @@ describe("ServiceRegistry", () => {
 
   it("matches the ABI exported from packages/shared", async () => {
     const artifact = await hre.artifacts.readArtifact("ServiceRegistry");
-    const compiled = artifact.abi.filter((item: { type: string }) => item.type !== "constructor").map(formatAbiItem);
-    assert.deepEqual(serviceRegistryAbi.map(formatAbiItem).sort(), compiled.sort());
+    const compiled = artifact.abi
+      .filter((item: { type: string }) => item.type !== "constructor")
+      .map((item) => formatAbiItem(item));
+    assert.deepEqual(serviceRegistryAbi.map((item) => formatAbiItem(item)).sort(), compiled.sort());
   });
 });
