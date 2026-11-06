@@ -266,6 +266,19 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.market-probation {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.market-stats meter {
+  width: 6rem;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
+
 .world-verify {
   display: grid;
   gap: 12px;

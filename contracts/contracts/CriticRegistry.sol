@@ -21,6 +21,9 @@ contract CriticRegistry {
     mapping(address => bool) public isCritic;
     mapping(bytes32 => bool) public nullifierUsed;
     mapping(address => uint64) public withdrawableAt;
+    mapping(address => uint256) public activeRound;
+    /// Reserved for honest-critic rewards. There is no withdrawal path for this pool yet (ticket 22).
+    mapping(uint256 => uint256) public slashedFunds;
 
     error DuplicateNullifier(bytes32 nullifier);
     error ExpiredVoucher(uint64 expiry);
@@ -34,6 +37,8 @@ contract CriticRegistry {
     error NotRoundManager();
     error RoundManagerAlreadySet();
     error TransferFailed();
+    error StakeLocked(uint256 roundId);
+    error WrongRound();
 
     event CriticRegistered(address indexed critic, bytes32 nullifier, uint256 stake);
     event CriticSlashed(address indexed critic, uint256 indexed roundId, uint256 amount, string reason);
@@ -70,6 +75,7 @@ contract CriticRegistry {
     }
 
     function withdraw() external {
+        if (activeRound[msg.sender] != 0) revert StakeLocked(activeRound[msg.sender]);
         uint64 availableAt = withdrawableAt[msg.sender];
         if (availableAt == 0) revert WithdrawNotRequested();
         if (block.timestamp < availableAt) revert WithdrawCooldown(availableAt);
@@ -83,8 +89,24 @@ contract CriticRegistry {
 
     function slashStake(address critic, uint256 roundId, uint256 amount, string calldata reason) external {
         if (msg.sender != roundManager) revert NotRoundManager();
+        if (activeRound[critic] != roundId || roundId == 0) revert WrongRound();
         stakeOf[critic] -= amount;
+        slashedFunds[roundId] += amount;
         emit CriticSlashed(critic, roundId, amount, reason);
+    }
+
+    function lockStake(address critic, uint256 roundId) external {
+        if (msg.sender != roundManager) revert NotRoundManager();
+        if (!isCritic[critic]) revert NotCritic(critic);
+        if (roundId == 0) revert WrongRound();
+        if (activeRound[critic] != 0) revert StakeLocked(activeRound[critic]);
+        activeRound[critic] = roundId;
+    }
+
+    function releaseStake(address critic, uint256 roundId) external {
+        if (msg.sender != roundManager) revert NotRoundManager();
+        if (activeRound[critic] != roundId || roundId == 0) revert WrongRound();
+        activeRound[critic] = 0;
     }
 
     function _signedByAttestor(bytes32 humanNullifier, uint64 expiry, bytes calldata sig) private view returns (bool) {
