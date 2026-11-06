@@ -12,6 +12,7 @@ describe("round API route", () => {
       commitEnd: "2026-11-06T00:00:00.000Z",
       revealEnd: "2026-11-06T00:01:00.000Z",
       median: 82,
+      committed: [],
       reveals: [],
     };
     registerRoundRoutes(app, { get: (id) => (id === 2 ? view : undefined) });

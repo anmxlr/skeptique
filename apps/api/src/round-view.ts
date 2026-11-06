@@ -29,6 +29,7 @@ export function toRoundView(round: RoundSnapshot, nowSeconds = Math.floor(Date.n
     commitEnd: new Date(round.commitEnd * 1000).toISOString(),
     revealEnd: new Date(round.revealEnd * 1000).toISOString(),
     median: round.finalized ? round.median : null,
+    committed: round.committed,
     reveals: round.reveals.map(({ critic, score, honest }) => ({ critic, score, honest: honest ?? null })),
   });
 }
