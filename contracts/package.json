@@ -16,5 +16,9 @@
     "ts-node": "^10.9.2",
     "typescript": "catalog:",
     "viem": "^2.57.16"
+  },
+  "exports": {
+    "./deploy": "./deploy/local.ts",
+    "./package.json": "./package.json"
   }
 }
