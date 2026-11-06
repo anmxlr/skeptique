@@ -1,0 +1,23 @@
+{
+  "name": "@skeptic/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "canonicalize": "^2.1.0",
+    "viem": "^2.57.16",
+    "zod": "^4.6.7"
+  }
+}
