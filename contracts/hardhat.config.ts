@@ -1,4 +1,6 @@
+import "tsx/cjs";
 import "@nomicfoundation/hardhat-toolbox-viem";
+import "@nomicfoundation/hardhat-ethers";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { HardhatUserConfig } from "hardhat/config";
