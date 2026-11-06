@@ -25,11 +25,13 @@ function Results({ title, results }: { title: string; results: CaseResult[] }) {
                 {result.caseId}: {result.passed ? "Pass" : "Fail"}
               </strong>
               {result.error && <p>{result.error}</p>}
-              {result.output !== undefined && <pre>{JSON.stringify(result.output, null, 2)}</pre>}
+              {result.output !== undefined && (
+                <pre className="buyer-result">{JSON.stringify(result.output, null, 2)}</pre>
+              )}
               {"case" in result && (
                 <details>
                   <summary>Generated probe</summary>
-                  <pre>{JSON.stringify(result.case, null, 2)}</pre>
+                  <pre className="buyer-result">{JSON.stringify(result.case, null, 2)}</pre>
                 </details>
               )}
             </li>
@@ -58,7 +60,7 @@ export function ServiceDetailView({ state }: { state: State }) {
           <Results title="Public suite" results={evidence.suite} />
           <Results title="Private probes" results={evidence.probes} />
           <p>
-            Evidence: <code>{evidenceHash}</code>
+            Evidence: <code className="buyer-tx">{evidenceHash}</code>
           </p>
         </article>
       ))}
