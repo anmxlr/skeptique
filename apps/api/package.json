@@ -19,6 +19,8 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "fastify": "^5.12.8"
+    "fastify": "^5.12.8",
+    "@skeptic/shared": "workspace:*",
+    "canonicalize": "^2.1.0"
   }
 }
