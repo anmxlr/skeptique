@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
-import { type AppDeps, buildApp } from "@skeptique/api";
+import { type AppDeps, buildApp, createRegistrySource } from "@skeptique/api";
 import { type Address, deployLocal } from "@skeptique/contracts/deploy";
 import type { HardhatRuntimeEnvironment, JsonRpcServer } from "hardhat/types";
 import { createPublicClient, http } from "viem";
@@ -63,7 +63,10 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     const publicClient = createPublicClient({ transport: http(rpcUrl) });
     const chainId = await publicClient.getChainId();
 
-    const api = buildApp({ ...options.api, publicClient, contracts });
+    const listings = contracts.ServiceRegistry
+      ? createRegistrySource({ client: publicClient, address: contracts.ServiceRegistry })
+      : undefined;
+    const api = buildApp({ ...options.api, publicClient, contracts, listings });
     stoppers.push(() => api.close());
     await api.listen({ port: 0, host: "127.0.0.1" });
     const apiUrl = `http://127.0.0.1:${(api.server.address() as AddressInfo).port}`;
