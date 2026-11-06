@@ -18,6 +18,6 @@
 - [ ] Emitted events validate against 06's schemas and match the fixtures' shapes.
 - [ ] The suite route rejects a suite whose hash differs from `specHash`.
 - [ ] The marketplace page covers empty, loading and error states.
-- [ ] Done when: `pnpm --filter contracts test --grep "ServiceRegistry"` and `pnpm e2e -t "seller lists a service"` pass (the seed lists it, the API returns it with a matching hash, the page renders it).
+- [ ] Done when: `pnpm --filter contracts test -- --grep "ServiceRegistry"` and `pnpm e2e -t "seller lists a service"` pass (the seed lists it, the API returns it with a matching hash, the page renders it).
 
 Receipt: `board/done/08.md`
