@@ -1,0 +1,72 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { type ApiRoutes, apiClient } from "../lib/api";
+
+type MarketplaceService = ApiRoutes["/services"][number];
+
+export type MarketplaceState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; services: readonly MarketplaceService[] };
+
+const TINYBARS_PER_HBAR = 100_000_000n;
+
+/** Formats a tinybar amount (contract and x402 unit) as HBAR. */
+export function formatHbar(tinybars: string): string {
+  const value = BigInt(tinybars);
+  const fraction = (value % TINYBARS_PER_HBAR).toString().padStart(8, "0").replace(/0+$/, "");
+  return `${value / TINYBARS_PER_HBAR}${fraction ? `.${fraction}` : ""} HBAR`;
+}
+
+function ServiceCard({ service }: { service: MarketplaceService }) {
+  return (
+    <li className="market-card">
+      <h2>{service.name}</h2>
+      <p className="market-muted">{service.category}</p>
+      <dl className="market-stats">
+        <dt>Status</dt>
+        <dd>{service.median === null ? "Probation" : `Score ${service.median}`}</dd>
+        <dt>Price per call</dt>
+        <dd>{formatHbar(service.pricePerCall)}</dd>
+        <dt>Bounty</dt>
+        <dd>{service.bounty === undefined ? "Unknown" : formatHbar(service.bounty)}</dd>
+      </dl>
+    </li>
+  );
+}
+
+export function MarketplaceView({ state }: { state: MarketplaceState }) {
+  if (state.status === "loading") return <p role="status">Loading services…</p>;
+  if (state.status === "error") return <p role="alert">Could not load services: {state.message}</p>;
+  if (state.services.length === 0) return <p>No services listed yet.</p>;
+  return (
+    <ul className="market-grid">
+      {state.services.map((service) => (
+        <ServiceCard key={service.id} service={service} />
+      ))}
+    </ul>
+  );
+}
+
+/** Listed services from the API. */
+export function Marketplace() {
+  const [state, setState] = useState<MarketplaceState>({ status: "loading" });
+
+  useEffect(() => {
+    let active = true;
+    // apiClient() throws when the API URL is not configured; surface that as the error state.
+    Promise.resolve()
+      .then(() => apiClient().get("/services"))
+      .then(
+        (services) => active && setState({ status: "ready", services }),
+        (cause) =>
+          active && setState({ status: "error", message: cause instanceof Error ? cause.message : "Unknown error" }),
+      );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return <MarketplaceView state={state} />;
+}

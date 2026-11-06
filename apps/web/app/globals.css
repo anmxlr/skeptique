@@ -222,3 +222,46 @@ a {
   background: var(--bg);
   overflow-wrap: anywhere;
 }
+
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  margin: 24px 0 0;
+  padding: 0;
+  gap: 16px;
+  list-style: none;
+}
+
+.market-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.market-card h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.market-card .market-muted {
+  margin: 4px 0 12px;
+  color: var(--muted);
+}
+
+.market-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+}
+
+.market-stats dt {
+  color: var(--muted);
+}
+
+.market-stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}

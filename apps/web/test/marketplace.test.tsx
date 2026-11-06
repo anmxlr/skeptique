@@ -26,7 +26,9 @@ describe("marketplace view", () => {
   });
 
   it("shows the error when the API fails", () => {
-    const html = renderToString(<MarketplaceView state={{ status: "error", message: "API /services responded 500" }} />);
+    const html = renderToString(
+      <MarketplaceView state={{ status: "error", message: "API /services responded 500" }} />,
+    );
     expect(html).toContain('role="alert"');
     expect(html).toContain("API /services responded 500");
   });
