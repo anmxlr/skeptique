@@ -1,10 +1,8 @@
-import { createRequire } from "node:module";
 import { expect, it } from "vitest";
 
 // Deliberately fail when explicitly selected without funded credentials; skipped runs are not live acceptance.
 it("round on hedera testnet", async () => {
-  const require = createRequire(new URL("../contracts/package.json", import.meta.url));
-  const { smokeHederaRound } = await require("../scripts/smoke-hedera-round");
+  const { smokeHederaRound } = await import("../contracts/scripts/smoke-hedera-round");
   const result = await smokeHederaRound(process.env);
   expect(result.chainId).toBe(296);
   expect(result.median).toBe(72);

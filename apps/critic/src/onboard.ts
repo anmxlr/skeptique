@@ -1,4 +1,5 @@
 import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
+import { contractValue } from "@skeptique/shared/deployment";
 import { type Account, type Address, createPublicClient, createWalletClient, type Hex, http } from "viem";
 
 export type Onboarding =
@@ -44,7 +45,7 @@ export async function registerWithWorld(options: {
     abi: criticRegistryAbi,
     functionName: "registerCritic",
     args: [body.nullifier, BigInt(body.expiry), body.sig],
-    value: minStake,
+    value: contractValue(minStake, await publicClient.getChainId()),
     chain: null,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
