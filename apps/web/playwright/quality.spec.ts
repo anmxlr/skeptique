@@ -41,6 +41,13 @@ const RUNS = [
 async function mockApi(page: Page) {
   await page.route(`${MOCK_API_URL}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname;
+    // The event stream with no rounds yet; tests that need round events route /events themselves.
+    if (path === "/events")
+      return route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" },
+        body: "retry: 60000\n\n",
+      });
     const body =
       path === "/services"
         ? SERVICES
@@ -123,4 +130,51 @@ test("a failed refresh shows a readable toast over the last good buyer runs", as
   expect(violations.map((v) => v.id)).toEqual([]);
   const box = await toast.boundingBox();
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan((page.viewportSize()?.width ?? 0) - 40);
+});
+
+test("live updates: a round phase change appears on an open service page without a reload", async ({ page }) => {
+  await mockApi(page);
+  let finalized = false;
+  const stream = (events: string[]) => ({
+    status: 200,
+    headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" },
+    // retry: reconnect quickly when this mocked response ends, as a long-lived stream would keep going.
+    body: `retry: 200\n\n${events.join("")}`,
+  });
+  await page.route(`${MOCK_API_URL}/events`, (route) =>
+    route.fulfill(
+      stream([
+        `event: RoundOpened\ndata: {"roundId":1,"serviceId":1,"commitEnd":1,"revealEnd":2}\n\n`,
+        ...(finalized
+          ? [`event: RoundFinalized\ndata: {"roundId":1,"serviceId":1,"median":88,"nReveals":3,"void":false}\n\n`]
+          : []),
+      ]),
+    ),
+  );
+  await page.route(`${MOCK_API_URL}/rounds/1`, (route) =>
+    route.fulfill({
+      json: {
+        id: 1,
+        serviceId: 1,
+        phase: finalized ? "finalized" : "commit",
+        commitEnd: "2026-11-06T10:00:00.000Z",
+        revealEnd: "2026-11-06T10:05:00.000Z",
+        median: finalized ? 88 : null,
+        reveals: [],
+      },
+      headers: { "access-control-allow-origin": "*" },
+    }),
+  );
+
+  await page.goto("/services/1");
+  const latest = page.getByRole("region", { name: "Latest round" });
+  await expect(latest).toContainText("Round #1");
+  await expect(latest).toContainText("Commit");
+  await page.evaluate(() => {
+    (window as unknown as { marker: boolean }).marker = true;
+  });
+
+  finalized = true;
+  await expect(latest).toContainText("Finalized · consensus score 88", { timeout: 10_000 });
+  expect(await page.evaluate(() => (window as unknown as { marker?: boolean }).marker)).toBe(true);
 });
