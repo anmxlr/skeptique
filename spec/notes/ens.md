@@ -1,6 +1,6 @@
-# ENS note: ENSv2 on Sepolia (ticket 03, phase A, research only)
+# ENS note: ENSv2 on Sepolia (ticket 03: phase A research, phase B live run)
 
-Researched 2026-11-06. Sources are ENS's own: docs.ens.domains, the ENSIPs, `ensdomains/contracts-v2` source, and the ENS blog. "On-chain read" means an `eth_call` against Sepolia (chain 11155111) on 2026-11-06. No transactions were sent.
+Researched 2026-11-06. Sources are ENS's own: docs.ens.domains, the ENSIPs, `ensdomains/contracts-v2` source, and the ENS blog. "On-chain read" means an `eth_call` against Sepolia (chain 11155111) on 2026-11-06. Phase A sent no transactions; phase B (section "Phase B result") ran the plan live on Sepolia.
 
 Source pin: the docs deployments page links every Sepolia ENSv2 ABI to `ensdomains/contracts-v2` commit **`07e55a056f5b6a9c90119f501bdd05714e67dddd`** (`contracts/deployments/sepolia/.deployment.json`: `deployedAt 2026-10-01`). Below, `SRC` means `https://github.com/ensdomains/contracts-v2/blob/07e55a056f5b6a9c90119f501bdd05714e67dddd/contracts/`.
 **Do not code against `main`.** `main` (HEAD `48b3e2d3`, 2026-07-03) has a different, older-looking `PermissionedResolver` API (`setText(bytes32 node,…)`, `authorizeTextRoles`, per-name resources) and an older Sepolia address set. The live implementation matches `07e55a05`: calling `decodeSetter` on the live impl returned `resource = keccak256(key)`.
@@ -193,7 +193,7 @@ decodeFunctionResult({ abi: textAbi, functionName: 'text', data })
 3. Optional: allow seller-written ENSIP-26 `agent-endpoint[web]` / `agent-context`.
 
 ## Human steps before phase B (ticket 01)
-1. Create two Sepolia EOAs and put their keys in `.env` (never in git): `ENS_OPERATOR_PRIVATE_KEY` (owns the parent, registries and resolver admin) and `RELAYER_PRIVATE_KEY`. They may be the same key, but separate keys demonstrate EAC better.
+1. Create two Sepolia EOAs and put their keys in `.env` (never in git): `ENS_OPERATOR_PRIVATE_KEY` (owns the parent, registries and resolver admin) and `SEPOLIA_RELAYER_PRIVATE_KEY` (phase B correction: in this repo `RELAYER_PRIVATE_KEY` is the Hedera relayer). They may be the same key, but separate keys demonstrate EAC better.
 2. Fund them with Sepolia ETH: operator about **0.1 SepoliaETH**, relayer about **0.02**. These amounts are estimates (see Unverified).
 3. Get a Sepolia RPC URL and set `SEPOLIA_RPC_URL`. The public `https://ethereum-sepolia-rpc.publicnode.com` worked for reads.
 4. Set `ENS_PARENT_NAME=skeptique.eth`. Re-check availability just before phase B: `ETHRegistrar(0xf633…).isAvailable("skeptique")`.
@@ -221,15 +221,40 @@ Constants: registry `ROOT_ROLES = REGISTRAR|SET_PARENT|RENEW|UNREGISTER|SET_SUBR
 8. **Negative checks** (simulate only):
    - Seller `setText(dns, "eth.skeptique.score", …)` should revert with `EACUnauthorizedAccountRoles`.
    - Seller `svcReg.setResolver(tokenId, x)` should revert.
-   - Seller `safeTransferFrom` should revert with `TransferDisallowed`.
+   - Seller `safeTransferFrom` should revert. Phase B correction: it reverts with `TransferUnsafeUntilRegistryIsEmancipated` first, because the `svc` registry is not emancipated (the operator holds root roles); `PermissionedRegistry._update` checks that before `ROLE_CAN_TRANSFER_ADMIN` (`SRC/src/registry/PermissionedRegistry.sol` lines 530-539).
+   - Seller `unsafeTransfer` should revert with `TransferDisallowed` (same function, line 539).
 9. Make every step idempotent (check before writing) so the script can be re-run.
 
 ## Unverified
-- **Gas/ETH budget** (0.1 / 0.02 SepoliaETH): an estimate; no transactions were simulated.
-- **Child expiry rules**: whether a child registry enforces child expiry ≤ parent expiry. Plan: use the parent's expiry. I did not read `_register` expiry checks against the parent.
-- **Calls during resolver `initialize`**: whether `VerifiableFactory` calls `initialize` with `msg.sender = factory`. If it does, `grantSetterRoles` inside the `calls` array of `initialize` fails `_checkCanGrantRoles`, which is why the plan grants in a separate multicall. I did not read the `verifiable-factory` source.
+Phase B resolved these:
+- **Gas/ETH budget: resolved.** The full setup (parent registration, three registries, one resolver with six grants, one service subname) used 8,590,897 gas from the operator. Sepolia gas was so cheap on 2026-11-06 that this cost about 1.5e-10 ETH. The relayer's one `setText` used 373,372 gas. 0.1 / 0.02 SepoliaETH is far more than enough. Per-call gas is in `spikes/ens-sepolia/transcript.txt`.
+- **Child expiry rules: resolved, not enforced.** `PermissionedRegistry._register` only rejects an expiry in the past (`CannotSetPastExpiry`, `SRC/src/registry/PermissionedRegistry.sol` lines 486-488). It does not compare against the parent's expiry. Phase B uses the parent's expiry for `svc`, `critic` and the service subname anyway.
+- **Calls during resolver `initialize`: sidestepped.** `initialize` grants roles to the explicit `grants[].account`, so the factory being `msg.sender` doesn't matter for grants (`SRC/src/resolver/PermissionedResolver.sol` lines 119-126). Phase B passes `calls = []` and grants through a separate operator `multicall`, which worked. Whether grants inside `calls` would work is still untested.
+- **`getEnsText` against an ENSv2 PermissionedResolver: resolved, works.** viem 2.57.16 `getEnsText` and `getEnsResolver` through `0xeEeE…EeEe` returned the record and the resolver.
+- **Factory address prediction: confirmed.** `VerifiableFactory.predictProxyAddress(operator, salt)` matched every `ProxyDeployed.proxyAddress`, so the outer salt does include `msg.sender`. The spike uses it to skip deploys that already exist.
+
+Still open:
 - **ENS app with MockUSDC**: whether https://sepolia.app.ens.domains registers with MockUSDC. Not checked.
-- **`getEnsText` against an ENSv2 PermissionedResolver**: not exercised end to end, because no Sepolia name with v2 records was found to test. The source path is consistent, and phase B proves it.
 - **Commit `07e55a05`**: its date and branch relationship to `main` were not established (GitHub API fetch timed out). The live impl's `decodeSetter` behaviour matches it.
 - **Proxy stability**: the `0xeEeE` → `0x6d80` proxy chain is upgradable by ENS Labs. `main`'s README records a past temporary repoint, so resolution could change under us. Re-check `implementation()` before the demo.
 - Fallback if Sepolia breaks: a local ENSv2 devnet from ENS's repo (`bun run devnet`, chain 31337, `contracts/README.md`). Listed only and not evaluated; the ENSv2 prize requires mainnet or Sepolia (prd.md §4.1).
+
+## Phase B result (2026-11-06)
+Script: `spikes/ens-sepolia/ens.mjs` (`cd spikes/ens-sepolia && npm install && node ens.mjs [slug] [score]`). Transcript with every tx hash: `spikes/ens-sepolia/transcript.txt`. The plan above worked as written, apart from the corrections marked "Phase B correction".
+
+| Item | Value |
+|---|---|
+| `skeptique.eth` owner | operator `0x6f1842bC9d1198eC49d21B60C336296f9fc8DCA2`, expiry 2027-11-06 |
+| `skeptique.eth` registry | `0x2790d7A94541fC80eAC82a2653EB4cdD9a4097Fb` |
+| `svc.skeptique.eth` registry | `0x9A7a52082010ac8bd51d502afE7E1974916c06dF` |
+| `critic.skeptique.eth` registry | `0x70571E87e6dDD98e44E4d9F8AB7eDD50b5234dCb` |
+| `spike.svc.skeptique.eth` resolver | `0xD11036E3Dc1281912aaA44F088Fe61d3Bb68ad1a` (owner: seller, `roleBitmap 0`) |
+| Read back | `text("eth.skeptique.score") = "87"` through the Universal Resolver |
+
+Negative checks (simulated with `eth_call`, all as expected):
+- The seller can't write `eth.skeptique.score` (`EACUnauthorizedAccountRoles`), but can write `url`.
+- The relayer can't write `url`.
+- The seller can't `setResolver` on their own subname.
+- The seller can't transfer it: `safeTransferFrom` reverts with `TransferUnsafeUntilRegistryIsEmancipated` and `unsafeTransfer` reverts with `TransferDisallowed`.
+
+Gotcha for ticket code: a load-balanced public RPC (`publicnode`) can answer a read from a node that hasn't seen your last transaction yet. Run 1 read the new parent's expiry as `0` straight after `register`, and the next `register` then reverted with `CannotSetPastExpiry(0)`. Pin follow-up reads to the receipt's `blockNumber`, or wait until `getBlockNumber()` reaches it.
