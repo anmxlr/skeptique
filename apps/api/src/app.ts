@@ -7,6 +7,7 @@ import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
 import { type RoundViewSource, registerRoundRoutes } from "./rounds";
+import { registerServiceReviewRoutes, type ServiceReviewSource } from "./service-reviews";
 import { registerWorldRoutes, type WorldDeps } from "./world";
 
 export interface AppDeps {
@@ -20,8 +21,11 @@ export interface AppDeps {
   listings?: ListingSource;
   /** CriticRegistry registrations indexed from the chain; serves the critics routes. */
   critics?: CriticSource;
-  /** World ID onboarding for critics; the /world routes exist only when this is given. */
+  /** World ID onboarding for critics. */
   world?: WorldDeps;
+  /** Compatibility alias; evidence takes precedence when both are supplied. */
+  evidenceStore?: EvidenceStore;
+  serviceReviews?: ServiceReviewSource;
   rounds?: RoundViewSource;
   /** Where published evidence is kept, by hash; defaults to memory. */
   evidence?: EvidenceStore;
@@ -57,9 +61,13 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
   if (deps.rounds) registerRoundRoutes(app, deps.rounds);
-  registerEvidenceRoutes(app, deps.evidence ?? new MemoryEvidenceStore());
+  registerEvidenceRoutes(app, deps.evidence ?? deps.evidenceStore ?? new MemoryEvidenceStore());
   registerBuyerRunRoutes(app);
+  if (deps.serviceReviews) registerServiceReviewRoutes(app, deps.serviceReviews);
   if (deps.world) registerWorldRoutes(app, deps.world, deps.publicClient);
 
   return app;
 }
+
+export { MemoryEvidenceStore } from "./evidence";
+export { createServiceReviewSource } from "./service-reviews";

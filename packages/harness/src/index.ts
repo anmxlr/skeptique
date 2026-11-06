@@ -1,7 +1,15 @@
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
-import { type AppDeps, buildApp, createCriticSource, createRegistrySource, createRoundSource } from "@skeptique/api";
+import {
+  type AppDeps,
+  buildApp,
+  createCriticSource,
+  createRegistrySource,
+  createRoundSource,
+  createServiceReviewSource,
+  MemoryEvidenceStore,
+} from "@skeptique/api";
 import { type Address, deployLocal } from "@skeptique/contracts/deploy";
 import type { HardhatRuntimeEnvironment, JsonRpcServer } from "hardhat/types";
 import { createPublicClient, http } from "viem";
@@ -12,7 +20,7 @@ export interface StackOptions {
   /** Demo services to start, keyed by name. Each starter listens on its own free port. */
   services?: Record<string, ServiceStarter>;
   /** Extra API dependencies, e.g. the marketplace source a test wants served. */
-  api?: Pick<AppDeps, "marketplace" | "world">;
+  api?: Pick<AppDeps, "marketplace" | "world" | "evidenceStore" | "evidence" | "serviceReviews">;
 }
 
 export interface Stack {
@@ -73,10 +81,25 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
           roundManager: contracts.RoundManager,
         })
       : undefined;
+    const evidenceStore = options.api?.evidence ?? options.api?.evidenceStore ?? new MemoryEvidenceStore();
+    const serviceReviews =
+      options.api?.serviceReviews ??
+      (contracts.RoundManager
+        ? createServiceReviewSource({ client: publicClient, address: contracts.RoundManager, store: evidenceStore })
+        : undefined);
     const rounds = contracts.RoundManager
       ? createRoundSource({ client: publicClient, address: contracts.RoundManager })
       : undefined;
-    const api = buildApp({ ...options.api, publicClient, contracts, listings, critics, rounds });
+    const api = buildApp({
+      ...options.api,
+      publicClient,
+      contracts,
+      listings,
+      critics,
+      rounds,
+      evidenceStore,
+      serviceReviews,
+    });
     stoppers.push(() => api.close());
     await api.listen({ port: 0, host: "127.0.0.1" });
     const apiUrl = `http://127.0.0.1:${(api.server.address() as AddressInfo).port}`;

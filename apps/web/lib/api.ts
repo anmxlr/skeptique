@@ -12,6 +12,7 @@ export interface CriticView {
 }
 
 export interface ApiRoutes {
+  [path: `/services/${string}/reviews`]: { evidenceHash: string; evidence: Evidence }[];
   "/health": { ok: true; chainId: number } | { ok: false };
   "/buyer/runs": BuyerRun[];
   "/critics": CriticView[];
