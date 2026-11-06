@@ -341,3 +341,15 @@ a {
   color: var(--bg);
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
 }
+
+.latest-round {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.latest-round h2 {
+  margin: 0 0 8px;
+}

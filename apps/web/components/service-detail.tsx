@@ -4,6 +4,7 @@ import { type Evidence, hashscanTxUrl } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { fetchEvidence, fetchService, type ServiceDetail } from "../lib/api";
 import { EnsName } from "./ens-name";
+import { LatestRound } from "./latest-round";
 import { formatHbar } from "./marketplace";
 import { Skeleton } from "./states";
 
@@ -102,5 +103,10 @@ export function ServiceDetailPage({ id }: { id: number }) {
     };
   }, [id]);
 
-  return <ServiceDetailView state={state} />;
+  return (
+    <>
+      <ServiceDetailView state={state} />
+      {state.status === "ready" && <LatestRound serviceId={state.service.id} />}
+    </>
+  );
 }
