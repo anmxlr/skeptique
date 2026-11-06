@@ -1,4 +1,4 @@
-import type { TestCase } from 'shared';
+import type { TestCase } from '@skeptic/shared';
 
 export const recordedProbeCases: TestCase[] = [
   { id: 'probe-meter-3m', input: { value: 3, from: 'm', to: 'cm' }, expect: { kind: 'exact', value: { result: 300, unit: 'cm' } }, weight: 1 },

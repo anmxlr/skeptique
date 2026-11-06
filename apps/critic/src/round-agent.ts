@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { commitmentHash, type CommitmentInput } from '../../../packages/shared/src/index';
+import { commitmentHash, type CommitmentInput } from '@skeptic/shared';
 
 export type PendingReveal = { roundId: number; critic: string; score: number; salt: `0x${string}`; evidenceHash: `0x${string}`; claimedCost: string };
 export interface RoundStateStore {

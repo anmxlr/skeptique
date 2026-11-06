@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TestSuiteSchema, suiteHash } from 'shared';
+import { TestSuiteSchema, suiteHash } from '@skeptic/shared';
 import { handleUnitConvert, unitConvertSuite, unitConvertSpecHash } from './index';
 
 describe('unit-convert service', () => {

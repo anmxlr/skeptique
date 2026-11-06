@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TestSuiteSchema, suiteHash } from 'shared';
+import { TestSuiteSchema, suiteHash } from '@skeptic/shared';
 import { cleanCsv, csvCleanSuite, csvCleanSpecHash, csvCleanExpected } from './index';
 
 describe('csv-clean service', () => {

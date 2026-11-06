@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TestCase } from 'shared';
+import type { TestCase } from '@skeptic/shared';
 import { createBoundedExpectations } from './bounded-expectations';
 
 function testCase(expectation: TestCase['expect']): TestCase {

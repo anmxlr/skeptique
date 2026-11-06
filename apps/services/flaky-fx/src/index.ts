@@ -1,4 +1,4 @@
-import { suiteHash, type TestSuite } from 'shared';
+import { suiteHash, type TestSuite } from '@skeptic/shared';
 
 export type FlakyFxInput = { from: string; to: string; amount: number };
 export type FlakyFxOutput = { from: string; to: string; amount: number; rate: number; converted: number; stale: boolean; asOf: string };

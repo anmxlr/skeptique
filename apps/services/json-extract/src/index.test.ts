@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TestSuiteSchema, suiteHash } from 'shared';
+import { TestSuiteSchema, suiteHash } from '@skeptic/shared';
 import Ajv from 'ajv';
 import { createJsonExtract, createOpenAICompatibleExtractor, jsonExtractExpected, jsonExtractSuite, jsonExtractSpecHash, type JsonExtractor } from './index';
 

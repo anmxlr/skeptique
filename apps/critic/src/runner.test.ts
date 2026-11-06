@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
-import { suiteHash, type TestSuite } from 'shared';
+import { suiteHash, type TestSuite } from '@skeptic/shared';
 import { fetchAndRunCriticSuite, publishCriticEvidence, runCriticSuite } from './runner';
 
 const critic = '0x0000000000000000000000000000000000000001';

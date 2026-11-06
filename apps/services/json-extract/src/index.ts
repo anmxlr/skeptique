@@ -1,5 +1,5 @@
 import Ajv from 'ajv';
-import { suiteHash, type TestSuite } from 'shared';
+import { suiteHash, type TestSuite } from '@skeptic/shared';
 
 export type JsonExtractor = { extract(text: string, fields: string[]): Promise<unknown> };
 export type JsonExtractInput = { text: string; fields: string[] };

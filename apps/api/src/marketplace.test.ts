@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { registerMarketplaceRoutes } from './marketplace';
-import type { RankingInput } from 'shared';
+import type { RankingInput } from '@skeptic/shared';
 
 const base: RankingInput = {
   id: 1, name: 'same score', category: 'conversion', endpoint: 'http://localhost:3000/call', pricePerCall: '1', seller: '0x0000000000000000000000000000000000000001', ensName: 'same.svc.skeptic.eth', median: 80, nReveals: 5, nRounds: 1, lastRoundAt: '2026-11-06T00:00:00.000Z', popularityCalls: 0,

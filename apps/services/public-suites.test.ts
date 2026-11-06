@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import Ajv from 'ajv';
 import { describe, expect, it } from 'vitest';
-import type { TestCase, TestSuite } from 'shared';
+import type { TestCase, TestSuite } from '@skeptic/shared';
 import { handleUnitConvert, unitConvertSuite } from './unit-convert/src/index';
 import { cleanCsv, csvCleanSuite } from './csv-clean/src/index';
 import { createJsonExtract, jsonExtractExpected, jsonExtractSuite } from './json-extract/src/index';

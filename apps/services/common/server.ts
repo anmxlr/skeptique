@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server } from 'node:http';
-import type { TestSuite } from 'shared';
-import { suiteHash } from 'shared';
+import type { TestSuite } from '@skeptic/shared';
+import { suiteHash } from '@skeptic/shared';
 
 export type DemoService = {
   name: string;

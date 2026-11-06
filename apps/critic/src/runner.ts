@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
-import { EvidenceSchema, TestSuiteSchema, suiteHash, type CaseResult, type Evidence, type TestSuite } from 'shared';
+import { EvidenceSchema, TestSuiteSchema, suiteHash, type CaseResult, type Evidence, type TestSuite } from '@skeptic/shared';
 import { createBoundedExpectations } from './bounded-expectations';
 
 type CallResult = { response: unknown; txId: string | null; paid: boolean };

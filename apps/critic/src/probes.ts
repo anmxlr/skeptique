@@ -1,4 +1,4 @@
-import { EvidenceSchema, ProbeResultSchema, TestCaseSchema, TestSuiteSchema, type Evidence, type TestSuite, type ProbeResult } from 'shared';
+import { EvidenceSchema, ProbeResultSchema, TestCaseSchema, TestSuiteSchema, type Evidence, type TestSuite, type ProbeResult } from '@skeptic/shared';
 import { createBoundedExpectations } from './bounded-expectations';
 
 const MAX_PROBES = 20;

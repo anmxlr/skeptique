@@ -1,4 +1,4 @@
-import { RoundViewSchema, type RoundView } from 'shared';
+import { RoundViewSchema, type RoundView } from '@skeptic/shared';
 
 export type RoundSnapshot = {
   id: number;

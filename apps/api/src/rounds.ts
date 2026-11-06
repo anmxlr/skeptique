@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { RoundViewSchema, type RoundView } from 'shared';
+import { RoundViewSchema, type RoundView } from '@skeptic/shared';
 
 export interface RoundViewSource {
   get(roundId: number): Promise<RoundView | undefined> | RoundView | undefined;

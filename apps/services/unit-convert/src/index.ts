@@ -1,4 +1,4 @@
-import { suiteHash, type TestSuite } from 'shared';
+import { suiteHash, type TestSuite } from '@skeptic/shared';
 
 export type UnitConvertInput = { value: number; from: string; to: string; format?: 'object' | 'text' };
 export type UnitConvertOutput = { result: number; unit: string };

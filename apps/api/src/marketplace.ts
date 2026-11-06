@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { rankMarketplaceServices, type RankingInput } from 'shared';
+import { rankMarketplaceServices, type RankingInput } from '@skeptic/shared';
 
 export interface MarketplaceSource {
   list(): Promise<RankingInput[]> | RankingInput[];

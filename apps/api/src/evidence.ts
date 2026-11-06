@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import canonicalize from 'canonicalize';
 import type { FastifyInstance } from 'fastify';
-import { EvidenceSchema, type Evidence } from 'shared';
+import { EvidenceSchema, type Evidence } from '@skeptic/shared';
 
 export interface EvidenceStore {
   put(hash: string, evidence: Evidence): Promise<void> | void;
