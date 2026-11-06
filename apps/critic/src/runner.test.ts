@@ -56,6 +56,13 @@ describe('critic suite runner', () => {
     expect(payAndCall).not.toHaveBeenCalled();
   });
 
+  it('aborts on a payment policy denial instead of scoring the service zero', async () => {
+    const error = Object.assign(new Error('Payment denied'), { code: 'PAYMENT_POLICY_DENIED' });
+    const payAndCall = vi.fn(async () => { throw error; });
+    await expect(runCriticSuite({ ...args, suite, specHash: suiteHash(suite), payAndCall })).rejects.toThrow('Payment denied');
+    expect(payAndCall).toHaveBeenCalledTimes(1);
+  });
+
   it('aborts the review on judge failures instead of publishing a false service failure', async () => {
     const judgeSuite: TestSuite = { ...suite, cases: [{ ...suite.cases[0]!, expect: { kind: 'judge', rubric: 'correctness' } }, suite.cases[1]!] };
     const payAndCall = vi.fn(async () => ({ response: { result: 2 }, txId: null, paid: false }));
@@ -130,13 +137,14 @@ describe('critic suite runner', () => {
 
   it('scores mixed weighted cases and records latency and errors', async () => {
     const responses = [{ result: 2 }, { noResult: true }, 'ok'];
-    const payAndCall = vi.fn(async (_args: { url: string; body: unknown; maxPrice: string; signer: unknown }) => ({ response: responses.shift(), txId: null, paid: false }));
+    const payAndCall = vi.fn(async (_args: { url: string; body: unknown; maxPrice: string; signer: unknown; criticCall?: boolean }) => ({ response: responses.shift(), txId: null, paid: false }));
     const result = await runCriticSuite({ suite, specHash: suiteHash(suite), roundId: 1, critic, endpoint: 'http://local/call', maxPrice: '5', signer: {}, payAndCall });
     expect(result.suitePass).toBe(75);
     expect(result.errorRate).toBe(0);
     expect(result.evidence.suite.map(item => item.passed)).toEqual([true, false, true]);
     expect(result.evidence.latencyMs.p95).toBeGreaterThanOrEqual(result.evidence.latencyMs.p50);
     expect(payAndCall).toHaveBeenCalledTimes(3);
-    expect((payAndCall.mock.calls[0]![0].body as { criticCall: boolean }).criticCall).toBe(true);
+    expect(payAndCall.mock.calls[0]![0].criticCall).toBe(true);
+    expect(payAndCall.mock.calls[0]![0].body).toEqual(suite.cases[0]!.input);
   });
 });
