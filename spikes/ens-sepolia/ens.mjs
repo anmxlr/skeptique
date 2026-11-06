@@ -257,17 +257,38 @@ if (parentOwner === zeroAddress) {
   if (!(await read(A.ethRegistrar, registrarAbi, "isAvailable", [label]))) throw new Error(`${label} not available`);
   const secret = toHex(randomBytes(32));
   const commitment = await read(A.ethRegistrar, registrarAbi, "makeCommitment", [
-    label, operator.address, secret, zeroAddress, zeroAddress, ONE_YEAR, zeroHash,
+    label,
+    operator.address,
+    secret,
+    zeroAddress,
+    zeroAddress,
+    ONE_YEAR,
+    zeroHash,
   ]);
   const [base, premium] = await read(A.ethRegistrar, registrarAbi, "getRegisterPrice", [label, ONE_YEAR, A.usdc]);
   const price = base + premium;
   log(`  price ${price} MockUSDC units (base ${base}, premium ${premium})`);
-  await send(operator, "commit", { address: A.ethRegistrar, abi: registrarAbi, functionName: "commit", args: [commitment] });
+  await send(operator, "commit", {
+    address: A.ethRegistrar,
+    abi: registrarAbi,
+    functionName: "commit",
+    args: [commitment],
+  });
   const commitBlock = await pub.getBlock();
   if ((await read(A.usdc, erc20Abi, "balanceOf", [operator.address])) < price)
-    await send(operator, "MockUSDC.mint", { address: A.usdc, abi: erc20Abi, functionName: "mint", args: [operator.address, price] });
+    await send(operator, "MockUSDC.mint", {
+      address: A.usdc,
+      abi: erc20Abi,
+      functionName: "mint",
+      args: [operator.address, price],
+    });
   if ((await read(A.usdc, erc20Abi, "allowance", [operator.address, A.ethRegistrar])) < price)
-    await send(operator, "MockUSDC.approve", { address: A.usdc, abi: erc20Abi, functionName: "approve", args: [A.ethRegistrar, price] });
+    await send(operator, "MockUSDC.approve", {
+      address: A.usdc,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [A.ethRegistrar, price],
+    });
   const minAge = await read(A.ethRegistrar, registrarAbi, "MIN_COMMITMENT_AGE");
   const registerReq = {
     address: A.ethRegistrar,
@@ -295,7 +316,12 @@ if (expiry === 0n) throw new Error(`${parent} expiry read as 0 (stale RPC read?)
 log(`  tokenId ${parentTokenId}, expiry ${new Date(Number(expiry) * 1000).toISOString()}`);
 
 log(`\n[2] registry for ${parent}`);
-const parentReg = await deployProxy(`UserRegistry(${parent})`, A.userRegistryImpl, salt("UserRegistry", namehash(parent)), userRegistryInit);
+const parentReg = await deployProxy(
+  `UserRegistry(${parent})`,
+  A.userRegistryImpl,
+  salt("UserRegistry", namehash(parent)),
+  userRegistryInit,
+);
 if ((await read(A.ethRegistry, registryAbi, "getSubregistry", [label])).toLowerCase() !== parentReg.toLowerCase())
   await send(operator, `ETHRegistry.setSubregistry ${label}`, {
     address: A.ethRegistry,
@@ -309,7 +335,12 @@ const subRegs = {};
 for (const sub of ["svc", "critic"]) {
   const name = `${sub}.${parent}`;
   log(`\n[3] registry for ${name}`);
-  const reg = await deployProxy(`UserRegistry(${name})`, A.userRegistryImpl, salt("UserRegistry", namehash(name)), userRegistryInit);
+  const reg = await deployProxy(
+    `UserRegistry(${name})`,
+    A.userRegistryImpl,
+    salt("UserRegistry", namehash(name)),
+    userRegistryInit,
+  );
   subRegs[sub] = reg;
   if ((await read(parentReg, registryAbi, "findOwner", [sub])) === zeroAddress) {
     await send(operator, `register ${name}`, {
@@ -320,7 +351,12 @@ for (const sub of ["svc", "critic"]) {
     });
   } else if ((await read(parentReg, registryAbi, "getSubregistry", [sub])).toLowerCase() !== reg.toLowerCase()) {
     const id = await read(parentReg, registryAbi, "findTokenId", [sub]);
-    await send(operator, `setSubregistry ${name}`, { address: parentReg, abi: registryAbi, functionName: "setSubregistry", args: [id, reg] });
+    await send(operator, `setSubregistry ${name}`, {
+      address: parentReg,
+      abi: registryAbi,
+      functionName: "setSubregistry",
+      args: [id, reg],
+    });
   }
   await ensureParent(reg, parentReg, sub);
 }
@@ -345,7 +381,9 @@ for (const [account, keys] of [
   for (const key of keys) {
     if (await read(resolver, resolverAbi, "hasRoles", [textResource(key), R.SET_TEXT, account.address])) continue;
     const setter = encodeFunctionData({ abi: resolverAbi, functionName: "setText", args: [dns(full), key, ""] });
-    grants.push(encodeFunctionData({ abi: resolverAbi, functionName: "grantSetterRoles", args: [setter, account.address] }));
+    grants.push(
+      encodeFunctionData({ abi: resolverAbi, functionName: "grantSetterRoles", args: [setter, account.address] }),
+    );
     log(`  grant ROLE_SET_TEXT on "${key}" to ${account === relayer ? "relayer" : "seller"}`);
   }
 }
@@ -368,7 +406,12 @@ if ((await read(svcReg, registryAbi, "findOwner", [slug])) === zeroAddress) {
   });
 } else if ((await read(svcReg, registryAbi, "getResolver", [slug])).toLowerCase() !== resolver.toLowerCase()) {
   const id = await read(svcReg, registryAbi, "findTokenId", [slug]);
-  await send(operator, `setResolver ${full}`, { address: svcReg, abi: registryAbi, functionName: "setResolver", args: [id, resolver] });
+  await send(operator, `setResolver ${full}`, {
+    address: svcReg,
+    abi: registryAbi,
+    functionName: "setResolver",
+    args: [id, resolver],
+  });
 } else log(`  already registered to ${await read(svcReg, registryAbi, "findOwner", [slug])}`);
 const svcTokenId = await read(svcReg, registryAbi, "findTokenId", [slug]);
 
@@ -392,12 +435,57 @@ if (readBack !== score) throw new Error(`read-back mismatch: expected "${score}"
 
 log(`\n[8] negative checks (simulated, nothing sent)`);
 const checks = [
-  ["seller setText score key", seller, { address: resolver, abi: resolverAbi, functionName: "setText", args: [dns(full), SCORE_KEY, "100"] }, "EACUnauthorizedAccountRoles"],
-  ["seller setText url (allowed)", seller, { address: resolver, abi: resolverAbi, functionName: "setText", args: [dns(full), "url", "https://example.invalid"] }, "NO REVERT"],
-  ["relayer setText url", relayer, { address: resolver, abi: resolverAbi, functionName: "setText", args: [dns(full), "url", "https://example.invalid"] }, "EACUnauthorizedAccountRoles"],
-  ["seller setResolver on own subname", seller, { address: svcReg, abi: registryAbi, functionName: "setResolver", args: [svcTokenId, seller.address] }, "EACUnauthorizedAccountRoles"],
-  ["seller safeTransferFrom subname", seller, { address: svcReg, abi: registryAbi, functionName: "safeTransferFrom", args: [seller.address, relayer.address, svcTokenId, 1n, "0x"] }, "TransferUnsafeUntilRegistryIsEmancipated"],
-  ["seller unsafeTransfer subname", seller, { address: svcReg, abi: registryAbi, functionName: "unsafeTransfer", args: [relayer.address, svcTokenId, "0x"] }, "TransferDisallowed"],
+  [
+    "seller setText score key",
+    seller,
+    { address: resolver, abi: resolverAbi, functionName: "setText", args: [dns(full), SCORE_KEY, "100"] },
+    "EACUnauthorizedAccountRoles",
+  ],
+  [
+    "seller setText url (allowed)",
+    seller,
+    {
+      address: resolver,
+      abi: resolverAbi,
+      functionName: "setText",
+      args: [dns(full), "url", "https://example.invalid"],
+    },
+    "NO REVERT",
+  ],
+  [
+    "relayer setText url",
+    relayer,
+    {
+      address: resolver,
+      abi: resolverAbi,
+      functionName: "setText",
+      args: [dns(full), "url", "https://example.invalid"],
+    },
+    "EACUnauthorizedAccountRoles",
+  ],
+  [
+    "seller setResolver on own subname",
+    seller,
+    { address: svcReg, abi: registryAbi, functionName: "setResolver", args: [svcTokenId, seller.address] },
+    "EACUnauthorizedAccountRoles",
+  ],
+  [
+    "seller safeTransferFrom subname",
+    seller,
+    {
+      address: svcReg,
+      abi: registryAbi,
+      functionName: "safeTransferFrom",
+      args: [seller.address, relayer.address, svcTokenId, 1n, "0x"],
+    },
+    "TransferUnsafeUntilRegistryIsEmancipated",
+  ],
+  [
+    "seller unsafeTransfer subname",
+    seller,
+    { address: svcReg, abi: registryAbi, functionName: "unsafeTransfer", args: [relayer.address, svcTokenId, "0x"] },
+    "TransferDisallowed",
+  ],
 ];
 let failed = 0;
 for (const [name, account, req, expected] of checks) {
