@@ -37,16 +37,21 @@ describe("harness boots", () => {
   });
 
   it("starts from a fresh chain on a second boot", async () => {
-    const stack = await startStack();
-    try {
-      const res = await fetch(stack.rpcUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }),
-      });
-      expect(((await res.json()) as { result: string }).result).toBe("0x0");
-    } finally {
-      await stack.stop();
-    }
+    // A reset chain replays only the deployment: same height, same contract addresses.
+    const boot = async () => {
+      const stack = await startStack();
+      try {
+        const res = await fetch(stack.rpcUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }),
+        });
+        return { block: ((await res.json()) as { result: string }).result, contracts: stack.contracts };
+      } finally {
+        await stack.stop();
+      }
+    };
+    const first = await boot();
+    expect(await boot()).toEqual(first);
   });
 });

@@ -1,9 +1,16 @@
+import type {} from "@nomicfoundation/hardhat-toolbox-viem";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
+import { DEFAULT_ROUND_CONFIG } from "../../packages/shared/src/index";
 
 export type Address = `0x${string}`;
 
+// Contract amounts are tinybars (spec/notes/hedera-x402.md); the local chain uses the same numbers.
+const TINYBARS_PER_HBAR = 10n ** 8n;
+
 // Deploys every contract the local stack needs and returns name -> address.
-// The local stack harness (packages/harness) calls this; ticket 08 adds the first contracts.
-export async function deployLocal(_hre: HardhatRuntimeEnvironment): Promise<Record<string, Address>> {
-  return {};
+// The local stack harness (packages/harness) calls this.
+export async function deployLocal(hre: HardhatRuntimeEnvironment): Promise<Record<string, Address>> {
+  const minListingFee = BigInt(DEFAULT_ROUND_CONFIG.MIN_LISTING_FEE) * TINYBARS_PER_HBAR;
+  const serviceRegistry = await hre.viem.deployContract("ServiceRegistry", [minListingFee]);
+  return { ServiceRegistry: serviceRegistry.address };
 }

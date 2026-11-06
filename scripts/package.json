@@ -21,6 +21,7 @@
     "@skeptique/x402-client": "workspace:*",
     "@skeptique/service-unit-convert": "workspace:*",
     "@skeptique/service-suite-gamer": "workspace:*",
-    "fastify": "^5.12.8"
+    "fastify": "^5.12.8",
+    "viem": "^2.57.16"
   }
 }
