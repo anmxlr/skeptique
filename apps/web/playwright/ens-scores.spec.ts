@@ -1,13 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { decodeFunctionData, encodeFunctionResult, parseAbi, zeroHash } from "viem";
+import { PLAYWRIGHT_PUBLIC_ENV } from "./fixtures";
 
-// Run with these public URLs configured on Next; all traffic is intercepted, no network keys needed.
-const api = "http://127.0.0.1:43199";
-const rpc = "http://127.0.0.1:43200";
-const configured =
-  process.env.NEXT_PUBLIC_API_URL === api &&
-  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL === rpc &&
-  process.env.NEXT_PUBLIC_ENS_PARENT_NAME === "skeptique.eth";
+// The isolated test server uses these same URLs; both transports are intercepted below.
+const api = PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_API_URL;
+const rpc = PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_SEPOLIA_RPC_URL;
 const universal = parseAbi([
   "function findResolver(bytes name) view returns (address,bytes32,uint256)",
   "function resolveWithGateways(bytes name,bytes data,string[] gateways) view returns (bytes,address)",
@@ -24,7 +21,6 @@ const values: Record<string, string> = {
 };
 
 test("both pages show resolver score 43 when the API says 99", async ({ page }) => {
-  test.skip(!configured, "Run with the documented local API and RPC URLs");
   await page.route(`${api}/**`, async (route) => {
     const service = {
       id: 1,
