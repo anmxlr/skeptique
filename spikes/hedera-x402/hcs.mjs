@@ -6,7 +6,7 @@ import {
   PrivateKey,
   TopicCreateTransaction,
   TopicMessageSubmitTransaction,
-} from '@hashgraph/sdk';
+} from '@hiero-ledger/sdk';
 import { config } from 'dotenv';
 
 config({ path: process.env.ENV_FILE ?? '.env' });

@@ -1,0 +1,6 @@
+paywall up on :4402, facilitator https://x402.org/facilitator, payTo 0.0.11334361
+onBeforePay: 100000 tinybar of 0.0.0 to 0.0.11334361 (auto-approved)
+status 200 body {"echo":{"hello":"hedera"}}
+settle response: {"success":true,"payer":"0.0.11334607","transaction":"0.0.9185802@1793949293.996636002","network":"hedera:testnet"}
+settled tx id: 0.0.9185802@1793949293.996636002
+hashscan: https://hashscan.io/testnet/transaction/0.0.9185802@1793949293.996636002
