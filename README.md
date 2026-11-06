@@ -50,17 +50,23 @@ This checkout contains no verified live transaction. Ticket 27 is responsible fo
 
 ## Local setup and verification
 
-From a fresh clone, the intended integration check is:
+Requires Node 20.12+ and pnpm 9. From a fresh clone, run the local checks:
 
 ```sh
 git clone https://github.com/anmxlr/skeptique.git
 cd skeptique
-pnpm install
+pnpm install --frozen-lockfile
+pnpm lint
 pnpm -r build
+pnpm -r test
 pnpm e2e
+pnpm seed
+pnpm drills
 ```
 
-**This sequence is not yet runnable from this ticket branch.** Ticket 04 has not supplied the root pnpm workspace and application scaffold, and ticket 27 has not supplied the integrated end-to-end flow. Once those land, follow the committed `.env.example` for local configuration; use test credentials only for live-network steps, and never commit `.env` or private keys. Re-run the commands above from a clean clone and replace this status with the exact successful output before claiming the project is ready to run.
+Ticket 04's workspace is integrated. The commands above exercise local code, deterministic review fixtures and local EVM tests. They require no sponsor credentials. For live-network work, follow `.env.example`, keep `.env` untracked, and run `pnpm env:check` after configuration. The full sponsor-integrated journey remains pending ticket 27; passing local checks does not establish live payments, identity verification or ENS/HCS writes.
+
+For a staged HTTP-review-to-local-chain check, run `DEV2_EVIDENCE_PATH=/tmp/skeptique-flow.json pnpm e2e`, followed by `DEV2_EVIDENCE_PATH=/tmp/skeptique-flow.json DEV2_SETTLEMENT_PATH=/tmp/skeptique-settlement.json pnpm settle:local`. Both generated artifacts are explicitly local. The contract script refuses remote networks.
 
 The current files include deterministic demo service definitions, probe-generation logic, and a fixture-only seed/drill harness. The harness prints `LOCAL FIXTURE RUN ONLY` by design. It is not wired to Hedera, ENS, World, HCS, or live x402 settlement in this branch.
 
@@ -85,7 +91,7 @@ ERC-8004 provides shared agent identity and reputation/validation registries, wh
 
 ## Third-party software and services
 
-The project-specific review mechanism and demo services are developed in this repository. The assembled Dev 2 code uses these libraries; versions below describe the disposable local review environment, pending ticket 04's committed workspace and lockfile.
+The project-specific review mechanism and demo services are developed in this repository. The assembled Dev 2 code uses these libraries; versions below describe the disposable local review environment, recorded before integration with the committed workspace and lockfile. The lockfile is authoritative for installed versions.
 
 | Library | Local review version | Use | License |
 | --- | --- | --- | --- |
@@ -107,8 +113,13 @@ The [Dev 2 review record](docs/dev2-review.md) describes the local checks, effic
 
 | Evidence | Status in this checkout |
 | --- | --- |
-| Fresh-clone install, build and end-to-end run | Pending ticket 04 integration and ticket 27 |
+| Local workspace install, build, tests and staged review flow | Workspace integrated; final merge verification recorded in [integration notes](docs/integration-status.md) |
+| Full sponsor-integrated end-to-end run | Pending ticket 27 |
 | Settled Hedera x402 transaction and HashScan link | Pending ticket 27; none claimed |
 | Hedera round finalization and HCS audit message | Pending ticket 27; none claimed |
 | ENSv2 record read through the resolver | Pending ENS integration and ticket 27; none claimed |
 | World Agent Pass success and denied path | Pending integrated World flow; local fixtures are not proof |
+
+## Contributing and later integrations
+
+Use the [integration notes](docs/integration-status.md) for remaining ownership boundaries and the follow-up branch workflow. Commits follow Conventional Commits, enforced by the local hook and CI. License: [MIT](LICENSE).

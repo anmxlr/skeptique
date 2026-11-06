@@ -1,6 +1,6 @@
 # Dev 2 review and local verification
 
-Reviewed tickets 06, 11, 13, 14, 17, 18, 19, 28 and 31 with three parallel reviewers, using `karpathy-guidelines`. Fixes remain in one draft PR per ticket. Dependency updates use normal merges; main is unchanged.
+Reviewed tickets 06, 11, 13, 14, 17, 18, 19, 28 and 31 with three parallel reviewers, using `karpathy-guidelines`. This records the pre-merge review, originally one draft PR per ticket. The user subsequently authorized merging the development baseline; see [integration status](integration-status.md) for current workspace and merge verification. Dependency updates preserve normal merge history.
 
 ## Confirmed defects fixed
 
@@ -31,7 +31,7 @@ Final combined checks passed **105 Vitest tests across 24 files** (10.28 seconds
 
 `scripts/demo/dev2-flow.test.ts` starts real HTTP services and the evidence/ranking API. Three local critic identities each review both the good converter and the suite-gamer, using recorded private probes and a deterministic judge. Both services pass 100% of their public cases. Private probes score the good converter at 100% and the gamer at 0%, yielding final scores of **100 and 40**. The API stores and retrieves all six hashed evidence documents. Ranking selects the good converter despite the gamer's higher synthetic popularity; the buyer receives `300 cm` for `3 m`. Changed suite hashes and denied payment policies prevent service calls; an offline service produces explicit failures without fabricated payment evidence. The successful HTTP flow took 4.425 seconds in this run.
 
-`scripts/demo/settle-local-review.ts` consumes that run's evidence. Before submitting transactions it independently recomputes canonical hashes, checks critic identities and raw outputs, and recomputes all six scores. It then deploys the real RoundManager with a mock registry on in-process Hardhat, commits and reveals through the actual round-agent adapters, recreates each agent from persisted state, and finalizes two three-critic rounds. The 21 successful local transactions produce medians **100 and 40**. They are local EVM transactions, not Hedera payment or sponsor evidence.
+`contracts/scripts/settle-local-review.ts` consumes that run's evidence. Before submitting transactions it independently recomputes canonical hashes, checks critic identities and raw outputs, and recomputes all six scores. It then deploys the real RoundManager with a mock registry on in-process Hardhat, commits and reveals through the actual round-agent adapters, recreates each agent from persisted state, and finalizes two three-critic rounds. The 21 successful local transactions produce medians **100 and 40**. They are local EVM transactions, not Hedera payment or sponsor evidence.
 
 Commands used in the disposable harness (whose package scripts/configuration are local scaffolding):
 
