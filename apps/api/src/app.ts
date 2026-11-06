@@ -2,6 +2,7 @@ import Fastify, { type FastifyServerOptions } from "fastify";
 import type { PublicClient } from "viem";
 import { registerBuyerRunRoutes } from "./buyer-runs";
 import { type CriticSource, registerCriticRoutes } from "./critics";
+import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from "./evidence";
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
@@ -17,6 +18,8 @@ export interface AppDeps {
   listings?: ListingSource;
   /** CriticRegistry registrations indexed from the chain; serves the critics routes. */
   critics?: CriticSource;
+  /** Where published evidence is kept, by hash; defaults to memory. */
+  evidence?: EvidenceStore;
 }
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
@@ -42,6 +45,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   }
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
+  registerEvidenceRoutes(app, deps.evidence ?? new MemoryEvidenceStore());
   registerBuyerRunRoutes(app);
 
   return app;
