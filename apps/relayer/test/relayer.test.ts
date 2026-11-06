@@ -66,7 +66,8 @@ describe("role-limited records", () => {
 
   it("lets the relayer write every skeptique key but not url", async () => {
     const resolver = await setup();
-    for (const key of ["score", "confidence", "round", "hedera.tx"]) resolver.setText(RELAYER, `eth.skeptique.${key}`, "1");
+    for (const key of ["score", "confidence", "round", "hedera.tx"])
+      resolver.setText(RELAYER, `eth.skeptique.${key}`, "1");
     expect(() => resolver.setText(RELAYER, "url", "https://example.test")).toThrow("EACUnauthorizedAccountRoles");
   });
 });

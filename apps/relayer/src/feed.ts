@@ -1,5 +1,5 @@
-import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import { TestSuiteSchema } from "@skeptique/shared";
+import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import type { PublicClient } from "viem";
 import type { ListingFeed } from "./relayer";
 

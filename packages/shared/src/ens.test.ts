@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ensKeyPrefix, scoreKeys, SELLER_KEYS, serviceEnsName, serviceSlug } from "./ens";
+import { ensKeyPrefix, SELLER_KEYS, scoreKeys, serviceEnsName, serviceSlug } from "./ens";
 
 describe("ens naming", () => {
   it("slugs a service name into one DNS-safe label", () => {
