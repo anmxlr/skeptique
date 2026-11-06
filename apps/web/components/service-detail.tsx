@@ -1,7 +1,8 @@
 "use client";
 
+import type { Evidence } from "@skeptique/shared";
 import { useEffect, useState } from "react";
-import { fetchService, type ServiceDetail } from "../lib/api";
+import { fetchEvidence, fetchService, type ServiceDetail } from "../lib/api";
 import { EnsName } from "./ens-name";
 import { formatHbar } from "./marketplace";
 
@@ -9,13 +10,13 @@ export type ServiceDetailState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "not-found" }
-  | { status: "ready"; service: ServiceDetail };
+  | { status: "ready"; service: ServiceDetail; evidence?: Evidence };
 
 export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
   if (state.status === "loading") return <p role="status">Loading service…</p>;
   if (state.status === "error") return <p role="alert">Could not load service: {state.message}</p>;
   if (state.status === "not-found") return <p>No such service.</p>;
-  const { service } = state;
+  const { service, evidence } = state;
   return (
     <>
       <h1>{service.name}</h1>
@@ -32,7 +33,27 @@ export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
         <dt>Endpoint</dt>
         <dd>{service.endpoint}</dd>
       </dl>
+      {evidence && <EvidenceSection evidence={evidence} />}
     </>
+  );
+}
+
+function EvidenceSection({ evidence }: { evidence: Evidence }) {
+  const passed = evidence.suite.filter((result) => result.passed).length;
+  return (
+    <section aria-label="Evidence">
+      <h2>Evidence</h2>
+      <dl className="market-stats">
+        <dt>Critic</dt>
+        <dd>{evidence.critic}</dd>
+        <dt>Result</dt>
+        <dd>{`Score ${evidence.score}: ${passed} of ${evidence.suite.length} cases passed`}</dd>
+        <dt>Cases</dt>
+        <dd>{`${evidence.suite.length} cases`}</dd>
+        <dt>Latency</dt>
+        <dd>{`p50 ${Math.round(evidence.latencyMs.p50)} ms, p95 ${Math.round(evidence.latencyMs.p95)} ms`}</dd>
+      </dl>
+    </section>
   );
 }
 
@@ -46,10 +67,14 @@ export function ServiceDetailPage({ id }: { id: number }) {
     Promise.resolve()
       .then(() => {
         if (!baseUrl) throw new Error("NEXT_PUBLIC_API_URL must be set");
-        return fetchService(id, baseUrl);
+        // A critic's published evidence is shown when the link carries its hash: /services/1?evidence=0x...
+        const hash = new URLSearchParams(window.location.search).get("evidence");
+        return Promise.all([fetchService(id, baseUrl), hash ? fetchEvidence(hash, baseUrl) : null]);
       })
       .then(
-        (service) => active && setState(service ? { status: "ready", service } : { status: "not-found" }),
+        ([service, evidence]) =>
+          active &&
+          setState(service ? { status: "ready", service, ...(evidence ? { evidence } : {}) } : { status: "not-found" }),
         (cause) =>
           active && setState({ status: "error", message: cause instanceof Error ? cause.message : "Unknown error" }),
       );
