@@ -77,14 +77,13 @@ describe("buyer picks by score", () => {
     const good = `${stack.services["unit-convert"]}/call`;
 
     for (let i = 0; i < 20; i++) {
-      const critic = CRITICS[i % CRITICS.length]!;
       await payAndCall({ url: good, body: TASK, maxPrice: "1", signer: null, criticCall: true });
-      await reportPaidCall(1, critic);
+      await reportPaidCall(1, CRITICS[i % CRITICS.length] as string);
     }
-    await reportPaidCall(1, BUYERS[0]!);
-    for (let i = 0; i < 5; i++) await reportPaidCall(2, BUYERS[i % BUYERS.length]!);
+    await reportPaidCall(1, BUYERS[0] as string);
+    for (let i = 0; i < 5; i++) await reportPaidCall(2, BUYERS[i % BUYERS.length] as string);
 
-    const popularity = await (await fetch(`${stack.apiUrl}/services`)).json();
+    const popularity: RankingInput[] = await (await fetch(`${stack.apiUrl}/services`)).json();
     expect(Object.fromEntries(popularity.map((s: RankingInput) => [s.name, s.popularityCalls]))).toEqual({
       "unit-convert": 1,
       "suite-gamer": 5,
@@ -104,13 +103,12 @@ describe("buyer picks by score", () => {
       runs.push(run);
     }
 
-    const [skeptic, popular] = runs;
-    expect(skeptic).toMatchObject({ pick: { name: "unit-convert" }, response: { result: 300, unit: "cm" } });
-    expect(skeptic!.explanation).toContain("suite-gamer");
-    expect(popular).toMatchObject({ pick: { name: "suite-gamer" } });
-    expect(popular!.explanation).toMatch(/does not consider quality/);
+    expect(runs[0]).toMatchObject({ pick: { name: "unit-convert" }, response: { result: 300, unit: "cm" } });
+    expect(runs[0]?.explanation).toContain("suite-gamer");
+    expect(runs[1]).toMatchObject({ pick: { name: "suite-gamer" } });
+    expect(runs[1]?.explanation).toMatch(/does not consider quality/);
 
-    const shown = await (await fetch(`${stack.apiUrl}/buyer/runs`)).json();
+    const shown: BuyerRun[] = await (await fetch(`${stack.apiUrl}/buyer/runs`)).json();
     expect(shown.map((run: BuyerRun) => [run.strategy, run.pick.name])).toEqual([
       ["skeptic", "unit-convert"],
       ["popularity", "suite-gamer"],
