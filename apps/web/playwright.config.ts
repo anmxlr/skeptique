@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { PLAYWRIGHT_PUBLIC_ENV } from "./playwright/fixtures";
 
 const port = 3107;
 
@@ -11,7 +12,8 @@ export default defineConfig({
   webServer: {
     command: `pnpm exec next dev --port ${port} --hostname 127.0.0.1`,
     url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: !process.env.CI,
+    env: PLAYWRIGHT_PUBLIC_ENV,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
