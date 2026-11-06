@@ -141,13 +141,35 @@ const SCORE_KEY = SCORE_KEYS[0];
 
 const log = (...a) => console.log(...a);
 const txs = [];
-const read = (address, abi, functionName, args = []) => pub.readContract({ address, abi, functionName, args });
+// A load-balanced RPC can answer from a node that has not seen our last transaction yet
+// (run 1 read expiry 0 right after register). Pin reads to the block of our latest receipt.
+let minBlock;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function atMinBlock(fn) {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn(minBlock === undefined ? {} : { blockNumber: minBlock });
+    } catch (e) {
+      if (i >= 9 || !/header not found|unknown block|block .*not found/i.test(e.message)) throw e;
+      await sleep(2000);
+    }
+  }
+}
+const read = (address, abi, functionName, args = []) =>
+  atMinBlock((at) => pub.readContract({ address, abi, functionName, args, ...at }));
 
 async function send(account, label, req) {
-  const { request } = await pub.simulateContract({ account, ...req });
+  let request;
+  try {
+    ({ request } = await pub.simulateContract({ account, ...req }));
+  } catch (e) {
+    throw new Error(`${label}: ${e.shortMessage ?? e.message}`);
+  }
   const hash = await wallet(account).writeContract(request);
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`${label} reverted: ${hash}`);
+  minBlock = receipt.blockNumber;
+  while ((await pub.getBlockNumber()) < minBlock) await sleep(1000);
   txs.push({ label, hash, gasUsed: receipt.gasUsed });
   log(`  tx ${label}: ${hash} (gas ${receipt.gasUsed})`);
   return receipt;
@@ -167,7 +189,7 @@ const textResource = (key) => BigInt(keccak256(toBytes(key)));
 
 async function deployProxy(name, impl, proxySalt, initData) {
   const predicted = await read(A.factory, factoryAbi, "predictProxyAddress", [operator.address, proxySalt]);
-  if ((await pub.getCode({ address: predicted }))?.length > 2) {
+  if ((await atMinBlock((at) => pub.getCode({ address: predicted, ...at })))?.length > 2) {
     log(`  ${name}: exists at ${predicted}`);
     return predicted;
   }
@@ -201,9 +223,9 @@ async function ensureParent(registry, parentRegistry, childLabel) {
   });
 }
 
-async function revertName(account, req) {
+async function revertName(account, req, at = {}) {
   try {
-    await pub.simulateContract({ account, ...req });
+    await pub.simulateContract({ account, ...req, ...at });
     return "NO REVERT";
   } catch (e) {
     const r = e instanceof BaseError ? e.walk((x) => x instanceof ContractFunctionRevertedError) : null;
@@ -269,6 +291,7 @@ if (parentOwner === zeroAddress) {
 } else log(`  already owned by operator`);
 const parentTokenId = await read(A.ethRegistry, registryAbi, "findTokenId", [label]);
 const expiry = await read(A.ethRegistry, registryAbi, "getExpiry", [parentTokenId]);
+if (expiry === 0n) throw new Error(`${parent} expiry read as 0 (stale RPC read?)`);
 log(`  tokenId ${parentTokenId}, expiry ${new Date(Number(expiry) * 1000).toISOString()}`);
 
 log(`\n[2] registry for ${parent}`);
@@ -350,7 +373,7 @@ if ((await read(svcReg, registryAbi, "findOwner", [slug])) === zeroAddress) {
 const svcTokenId = await read(svcReg, registryAbi, "findTokenId", [slug]);
 
 log(`\n[6] relayer writes ${SCORE_KEY} = "${score}"`);
-const current = await pub.getEnsText({ name: full, key: SCORE_KEY }).catch(() => null);
+const current = await atMinBlock((at) => pub.getEnsText({ name: full, key: SCORE_KEY, ...at })).catch(() => null);
 if (current === score) log(`  already "${score}"`);
 else
   await send(relayer, `setText ${SCORE_KEY}`, {
@@ -361,8 +384,8 @@ else
   });
 
 log(`\n[7] read back through Universal Resolver ${A.universalResolver}`);
-const resolvedVia = await pub.getEnsResolver({ name: full });
-const readBack = await pub.getEnsText({ name: full, key: SCORE_KEY });
+const resolvedVia = await atMinBlock((at) => pub.getEnsResolver({ name: full, ...at }));
+const readBack = await atMinBlock((at) => pub.getEnsText({ name: full, key: SCORE_KEY, ...at }));
 log(`  resolver for ${full}: ${resolvedVia}`);
 log(`READ BACK: ${full} text("${SCORE_KEY}") = "${readBack}"`);
 if (readBack !== score) throw new Error(`read-back mismatch: expected "${score}"`);
@@ -378,7 +401,7 @@ const checks = [
 ];
 let failed = 0;
 for (const [name, account, req, expected] of checks) {
-  const got = await revertName(account, req);
+  const got = await atMinBlock((at) => revertName(account, req, at));
   const ok = got === expected;
   if (!ok) failed++;
   log(`  ${ok ? "PASS" : "FAIL"} ${name}: ${got}${ok ? "" : ` (expected ${expected})`}`);
