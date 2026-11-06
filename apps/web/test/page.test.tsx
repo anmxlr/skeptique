@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { renderToString } from "react-dom/server";
 import { expect, it } from "vitest";
+import ArenaPage from "../app/arena/page";
 import AuditPage from "../app/audit/page";
 import BuyerPage from "../app/buyer/page";
 import CriticsPage from "../app/critics/page";
@@ -14,6 +15,7 @@ const pages: Record<string, ComponentType> = {
   "/critics": CriticsPage,
   "/sell": SellPage,
   "/buyer": BuyerPage,
+  "/arena": ArenaPage,
   "/audit": AuditPage,
   "/limits": LimitsPage,
 };

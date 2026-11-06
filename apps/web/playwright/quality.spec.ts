@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { MOCK_API_URL } from "../playwright.config";
+import { PLAYWRIGHT_PUBLIC_ENV } from "./fixtures";
 
 // Fixture API responses (test data only), served for the pages' fetches so every page renders real loaded states.
 const service = (id: number, name: string, median: number | null) => ({
@@ -63,7 +64,27 @@ const RUNS = [
   },
 ];
 
+const ARENA_HEALTH = {
+  ok: true,
+  model: "claude-haiku-5-5",
+  network: "hedera:testnet",
+  apiUrl: MOCK_API_URL,
+  busy: false,
+  paywall: { "unit-convert": "402 payment required ✓" },
+  provenance: "local-chain",
+};
+const ARENA_TASKS = [{ id: "m-cm", prompt: "Convert 3 metres to centimetres", why: "off the public suite" }];
+
 async function mockApi(page: Page) {
+  await page.route(`${PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_ARENA_URL}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const body = path === "/health" ? ARENA_HEALTH : path === "/tasks" ? ARENA_TASKS : undefined;
+    await route.fulfill(
+      body === undefined
+        ? { status: 404, json: { error: "Not found" }, headers: { "access-control-allow-origin": "*" } }
+        : { status: 200, json: body, headers: { "access-control-allow-origin": "*" } },
+    );
+  });
   await page.route(`${MOCK_API_URL}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname;
     // The event stream with no rounds yet; tests that need round events route /events themselves.
@@ -100,6 +121,7 @@ const PAGES = [
   { path: "/critics", heading: "Critics" },
   { path: "/sell", heading: "Sell" },
   { path: "/buyer", heading: "Buyer" },
+  { path: "/arena", heading: "Arena" },
   { path: "/audit", heading: "Audit" },
   { path: "/limits", heading: "Limits" },
 ];
@@ -207,4 +229,51 @@ test("live updates: a round phase change appears on an open service page without
   finalized = true;
   await expect(latest).toContainText("Finalized · consensus score 88", { timeout: 10_000 });
   expect(await page.evaluate(() => (window as unknown as { marker?: boolean }).marker)).toBe(true);
+});
+
+test("arena: a finished run renders both columns and the verdict with no accessibility violations", async ({
+  page,
+}) => {
+  await mockApi(page);
+  const arena = PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_ARENA_URL;
+  const headers = { "access-control-allow-origin": "*" };
+  const side = (name: "baseline" | "skeptique", outcome: "correct" | "wrong") => ({
+    side: name,
+    prompt: `listings shown to ${name}`,
+    decision: { option: 1, reason: `${name} reason`, signalsUsed: ["category"] },
+    llm: { model: "claude-haiku-5-5", costUsd: null, ms: 1, raw: "{}" },
+    pick: { option: 1, id: 1, name: "unit-convert", endpoint: "x", pricePerCall: "1" },
+    policy: { allowed: true, checks: [{ rule: "budget", pass: true, detail: "ok" }] },
+    payment: { txId: "0.0.9185802@1793949293.996636002", paid: true, tinybars: "1" },
+    response: { result: 300, unit: "cm" },
+    verdict: { correct: outcome === "correct", expected: { result: 300, unit: "cm" }, actual: {}, note: "n" },
+    outcome,
+    wastedTinybars: outcome === "correct" ? "0" : "1",
+    error: null,
+  });
+  const baseline = side("baseline", "wrong");
+  const skeptique = side("skeptique", "correct");
+  const events = [
+    { type: "run-started", runId: "r1", task: null, prompt: "Convert 3 metres to centimetres" },
+    { type: "graded", side: "baseline", result: baseline },
+    { type: "graded", side: "skeptique", result: skeptique },
+    { type: "run-finished", record: { version: 2, runId: "r1", sides: { baseline, skeptique } }, hash: "0xabc" },
+  ];
+  await page.route(`${arena}/runs`, (route) => route.fulfill({ status: 202, json: { runId: "r1" }, headers }));
+  await page.route(`${arena}/runs/r1/events`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { ...headers, "content-type": "text/event-stream" },
+      body: events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join(""),
+    }),
+  );
+  await page.goto("/arena");
+  await page.getByRole("button", { name: /Convert 3 metres/ }).click();
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Verdict" })).toContainText("0xabc");
+  await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("correct");
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 });
