@@ -20,7 +20,7 @@ export interface StackOptions {
   /** Demo services to start, keyed by name. Each starter listens on its own free port. */
   services?: Record<string, ServiceStarter>;
   /** Extra API dependencies, e.g. the marketplace source a test wants served. */
-  api?: Pick<AppDeps, "marketplace" | "world" | "evidenceStore" | "serviceReviews">;
+  api?: Pick<AppDeps, "marketplace" | "world" | "evidenceStore" | "evidence" | "serviceReviews">;
 }
 
 export interface Stack {
@@ -81,7 +81,7 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
           roundManager: contracts.RoundManager,
         })
       : undefined;
-    const evidenceStore = options.api?.evidenceStore ?? new MemoryEvidenceStore();
+    const evidenceStore = options.api?.evidence ?? options.api?.evidenceStore ?? new MemoryEvidenceStore();
     const serviceReviews =
       options.api?.serviceReviews ??
       (contracts.RoundManager

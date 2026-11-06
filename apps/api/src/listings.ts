@@ -1,4 +1,11 @@
-import { type RankingInput, suiteHash, type TestSuite, TestSuiteSchema } from "@skeptique/shared";
+import {
+  type RankingInput,
+  serviceEnsName,
+  serviceSlug,
+  suiteHash,
+  type TestSuite,
+  TestSuiteSchema,
+} from "@skeptique/shared";
 import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import type { FastifyInstance } from "fastify";
 import type { PublicClient } from "viem";
@@ -22,6 +29,8 @@ type Listing = ReturnType<typeof serviceListedEvent>;
 export function createRegistrySource(options: {
   client: Pick<PublicClient, "getContractEvents" | "readContract">;
   address: `0x${string}`;
+  /** ENS_PARENT_NAME: services are named `<slug>.svc.<parent>`. Empty when ENS is not configured. */
+  ensParent?: string;
   fetch?: (url: string | URL | Request) => Promise<Response>;
 }): ListingSource {
   const fetchSuite = options.fetch ?? fetch;
@@ -78,7 +87,7 @@ export function createRegistrySource(options: {
           endpoint: listing.endpoint,
           pricePerCall: listing.pricePerCall,
           seller: listing.seller,
-          ensName: "",
+          ensName: options.ensParent ? serviceEnsName(serviceSlug(suite.suite.serviceName), options.ensParent) : "",
           median: null,
           nReveals: 0,
           nRounds: 0,

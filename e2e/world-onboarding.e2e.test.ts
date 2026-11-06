@@ -1,37 +1,22 @@
-import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { type Stack, startStack } from "@skeptique/harness";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Onboarding, registerWithWorld } from "../apps/critic/src/onboard";
+import { OnboardingView } from "../apps/web/components/critic-onboarding";
+import { type OnboardDeps, onboardCritic, type RpContext, type WorldCompletion } from "../apps/web/lib/onboard";
+import { criticRegistryAbi } from "../packages/shared/abi/CriticRegistry";
 
-// World's packages live in the API's dependencies, not the repo root's.
-const apiRequire = createRequire(new URL("../apps/api/package.json", import.meta.url));
-const { hashSignal } = apiRequire("@worldcoin/idkit-core/hashing") as typeof import("@worldcoin/idkit-core/hashing");
-const { signRequest } = apiRequire("@worldcoin/idkit-server") as typeof import("@worldcoin/idkit-server");
+// React and IDKit live in the web and api apps' dependencies, not the repo root's.
+const webRequire = createRequire(new URL("../apps/web/package.json", import.meta.url));
+const { createElement } = webRequire("react") as typeof import("react");
+const { renderToString } = webRequire("react-dom/server") as typeof import("react-dom/server");
+const { hashSignal } = webRequire("@worldcoin/idkit-core") as typeof import("@worldcoin/idkit-core");
+const { createWalletClient, http, createPublicClient } = webRequire("viem") as typeof import("viem");
 
-// Test fixtures, never product values: Hardhat's dev account #9 is the attestor deployLocal trusts, and the
-// World nullifier below stands for one staging (simulator) identity.
+// Hardhat's well-known dev account #9: the local attestor deployLocal trusts. A test fixture, never a product value.
 const LOCAL_ATTESTOR_KEY = "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6";
-const HUMAN = `0x${"0c".repeat(32)}`;
-const ACTION = "register-critic";
-
-/** A staging IDKit 4.0 result proving `critic` as the signal (shape from spec/notes/world.md). */
-const idkitResult = (nonce: string, critic: string, proofHead = "mock") => ({
-  protocol_version: "4.0",
-  nonce,
-  action: ACTION,
-  environment: "staging",
-  responses: [
-    {
-      identifier: "proof_of_human",
-      issuer_schema_id: 1,
-      nullifier: HUMAN,
-      proof: [proofHead, "1", "2", "3", "4"],
-      expires_at_min: 1_900_000_000,
-      signal_hash: hashSignal(critic.toLowerCase()),
-    },
-  ],
-});
+// Test-only World signing key; the real one is never loaded here. Proofs are mocked, as the event provides.
+const TEST_SIGNING_KEY = `0x${"0c".repeat(32)}`;
+const HUMAN_A = "0x1e1c0c2bcdf61aa3c3cb7c1306f0fdebef3971b2cec64bd2c7b11d4482490554";
 
 async function rpc<T>(url: string, method: string, params: unknown[] = []): Promise<T> {
   const res = await fetch(url, {
@@ -44,76 +29,194 @@ async function rpc<T>(url: string, method: string, params: unknown[] = []): Prom
 
 describe("world onboarding", () => {
   let stack: Stack;
-  let clock = Date.now();
+  let skewSecs = 0;
+  let accounts: `0x${string}`[];
 
   beforeAll(async () => {
     stack = await startStack({
       api: {
         world: {
-          appId: "app_local",
-          rpId: "rp_local",
-          action: ACTION,
+          rpId: "rp_test",
+          signingKey: TEST_SIGNING_KEY,
           environment: "staging",
-          signRequest: (action) => signRequest({ signingKeyHex: randomBytes(32).toString("hex"), action }),
-          // Local stand-in for World's verify API: accepts the mocked staging proof, rejects any altered one.
-          verifyProof: async (result) => {
-            const proof = (result as ReturnType<typeof idkitResult>).responses[0]?.proof;
-            return proof?.[0] === "mock" ? { success: true } : { success: false, code: "all_verifications_failed" };
-          },
           attestorKey: LOCAL_ATTESTOR_KEY,
-          now: () => clock,
+          now: () => Math.floor(Date.now() / 1000) + skewSecs,
+          // Mocked World: a proof is valid unless its first element says otherwise.
+          verify: async (body) =>
+            body.responses[0]?.proof[0] === "0xbad" ? { ok: false, code: "all_verifications_failed" } : { ok: true },
         },
       },
     });
+    accounts = await rpc<`0x${string}`[]>(stack.rpcUrl, "eth_accounts");
   }, 60_000);
 
   afterAll(async () => {
     await stack?.stop();
   });
 
-  const nonce = async () =>
-    ((await (await fetch(`${stack.apiUrl}/world/rp-context`, { method: "POST" })).json()) as { nonce: string }).nonce;
-  const critics = async () => (await (await fetch(`${stack.apiUrl}/critics`)).json()) as { address: string }[];
-  const txCount = async (address: string) =>
-    BigInt(await rpc<string>(stack.rpcUrl, "eth_getTransactionCount", [address, "latest"]));
-
-  /** Runs the critic's onboarding and reports how many transactions it sent. */
-  const onboard = async (critic: `0x${string}`, result: object): Promise<{ outcome: Onboarding; sent: bigint }> => {
-    const before = await txCount(critic);
-    const outcome = await registerWithWorld({
-      apiUrl: stack.apiUrl,
-      result,
-      critic,
-      rpcUrl: stack.rpcUrl,
-      registry: stack.contracts.CriticRegistry,
+  const post = async (path: string, body?: object) => {
+    const res = await fetch(`${stack.apiUrl}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body ?? {}),
     });
-    return { outcome, sent: (await txCount(critic)) - before };
+    return { status: res.status, body: await res.json().catch(() => null) };
   };
 
-  const expectDenied = async (critic: `0x${string}`, result: object, reason: string) => {
-    const { outcome, sent } = await onboard(critic, result);
-    expect(outcome).toMatchObject({ status: "denied", reason });
-    expect(sent).toBe(0n);
-  };
+  function journey(
+    critic: `0x${string}`,
+    world: (rp: RpContext) => WorldCompletion | Promise<WorldCompletion>,
+    tweak: Partial<OnboardDeps> = {},
+  ) {
+    const registrations: string[] = [];
+    const deps: OnboardDeps = {
+      critic: critic.toLowerCase(),
+      rpContext: async () => (await post("/world/rp-context")).body as RpContext,
+      startWorld: (rp) => ({ connectorURI: "https://world.org/mock", complete: async () => world(rp) }),
+      verify: (body) => post("/world/verify", body),
+      register: async (voucher) => {
+        const transport = http(stack.rpcUrl);
+        const wallet = createWalletClient({ account: critic, transport });
+        const client = createPublicClient({ transport });
+        const hash = await wallet.writeContract({
+          address: stack.contracts.CriticRegistry as `0x${string}`,
+          abi: criticRegistryAbi,
+          functionName: "registerCritic",
+          args: [voucher.nullifier as `0x${string}`, BigInt(voucher.expiry), voucher.sig as `0x${string}`],
+          value: await client.readContract({
+            address: stack.contracts.CriticRegistry as `0x${string}`,
+            abi: criticRegistryAbi,
+            functionName: "minStake",
+          }),
+          chain: null,
+        });
+        await client.waitForTransactionReceipt({ hash });
+        registrations.push(hash);
+        return hash;
+      },
+      ...tweak,
+    };
+    return { deps, registrations };
+  }
 
-  it("registers a verified human's critic and blocks every denied path without a registration tx", async () => {
-    const [, , alice, bob] = await rpc<`0x${string}`[]>(stack.rpcUrl, "eth_accounts");
+  const proofFor = (
+    rp: RpContext,
+    critic: string,
+    over: Record<string, unknown> = {},
+    proof0 = "0x1",
+  ): WorldCompletion => ({
+    success: true,
+    result: {
+      protocol_version: "4.0",
+      nonce: rp.nonce,
+      action: "register-critic",
+      environment: "staging",
+      responses: [
+        {
+          identifier: "proof_of_human",
+          issuer_schema_id: 1,
+          nullifier: HUMAN_A,
+          proof: [proof0, "0x2", "0x3", "0x4", "0x5"],
+          expires_at_min: 1_900_000_000,
+          signal_hash: hashSignal(critic.toLowerCase()),
+        },
+      ],
+      ...over,
+    },
+  });
 
-    await expectDenied(alice, {}, "unverified");
-    await expectDenied(alice, { success: false, error: "user_rejected" }, "cancelled");
-    const stale = await nonce();
-    clock += 301_000;
-    await expectDenied(alice, idkitResult(stale, alice), "expired");
-    await expectDenied(alice, idkitResult(await nonce(), alice, "altered"), "invalid_proof");
-    await expectDenied(bob, idkitResult(await nonce(), alice), "wrong_signal");
-    expect(await critics()).toEqual([]);
+  async function chainState(critic: string) {
+    return {
+      block: await rpc<string>(stack.rpcUrl, "eth_blockNumber"),
+      nonce: await rpc<string>(stack.rpcUrl, "eth_getTransactionCount", [critic, "latest"]),
+      critics: await (await fetch(`${stack.apiUrl}/critics`)).json(),
+    };
+  }
 
-    const { outcome, sent } = await onboard(alice, idkitResult(await nonce(), alice));
-    expect(outcome).toMatchObject({ status: "registered", nullifier: HUMAN });
-    expect(sent).toBe(1n);
-    expect((await critics()).map((c) => c.address.toLowerCase())).toEqual([alice.toLowerCase()]);
+  it("a verified human registers a critic with the server's voucher", async () => {
+    const critic = accounts[2] as `0x${string}`;
+    const { deps, registrations } = journey(critic, (rp) => proofFor(rp, critic));
+    const outcome = await onboardCritic(deps);
+    expect(outcome).toMatchObject({ status: "registered", nullifier: HUMAN_A });
+    expect(registrations).toHaveLength(1);
+    const critics = await (await fetch(`${stack.apiUrl}/critics`)).json();
+    expect(critics).toHaveLength(1);
+    expect(critics[0]).toMatchObject({ nullifier: HUMAN_A });
+    expect(critics[0].address.toLowerCase()).toBe(critic.toLowerCase());
+  });
 
-    await expectDenied(bob, idkitResult(await nonce(), bob), "duplicate_human");
-    expect(await critics()).toHaveLength(1);
+  describe("denied paths: a 403 with a reason, and no registration transaction is sent", () => {
+    const cases: Array<{
+      name: string;
+      reason: string;
+      who: number;
+      world: (rp: RpContext, critic: `0x${string}`) => WorldCompletion;
+      before?: () => void;
+      after?: () => void;
+    }> = [
+      {
+        name: "unverified",
+        reason: "unverified",
+        who: 3,
+        world: (rp, c) => proofFor(rp, c, {}, "0xbad"),
+      },
+      {
+        name: "cancelled",
+        reason: "cancelled",
+        who: 4,
+        world: () => ({ success: false, error: "cancelled" }),
+      },
+      {
+        name: "expired",
+        reason: "expired",
+        who: 5,
+        world: (rp, c) => {
+          skewSecs = 10_000;
+          return proofFor(rp, c);
+        },
+        after: () => {
+          skewSecs = 0;
+        },
+      },
+      {
+        name: "duplicate human",
+        reason: "duplicate_human",
+        who: 6,
+        // HUMAN_A already registered a critic in the first test.
+        world: (rp, c) => proofFor(rp, c),
+      },
+      {
+        name: "tampered payload",
+        reason: "tampered_payload",
+        who: 7,
+        world: (rp, c) => proofFor(rp, c, { action: "something-else" }),
+      },
+    ];
+
+    for (const scenario of cases) {
+      it(scenario.name, async () => {
+        const critic = accounts[scenario.who] as `0x${string}`;
+        const before = await chainState(critic);
+        const { deps, registrations } = journey(critic, (rp) => scenario.world(rp, critic));
+        const outcome = await onboardCritic(deps);
+        scenario.after?.();
+        expect(outcome).toMatchObject({ status: "denied", reason: scenario.reason });
+        expect(registrations).toHaveLength(0);
+        expect(await chainState(critic)).toEqual(before);
+
+        const html = renderToString(createElement(OnboardingView, { state: outcome }));
+        expect(html).toContain('role="alert"');
+        expect(html).toContain(outcome.status === "denied" ? outcome.message : "never");
+      });
+    }
+
+    it("a client that skips the page and posts straight to the server still gets no voucher", async () => {
+      const critic = accounts[8] as `0x${string}`;
+      const before = await chainState(critic);
+      const forged = await post("/world/verify", { critic, nonce: "0xforged", responses: [] });
+      expect(forged.status).toBe(403);
+      expect(forged.body).toEqual({ reason: "tampered_payload" });
+      expect(await chainState(critic)).toEqual(before);
+    });
   });
 });
