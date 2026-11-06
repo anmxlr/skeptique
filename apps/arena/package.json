@@ -1,0 +1,31 @@
+{
+  "name": "@skeptique/arena",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "tsx src/main.ts",
+    "live": "tsx src/live.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "^4.23.15",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@skeptique/buyer": "workspace:*",
+    "@skeptique/shared": "workspace:*",
+    "@skeptique/x402-client": "workspace:*",
+    "canonicalize": "^2.1.0",
+    "fastify": "^5.12.8",
+    "zod": "^4",
+    "viem": "^2.57.16",
+    "@skeptique/harness": "workspace:*"
+  }
+}
