@@ -1,0 +1,9 @@
+spike 05 2026-11-06T08:36:55.105Z environment=staging action=register-critic verify=https://developer.world.org
+rp-context: status=200 expires_in=300s
+idkit request created: request_id=4c95bcae-3fa0-4917-8ea3-69360be82767
+simulator: {"status":"proof_delivered","request_id":"4c95bcae-3fa0-4917-8ea3-69360be82767"}
+idkit result: protocol=4.0 environment=staging responses=1
+PASS valid proof accepted by server: status=200 {"nullifier":"0x1e1c0c2bcdf61aa3c3cb7c1306f0fdebef3971b2cec64bd2c7b11d4482490554","expires_at_min":1793954215}
+PASS tampered proof denied by server: status=403 {"reason":"all_verifications_failed","detail":"All proof verifications failed."}
+PASS replayed nullifier denied by server: status=403 {"reason":"nullifier_already_registered"}
+RESULT: all checks passed
