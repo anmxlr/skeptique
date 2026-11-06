@@ -35,7 +35,7 @@ describe("RoundManager", () => {
     const factory = await ethers.getContractFactory("RoundManager");
     manager = await factory.deploy(10, 10, 1, 7, await criticRegistry.getAddress(), 10, 2000);
     await manager.waitForDeployment();
-    temporaryDirectory = await mkdtemp(join(tmpdir(), "skeptic-round-"));
+    temporaryDirectory = await mkdtemp(join(tmpdir(), "skeptique-round-"));
     roundId = await manager.nextRoundId();
   });
 

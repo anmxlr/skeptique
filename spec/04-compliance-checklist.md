@@ -1,6 +1,6 @@
 # 04 Compliance checklist
 
-Source of truth for wording: `prd.md` section 4.1. Tick a box only with evidence (link/command). Owner column = the ticket in `.scratch/skeptic-v1/issues/` that produces the evidence (remapped from the old lane cards on 2026-11-06).
+Source of truth for wording: `prd.md` section 4.1. Tick a box only with evidence (link/command). Owner column = the ticket in `.scratch/skeptique-v1/issues/` that produces the evidence (remapped from the old lane cards on 2026-11-06).
 
 ## ETHGlobal general
 - [ ] Project began at kick-off; no pre-existing project code/design/assets (34 verifies git history). Owner: all

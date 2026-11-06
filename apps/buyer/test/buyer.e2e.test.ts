@@ -1,6 +1,6 @@
-import { type ServiceStarter, type Stack, startStack } from "@skeptic/harness";
-import type { BuyerRun, RankingInput } from "@skeptic/shared";
-import { createLocalPayAndCall } from "@skeptic/x402-client";
+import { type ServiceStarter, type Stack, startStack } from "@skeptique/harness";
+import type { BuyerRun, RankingInput } from "@skeptique/shared";
+import { createLocalPayAndCall } from "@skeptique/x402-client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type DemoService, defineService, startService } from "../../services/common/server";
 import { createSuiteGamer, suiteGamerSuite } from "../../services/suite-gamer/src/index";
@@ -72,7 +72,7 @@ describe("buyer picks by score", () => {
     expect(res.status).toBe(202);
   };
 
-  it("skeptic buyer pays the good service, popularity buyer pays the gamer, critic calls never count", async () => {
+  it("skeptique buyer pays the good service, popularity buyer pays the gamer, critic calls never count", async () => {
     const payAndCall = createLocalPayAndCall({ priceFor: async () => "1", timeoutMs: 5_000 });
     const good = `${stack.services["unit-convert"]}/call`;
 
@@ -90,7 +90,7 @@ describe("buyer picks by score", () => {
     });
 
     const runs: BuyerRun[] = [];
-    for (const strategy of ["skeptic", "popularity"] as const) {
+    for (const strategy of ["skeptique", "popularity"] as const) {
       const run = await runBuyer({
         apiUrl: stack.apiUrl,
         category: "conversion",
@@ -110,7 +110,7 @@ describe("buyer picks by score", () => {
 
     const shown = (await (await fetch(`${stack.apiUrl}/buyer/runs`)).json()) as BuyerRun[];
     expect(shown.map((run: BuyerRun) => [run.strategy, run.pick.name])).toEqual([
-      ["skeptic", "unit-convert"],
+      ["skeptique", "unit-convert"],
       ["popularity", "suite-gamer"],
     ]);
   }, 60_000);

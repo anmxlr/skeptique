@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/service-unit-convert",
+  "name": "@skeptique/service-unit-convert",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,6 +16,6 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@skeptic/shared": "workspace:*"
+    "@skeptique/shared": "workspace:*"
   }
 }

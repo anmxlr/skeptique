@@ -1,1 +1,1 @@
-export const packageName = "@skeptic/relayer";
+export const packageName = "@skeptique/relayer";

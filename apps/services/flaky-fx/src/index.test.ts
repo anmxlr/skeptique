@@ -1,4 +1,4 @@
-import { suiteHash, TestSuiteSchema } from "@skeptic/shared";
+import { suiteHash, TestSuiteSchema } from "@skeptique/shared";
 import { describe, expect, it } from "vitest";
 import { createFlakyFx, flakyFxSpecHash, flakyFxSuite } from "./index";
 

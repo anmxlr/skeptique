@@ -1,5 +1,5 @@
-import type { ServiceView } from "@skeptic/shared";
-import type { PayAndCall } from "@skeptic/x402-client";
+import type { ServiceView } from "@skeptique/shared";
+import type { PayAndCall } from "@skeptique/x402-client";
 import { describe, expect, it, vi } from "vitest";
 import { explainPick, NoCandidateError, pickService, publishBuyerRun, runBuyer } from "../src/index";
 
@@ -27,9 +27,9 @@ const otherCategory = view({ id: 4, name: "csv-clean", category: "data-cleaning"
 const listing = [gamer, unrated, otherCategory, good];
 
 describe("pickService", () => {
-  it("skeptic buyer picks the highest rank in the category and skips unrated services", () => {
-    expect(pickService(listing, "conversion", "skeptic").name).toBe("unit-convert");
-    expect(() => pickService([unrated], "conversion", "skeptic")).toThrow(NoCandidateError);
+  it("skeptique buyer picks the highest rank in the category and skips unrated services", () => {
+    expect(pickService(listing, "conversion", "skeptique").name).toBe("unit-convert");
+    expect(() => pickService([unrated], "conversion", "skeptique")).toThrow(NoCandidateError);
   });
 
   it("popularity buyer picks the most paid calls in the category, ignoring scores", () => {
@@ -37,14 +37,14 @@ describe("pickService", () => {
   });
 
   it("breaks ties by lowest id and throws when the category is empty", () => {
-    expect(pickService([view({ id: 9, name: "b" }), view({ id: 5, name: "a" })], "conversion", "skeptic").id).toBe(5);
+    expect(pickService([view({ id: 9, name: "b" }), view({ id: 5, name: "a" })], "conversion", "skeptique").id).toBe(5);
     expect(() => pickService(listing, "translation", "popularity")).toThrow(NoCandidateError);
   });
 });
 
 describe("explainPick", () => {
-  it("explains a skeptic pick from its numbers and names the runner-up", () => {
-    const text = explainPick(good, listing, "skeptic");
+  it("explains a skeptique pick from its numbers and names the runner-up", () => {
+    const text = explainPick(good, listing, "skeptique");
     expect(text).toContain("unit-convert");
     expect(text).toContain("median score 100/100");
     expect(text).toContain("2 rounds");
@@ -74,7 +74,7 @@ describe("runBuyer", () => {
       apiUrl: "http://api.test",
       category: "conversion",
       task: { value: 3, from: "m", to: "cm" },
-      strategy: "skeptic",
+      strategy: "skeptique",
       payAndCall,
       signer: "signer",
       fetchImpl: services(listing),
@@ -88,7 +88,7 @@ describe("runBuyer", () => {
       signer: "signer",
     });
     expect(run).toMatchObject({
-      strategy: "skeptic",
+      strategy: "skeptique",
       pick: { name: "unit-convert" },
       response: { result: 300 },
       txId: "0.0.7@1.2",
@@ -104,7 +104,7 @@ describe("runBuyer", () => {
         apiUrl: "http://api.test",
         category: "conversion",
         task: {},
-        strategy: "skeptic",
+        strategy: "skeptique",
         payAndCall,
         signer: null,
         fetchImpl: services([{ name: "broken" }]),
@@ -118,7 +118,7 @@ describe("publishBuyerRun", () => {
   it("posts the run to the API", async () => {
     const fetchImpl = vi.fn(async () => new Response("{}", { status: 201 }));
     const run = {
-      strategy: "skeptic" as const,
+      strategy: "skeptique" as const,
       category: "conversion",
       task: {},
       pick: good,

@@ -48,7 +48,7 @@
 - deps: F-2, E-3, E-5
 - size: M
 - read: spec/05-demo-script.md
-- do: pick a task, run Skeptic buyer and popularity buyer, show choice explanations, results, tx ids with HashScan links.
+- do: pick a task, run Skeptique buyer and popularity buyer, show choice explanations, results, tx ids with HashScan links.
 - done when: tests pass against mocked buyers.
 
 ## F-8 · Approval modal and spend settings

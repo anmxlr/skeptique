@@ -5,7 +5,7 @@ The user authorized merging tickets 06, 11, 13, 14, 17, 18, 19, 28 and 31 as a s
 ## What is assembled
 
 - Ticket 04's pnpm workspace, existing API/web shells and CI are retained.
-- Shared schemas/hashing/consensus/ranking are exported through `@skeptic/shared`.
+- Shared schemas/hashing/consensus/ranking are exported through `@skeptique/shared`.
 - Actual package dependencies are declared; the committed lockfile replaces the disposable review harness for workspace checks.
 - Real service implementations replace scaffold package-name placeholders. Local HTTP tests cover evidence publication, adversarial testing and buyer selection.
 - Hardhat retains its viem support and adds ethers support for the reviewed contract tests. Local settlement consumes the HTTP run's evidence; no remote deployment is performed.

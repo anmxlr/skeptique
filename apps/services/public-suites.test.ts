@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { TestCase, TestSuite } from "@skeptic/shared";
+import type { TestCase, TestSuite } from "@skeptique/shared";
 import Ajv from "ajv";
 import { describe, expect, it } from "vitest";
 import { cleanCsv, csvCleanSuite } from "./csv-clean/src/index";

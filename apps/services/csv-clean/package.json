@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/service-csv-clean",
+  "name": "@skeptique/service-csv-clean",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,6 +16,6 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@skeptic/shared": "workspace:*"
+    "@skeptique/shared": "workspace:*"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/services",
+  "name": "@skeptique/services",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,12 +11,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@skeptic/shared": "workspace:*",
-    "@skeptic/service-unit-convert": "workspace:*",
-    "@skeptic/service-csv-clean": "workspace:*",
-    "@skeptic/service-flaky-fx": "workspace:*",
-    "@skeptic/service-json-extract": "workspace:*",
-    "@skeptic/service-suite-gamer": "workspace:*"
+    "@skeptique/shared": "workspace:*",
+    "@skeptique/service-unit-convert": "workspace:*",
+    "@skeptique/service-csv-clean": "workspace:*",
+    "@skeptique/service-flaky-fx": "workspace:*",
+    "@skeptique/service-json-extract": "workspace:*",
+    "@skeptique/service-suite-gamer": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

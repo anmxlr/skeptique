@@ -50,7 +50,7 @@ RoundView   = { id:number; serviceId:number; phase:'commit'|'reveal'|'finalizabl
 `payAndCall({url, body, maxPrice, signer}) -> {response, txId, paid}`. Hooks: `onBeforePay(price, merchant)` returns allow/deny (used by spend controls and approval). No human prompt in the default path.
 
 ## ENS records (written by relayer, see `spec/notes/ens.md` for real key names)
-Service subname `<slug>.svc.skeptic.eth`: `skeptic.score`, `skeptic.confidence`, `skeptic.round`, `skeptic.hedera.tx` (relayer-writable only); `url`/`description` (seller-writable). Critic subname `<handle>.critic.skeptic.eth`: `skeptic.stake`, `skeptic.honestRounds`, `skeptic.slashes`.
+Service subname `<slug>.svc.skeptique.eth`: `skeptique.score`, `skeptique.confidence`, `skeptique.round`, `skeptique.hedera.tx` (relayer-writable only); `url`/`description` (seller-writable). Critic subname `<handle>.critic.skeptique.eth`: `skeptique.stake`, `skeptique.honestRounds`, `skeptique.slashes`.
 
 ## HCS audit topic messages
 `{type:'round_finalized'|'agent_spend'|'critic_slashed', ...fields, ts}` JSON, one message per event.

@@ -1,6 +1,6 @@
 # PRD: Incentivised Honest-Review Layer for an Agent Services Marketplace
 
-Status: pre-build. ETHGlobal Mumbai 2026 (from scratch). Repo name: `skeptic`.
+Status: pre-build. ETHGlobal Mumbai 2026 (from scratch). Repo name: `skeptique`.
 
 ## 1. Problem
 
@@ -126,7 +126,7 @@ Our protected action: registering a critic agent (staking and entering review ro
 2. Humans must do card H-01 (accounts, keys, funding) before agents can touch testnets.
 3. Defaults chosen in `spec/01-architecture.md` (money on Hedera, ENS on Sepolia via a relayer, HBAR for stakes). Veto there if wrong.
 
-Deprioritised by the team (not blocking): confirming the pick cap with ETHGlobal staff, checking the `skeptic` GitHub/`.eth` availability, and reading ERC-8004 and issue #1277 for a precise gap statement.
+Deprioritised by the team (not blocking): confirming the pick cap with ETHGlobal staff, checking the `skeptique` GitHub/`.eth` availability, and reading ERC-8004 and issue #1277 for a precise gap statement.
 
 ## 8. 30-hour product scope and incentive refinements
 

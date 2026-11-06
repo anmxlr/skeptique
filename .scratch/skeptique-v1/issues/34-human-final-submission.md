@@ -6,7 +6,7 @@
 **Blocked by:** 29, 31, 32, 33
 **Read:** spec/04-compliance-checklist.md, prd.md §4.1
 
-**What to build:** A human submits skeptic correctly and on time (deadline: Saturday 7 November 2026, 09:00 IST).
+**What to build:** A human submits skeptique correctly and on time (deadline: Saturday 7 November 2026, 09:00 IST).
 - Re-run the AI-usage compiler and commit `AI_USAGE.md`.
 - Tick every line of spec/04 with evidence.
 - Check the git history looks incremental, with no giant dump.

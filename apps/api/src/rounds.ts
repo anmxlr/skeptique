@@ -1,4 +1,4 @@
-import { type RoundView, RoundViewSchema } from "@skeptic/shared";
+import { type RoundView, RoundViewSchema } from "@skeptique/shared";
 import type { FastifyInstance } from "fastify";
 
 export interface RoundViewSource {

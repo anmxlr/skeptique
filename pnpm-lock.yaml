@@ -23,7 +23,7 @@ importers:
       '@biomejs/biome':
         specifier: ^2.6.5
         version: 2.6.5
-      '@skeptic/harness':
+      '@skeptique/harness':
         specifier: workspace:^
         version: link:packages/harness
       '@types/node':
@@ -38,7 +38,7 @@ importers:
 
   apps/api:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       canonicalize:
@@ -66,14 +66,14 @@ importers:
 
   apps/buyer:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@skeptic/x402-client':
+      '@skeptique/x402-client':
         specifier: workspace:*
         version: link:../../packages/x402-client
     devDependencies:
-      '@skeptic/harness':
+      '@skeptique/harness':
         specifier: workspace:*
         version: link:../../packages/harness
       '@types/node':
@@ -91,7 +91,7 @@ importers:
 
   apps/critic:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       ajv:
@@ -101,10 +101,10 @@ importers:
         specifier: ^2.1.0
         version: 2.1.0
     devDependencies:
-      '@skeptic/service-suite-gamer':
+      '@skeptique/service-suite-gamer':
         specifier: workspace:*
         version: link:../services/suite-gamer
-      '@skeptic/service-unit-convert':
+      '@skeptique/service-unit-convert':
         specifier: workspace:*
         version: link:../services/unit-convert
       '@types/node':
@@ -131,22 +131,22 @@ importers:
 
   apps/services:
     dependencies:
-      '@skeptic/service-csv-clean':
+      '@skeptique/service-csv-clean':
         specifier: workspace:*
         version: link:csv-clean
-      '@skeptic/service-flaky-fx':
+      '@skeptique/service-flaky-fx':
         specifier: workspace:*
         version: link:flaky-fx
-      '@skeptic/service-json-extract':
+      '@skeptique/service-json-extract':
         specifier: workspace:*
         version: link:json-extract
-      '@skeptic/service-suite-gamer':
+      '@skeptique/service-suite-gamer':
         specifier: workspace:*
         version: link:suite-gamer
-      '@skeptic/service-unit-convert':
+      '@skeptique/service-unit-convert':
         specifier: workspace:*
         version: link:unit-convert
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
     devDependencies:
@@ -165,7 +165,7 @@ importers:
 
   apps/services/csv-clean:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../../packages/shared
     devDependencies:
@@ -181,7 +181,7 @@ importers:
 
   apps/services/flaky-fx:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../../packages/shared
     devDependencies:
@@ -197,7 +197,7 @@ importers:
 
   apps/services/json-extract:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../../packages/shared
       ajv:
@@ -216,7 +216,7 @@ importers:
 
   apps/services/suite-gamer:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../../packages/shared
     devDependencies:
@@ -232,7 +232,7 @@ importers:
 
   apps/services/unit-convert:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../../packages/shared
     devDependencies:
@@ -248,7 +248,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       next:
@@ -288,16 +288,16 @@ importers:
       '@nomicfoundation/hardhat-toolbox-viem':
         specifier: ^4.1.2
         version: 4.1.2(7ccvgqy3ir7y5y5ky4cfxm35wy)
-      '@skeptic/critic':
+      '@skeptique/critic':
         specifier: workspace:*
         version: link:../apps/critic
-      '@skeptic/service-suite-gamer':
+      '@skeptique/service-suite-gamer':
         specifier: workspace:*
         version: link:../apps/services/suite-gamer
-      '@skeptic/service-unit-convert':
+      '@skeptique/service-unit-convert':
         specifier: workspace:*
         version: link:../apps/services/unit-convert
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../packages/shared
       '@types/chai':
@@ -345,10 +345,10 @@ importers:
 
   packages/harness:
     dependencies:
-      '@skeptic/api':
+      '@skeptique/api':
         specifier: workspace:*
         version: link:../../apps/api
-      '@skeptic/contracts':
+      '@skeptique/contracts':
         specifier: workspace:*
         version: link:../../contracts
       viem:
@@ -407,25 +407,25 @@ importers:
 
   scripts:
     dependencies:
-      '@skeptic/api':
+      '@skeptique/api':
         specifier: workspace:*
         version: link:../apps/api
-      '@skeptic/critic':
+      '@skeptique/critic':
         specifier: workspace:*
         version: link:../apps/critic
-      '@skeptic/service-suite-gamer':
+      '@skeptique/service-suite-gamer':
         specifier: workspace:*
         version: link:../apps/services/suite-gamer
-      '@skeptic/service-unit-convert':
+      '@skeptique/service-unit-convert':
         specifier: workspace:*
         version: link:../apps/services/unit-convert
-      '@skeptic/services':
+      '@skeptique/services':
         specifier: workspace:*
         version: link:../apps/services
-      '@skeptic/shared':
+      '@skeptique/shared':
         specifier: workspace:*
         version: link:../packages/shared
-      '@skeptic/x402-client':
+      '@skeptique/x402-client':
         specifier: workspace:*
         version: link:../packages/x402-client
       fastify:

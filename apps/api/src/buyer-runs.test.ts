@@ -1,4 +1,4 @@
-import type { BuyerRun } from "@skeptic/shared";
+import type { BuyerRun } from "@skeptique/shared";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "./app";
 
@@ -32,14 +32,14 @@ describe("buyer runs", () => {
   it("keeps the latest run per strategy for the Buyer page", async () => {
     const server = buildApp({ publicClient: { getChainId: async () => 31337 }, contracts: {} });
     expect((await server.inject({ method: "GET", url: "/buyer/runs" })).json()).toEqual([]);
-    for (const body of [run("skeptic", "old"), run("popularity", "gamer"), run("skeptic", "good")]) {
+    for (const body of [run("skeptique", "old"), run("popularity", "gamer"), run("skeptique", "good")]) {
       expect((await server.inject({ method: "POST", url: "/buyer/runs", payload: body })).statusCode).toBe(201);
     }
     const response = await server.inject({ method: "GET", url: "/buyer/runs" });
     expect(response.headers["access-control-allow-origin"]).toBe("*");
     const runs = response.json();
     expect(runs.map((r: BuyerRun) => [r.strategy, r.pick.name])).toEqual([
-      ["skeptic", "good"],
+      ["skeptique", "good"],
       ["popularity", "gamer"],
     ]);
     await server.close();

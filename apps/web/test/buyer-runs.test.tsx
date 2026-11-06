@@ -1,4 +1,4 @@
-import type { BuyerRun } from "@skeptic/shared";
+import type { BuyerRun } from "@skeptique/shared";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { BuyerRunsView } from "../components/buyer-runs";
@@ -32,9 +32,9 @@ const run = (strategy: BuyerRun["strategy"], name: string, txId: string | null):
 describe("buyer runs view", () => {
   it("shows both buyers side by side with pick, explanation, result and payment", () => {
     const html = renderToString(
-      <BuyerRunsView runs={[run("skeptic", "unit-convert", "0.0.7@1.2"), run("popularity", "suite-gamer", null)]} />,
+      <BuyerRunsView runs={[run("skeptique", "unit-convert", "0.0.7@1.2"), run("popularity", "suite-gamer", null)]} />,
     );
-    expect(html).toContain("Skeptic buyer");
+    expect(html).toContain("Skeptique buyer");
     expect(html).toContain("Popularity buyer");
     expect(html).toContain("unit-convert");
     expect(html).toContain("Picked suite-gamer because of the numbers.");

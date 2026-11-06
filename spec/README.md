@@ -1,4 +1,4 @@
-# skeptic spec-kit
+# skeptique spec-kit
 
 | File | Purpose |
 |---|---|
