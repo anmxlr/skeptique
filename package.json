@@ -1,0 +1,25 @@
+{
+  "name": "skeptic",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:live": "vitest run --config vitest.live.config.ts",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "env:check": "node scripts/env-check.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.5",
+    "@types/node": "^20.19.43",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
