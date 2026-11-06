@@ -31,6 +31,8 @@ contract ServiceRegistry {
     error FeeTooLow(uint256 sent, uint256 minimum);
     error UnknownService(uint256 serviceId);
     error AlreadySet();
+    error NotRoundManager();
+    error TransferFailed();
 
     event ServiceListed(
         uint256 indexed serviceId,
@@ -69,6 +71,15 @@ contract ServiceRegistry {
         if (services[serviceId].seller == address(0)) revert UnknownService(serviceId);
         services[serviceId].bounty += msg.value;
         emit BountyToppedUp(serviceId, msg.value);
+    }
+
+    /// Pays honest-critic rewards out of the bounty into the round manager, which accrues them for `claim`.
+    /// Only the round manager can call this, so the seller has no path to the bounty.
+    function releaseBounty(uint256 serviceId, uint256 amount) external {
+        if (msg.sender != address(roundManager)) revert NotRoundManager();
+        services[serviceId].bounty -= amount;
+        (bool ok,) = msg.sender.call{value: amount}("");
+        if (!ok) revert TransferFailed();
     }
 
     function getService(uint256 serviceId) external view returns (Service memory) {

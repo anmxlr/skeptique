@@ -22,7 +22,7 @@ contract CriticRegistry {
     mapping(bytes32 => bool) public nullifierUsed;
     mapping(address => uint64) public withdrawableAt;
     mapping(address => uint256) public activeRound;
-    /// Reserved for honest-critic rewards. There is no withdrawal path for this pool yet (ticket 22).
+    /// Slashed stake per round. Only the round manager can release it, to pay honest critics.
     mapping(uint256 => uint256) public slashedFunds;
 
     error DuplicateNullifier(bytes32 nullifier);
@@ -93,6 +93,13 @@ contract CriticRegistry {
         stakeOf[critic] -= amount;
         slashedFunds[roundId] += amount;
         emit CriticSlashed(critic, roundId, amount, reason);
+    }
+
+    function releaseSlashed(uint256 roundId, uint256 amount) external {
+        if (msg.sender != roundManager) revert NotRoundManager();
+        slashedFunds[roundId] -= amount;
+        (bool ok,) = msg.sender.call{value: amount}("");
+        if (!ok) revert TransferFailed();
     }
 
     function lockStake(address critic, uint256 roundId) external {

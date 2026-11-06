@@ -25,7 +25,7 @@ async function reverted(operation: Promise<unknown>, reason: string) {
 async function deploy(stakes: bigint[], fee = LISTING_FEE) {
   const [, attestor, seller, ...rest] = await ethers.getSigners();
   const critics = rest.slice(0, stakes.length);
-  const services: any = await (await ethers.getContractFactory("ServiceRegistry")).deploy(fee);
+  const services: any = await (await ethers.getContractFactory("ServiceRegistry")).deploy(LISTING_FEE);
   const registry: any = await (await ethers.getContractFactory("CriticRegistry")).deploy(
     attestor!.address,
     S_MIN,
@@ -195,6 +195,8 @@ describe("invariant: spec/02 §7 reward properties", () => {
           assert.equal(await manager.pendingRewards(seller.address), 0n);
           const bountyLeft: bigint = (await services.getService(1)).bounty;
           const slashedLeft: bigint = await registry.slashedFunds(roundId);
+          // A round spends at most one listing fee; the rest stays for re-review rounds.
+          assert(bountyLeft >= fee - LISTING_FEE);
           // Conservation: payouts + remaining = inputs, on the books and in native balances.
           assert.equal(pending + bountyLeft + slashedLeft + staked, inputs);
           assert.equal(await balance(manager), pending);

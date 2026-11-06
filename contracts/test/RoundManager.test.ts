@@ -225,6 +225,9 @@ describe("RoundManager", () => {
     await network.provider.send("evm_mine");
     await manager.finalize(roundId);
     assert.equal((await manager.getRound(roundId)).median, 60n);
+    // The honest critic was paid the round's budget, so the service needs a top-up before it can be reviewed again.
+    await reverted(manager.openRound(1), "BountyExhausted");
+    await registry.topUp(1, { value: 100 });
     await manager.openRound(1);
     assert.equal(await manager.nextRoundId(), roundId + 2n);
   });

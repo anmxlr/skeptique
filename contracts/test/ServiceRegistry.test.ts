@@ -111,16 +111,22 @@ describe("ServiceRegistry", () => {
       (item: { type: string; stateMutability?: string }) =>
         item.type === "function" && item.stateMutability !== "view" && item.stateMutability !== "pure",
     );
-    // setRoundManager is the deployer's one-shot wiring and moves no money.
+    // setRoundManager is the deployer's one-shot wiring and moves no money. releaseBounty pays honest critics
+    // through the round manager and is callable by the round manager only.
     assert.deepEqual(writes.map((item: { name: string }) => item.name).sort(), [
       "listService",
+      "releaseBounty",
       "setRoundManager",
       "topUp",
     ]);
     assert(
       writes
-        .filter((item: { name: string }) => item.name !== "setRoundManager")
+        .filter((item: { name: string }) => item.name !== "setRoundManager" && item.name !== "releaseBounty")
         .every((item: { stateMutability: string }) => item.stateMutability === "payable"),
+    );
+    await reverted(
+      registry.write.releaseBounty([1n, MIN_FEE], { account: seller.account }),
+      "NotRoundManager",
     );
     assert(!artifact.abi.some((item: { type: string }) => item.type === "receive" || item.type === "fallback"));
 
