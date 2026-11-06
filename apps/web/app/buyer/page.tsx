@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BuyerRuns } from "../../components/buyer-runs";
 
 export const metadata: Metadata = { title: "Buyer" };
 
@@ -6,7 +7,11 @@ export default function BuyerPage() {
   return (
     <>
       <h1>Buyer</h1>
-      <p>Buyer agents pick services by score and pay via x402, within spend limits.</p>
+      <p>
+        Two buyer agents get the same task. One picks by critic score, the other by popularity. Both pay through x402
+        with no human approving.
+      </p>
+      <BuyerRuns />
     </>
   );
 }

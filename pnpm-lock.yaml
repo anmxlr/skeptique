@@ -248,6 +248,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@skeptic/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       next:
         specifier: ^16.4.5
         version: 16.4.5(@playwright/test@1.65.0)(@types/node@20.19.43)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
