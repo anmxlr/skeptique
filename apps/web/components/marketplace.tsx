@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { type ApiRoutes, apiClient } from "../lib/api";
+import { EnsName } from "./ens-name";
 
 type MarketplaceService = ApiRoutes["/services"][number];
 
@@ -24,6 +25,11 @@ function ServiceCard({ service }: { service: MarketplaceService }) {
     <li className="market-card">
       <h2>{service.name}</h2>
       <p className="market-muted">{service.category}</p>
+      {service.ensName ? (
+        <p className="market-muted">
+          <EnsName name={service.ensName} />
+        </p>
+      ) : null}
       <dl className="market-stats">
         <dt>Status</dt>
         <dd>{service.median === null ? "Probation" : `Score ${service.median}`}</dd>

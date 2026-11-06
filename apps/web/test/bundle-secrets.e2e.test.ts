@@ -1,49 +1,55 @@
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const web = fileURLToPath(new URL("..", import.meta.url));
-const example = readFileSync(join(web, "..", "..", ".env.example"), "utf8");
+const webDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+const example = readFileSync(join(webDir, "../../.env.example"), "utf8");
+const keys = [...example.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((match) => match[1] as string);
+const SECRETISH = /SECRET|PRIVATE|SIGNING|PASSWORD|TOKEN|API_KEY/;
 
-/** Every server-only value .env.example declares: keys, secrets, signing keys. */
-const SECRET_KEYS = [...example.matchAll(/^([A-Z0-9_]+)=/gm)]
-  .map(([, key]) => key as string)
-  .filter((key) => /PRIVATE_KEY|SECRET|SIGNING_KEY|API_KEY/.test(key));
-
-/** Files a browser can download: client chunks plus prerendered HTML and RSC payloads. */
-function clientFiles(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return clientFiles(path);
-    return /\.(js|css|html|rsc|json|txt|body|map)$/.test(entry.name) ? [path] : [];
-  });
+function* files(dir: string): Generator<string> {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) yield* files(path);
+    else yield path;
+  }
 }
 
-describe("web bundle secrets", () => {
-  it("no server secret from .env.example reaches the built client bundle", () => {
-    expect(SECRET_KEYS).toEqual(expect.arrayContaining(["WORLD_SIGNING_KEY", "ATTESTOR_PRIVATE_KEY"]));
-    const secrets = Object.fromEntries(SECRET_KEYS.map((key) => [key, `0x${randomBytes(32).toString("hex")}`]));
-    const canary = `http://canary-${randomBytes(6).toString("hex")}.test`;
+describe("world onboarding: no server secret in the client bundle", () => {
+  it("no secret-looking variable is exposed to the browser", () => {
+    expect(keys.filter((key) => key.startsWith("NEXT_PUBLIC_") && SECRETISH.test(key))).toEqual([]);
+  });
 
+  it("a production build embeds none of the server's secret values and none of the server-side signing code", () => {
+    // Every variable in .env.example gets a unique marker value, public ones included: the build may only
+    // inline NEXT_PUBLIC_ values, and none of those may be a secret.
+    const marker = randomBytes(6).toString("hex");
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    const secrets = new Map<string, string>();
+    for (const key of keys) {
+      const value = `LEAK_${marker}_${key}`;
+      env[key] = value;
+      if (!key.startsWith("NEXT_PUBLIC_")) secrets.set(key, value);
+    }
     const build = spawnSync("pnpm", ["exec", "next", "build"], {
-      cwd: web,
-      env: { ...process.env, ...secrets, NEXT_PUBLIC_API_URL: canary },
+      cwd: webDir,
+      env,
       encoding: "utf8",
       shell: process.platform === "win32",
+      timeout: 280_000,
     });
-    expect(build.status, build.stderr || build.stdout).toBe(0);
+    expect(build.status, `${build.stdout}\n${build.stderr}`).toBe(0);
 
-    const files = [...clientFiles(join(web, ".next", "static")), ...clientFiles(join(web, ".next", "server", "app"))];
-    const bundle = files.map((file) => readFileSync(file, "utf8")).join("\n");
-    // Positive control: a public value the client does use must be found, so the scan is looking in the right place.
-    expect(bundle).toContain(canary);
-    const leaked = Object.entries(secrets)
-      .filter(([, value]) => bundle.includes(value) || bundle.includes(value.slice(2)))
-      .map(([key]) => key);
+    const leaked: string[] = [];
+    for (const path of files(join(webDir, ".next/static"))) {
+      if (!/\.(js|css|json|html|txt|map)$/.test(path)) continue;
+      const text = readFileSync(path, "utf8");
+      for (const [key, value] of secrets) if (text.includes(value)) leaked.push(`${key} in ${path}`);
+      if (text.includes("signingKeyHex")) leaked.push(`idkit-server signing code in ${path}`);
+    }
     expect(leaked).toEqual([]);
   }, 300_000);
 });

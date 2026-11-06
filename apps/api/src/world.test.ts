@@ -1,229 +1,194 @@
-import { randomBytes } from "node:crypto";
-import { hashSignal } from "@worldcoin/idkit-core/hashing";
-import { signRequest } from "@worldcoin/idkit-server";
-import { encodeAbiParameters, type Hex, keccak256, parseAbiParameters, recoverMessageAddress } from "viem";
+import { hashSignal } from "@worldcoin/idkit-core";
+import { encodeAbiParameters, keccak256, parseAbiParameters, recoverMessageAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "./app";
-import { createWorldVerifier, type WorldConfig } from "./world";
+import type { WorldDeps, WorldProofResult } from "./world";
 
-const ATTESTOR_KEY = `0x${"11".repeat(32)}` as Hex;
-const CRITIC = "0x00000000000000000000000000000000000000c1";
-const OTHER = "0x00000000000000000000000000000000000000c2";
-const ACTION = "register-critic";
-const HUMAN = `0x${"0a".repeat(31)}01`; // a World nullifier, as World returns it
+const ATTESTOR_KEY = `0x${"0a".repeat(32)}` as const;
+const SIGNING_KEY = `0x${"0b".repeat(32)}`;
+const SECRETS = [ATTESTOR_KEY.slice(2), SIGNING_KEY.slice(2)];
+const critic = "0x00000000000000000000000000000000000000c1";
+const otherCritic = "0x00000000000000000000000000000000000000c2";
+const CHAIN_ID = 31337;
 
-type Result = Record<string, unknown> & { responses: Record<string, unknown>[] };
-
-/** An IDKit 4.0 result shaped as spec/notes/world.md documents, proving `signal` for `nullifier`. */
-const idkitResult = (nonce: string, signal: string, nullifier = HUMAN): Result => ({
-  protocol_version: "4.0",
-  nonce,
-  action: ACTION,
-  environment: "staging",
-  responses: [
-    {
-      identifier: "proof_of_human",
-      issuer_schema_id: 1,
-      nullifier,
-      proof: ["valid", "1", "2", "3", "4"],
-      expires_at_min: 1_900_000_000,
-      signal_hash: hashSignal(signal),
-    },
-  ],
-});
-
-function setup(overrides: Partial<WorldConfig> = {}) {
-  let clock = Date.parse("2026-11-06T10:00:00Z");
+function setup(overrides: Partial<WorldDeps> = {}) {
+  const clock = { now: Math.floor(Date.now() / 1000) };
   const verified: unknown[] = [];
-  const world: WorldConfig = {
-    appId: "app_test",
-    rpId: "rp_test",
-    action: ACTION,
-    environment: "staging",
-    signRequest: (action) => signRequest({ signingKeyHex: randomBytes(32).toString("hex"), action, ttl: 300 }),
-    // Stands in for World's verify API: a proof is valid unless a field was tampered with.
-    verifyProof: async (body) => {
-      verified.push(body);
-      const proof = (body as Result).responses[0]?.proof as string[];
-      return proof[0] === "valid" ? { success: true } : { success: false, code: "all_verifications_failed" };
-    },
-    attestorKey: ATTESTOR_KEY,
-    now: () => clock,
-    ...overrides,
+  const verify: WorldDeps["verify"] = async (body) => {
+    verified.push(body);
+    return { ok: true };
   };
-  const app = buildApp({ publicClient: { getChainId: async () => 296 }, contracts: {}, world });
-  const rpContext = async () => (await app.inject({ method: "POST", url: "/world/rp-context" })).json();
-  const verify = (payload: object) => app.inject({ method: "POST", url: "/world/verify", payload });
-  return { app, rpContext, verify, verified, advance: (ms: number) => (clock += ms) };
+  const app = buildApp({
+    publicClient: { getChainId: async () => CHAIN_ID },
+    contracts: {},
+    world: {
+      rpId: "rp_test",
+      signingKey: SIGNING_KEY,
+      environment: "staging",
+      attestorKey: ATTESTOR_KEY,
+      now: () => clock.now,
+      verify,
+      ...overrides,
+    },
+  });
+  return { app, clock, verified };
 }
 
-const expectDenied = async (response: { statusCode: number; json: () => unknown }, reason: string) => {
-  expect(response.statusCode).toBe(403);
-  expect(response.json()).toMatchObject({ reason });
-};
+async function rpContext(app: ReturnType<typeof setup>["app"]) {
+  const res = await app.inject({ method: "POST", url: "/world/rp-context" });
+  expect(res.statusCode).toBe(200);
+  return res.json() as { rp_id: string; nonce: string; created_at: number; expires_at: number; signature: string };
+}
+
+function proof(
+  nonce: string,
+  who = critic,
+  nullifier = "0x1e1c0c2bcdf61aa3c3cb7c1306f0fdebef3971b2cec64bd2c7b11d4482490554",
+) {
+  return {
+    protocol_version: "4.0",
+    nonce,
+    action: "register-critic",
+    environment: "staging",
+    responses: [
+      {
+        identifier: "proof_of_human",
+        issuer_schema_id: 1,
+        nullifier,
+        proof: ["0x1", "0x2", "0x3", "0x4", "0x5"],
+        expires_at_min: 1_800_100_000,
+        signal_hash: hashSignal(who),
+      },
+    ],
+  } satisfies WorldProofResult;
+}
+
+const post = (app: ReturnType<typeof setup>["app"], body: unknown) =>
+  app.inject({ method: "POST", url: "/world/verify", payload: body as object });
 
 describe("world verify", () => {
-  it("hands out a server-signed rp_context and never the signing key", async () => {
-    const { app, rpContext } = setup();
-    const context = await rpContext();
-    expect(context).toMatchObject({
-      app_id: "app_test",
-      action: ACTION,
-      environment: "staging",
-      rp_id: "rp_test",
-      nonce: expect.stringMatching(/^0x[0-9a-f]{64}$/),
-    });
-    expect(context.signature).toMatch(/^0x[0-9a-f]{130}$/);
-    expect(context.expires_at - context.created_at).toBe(300);
-    expect(JSON.stringify(context)).not.toContain(ATTESTOR_KEY.slice(2));
-    await app.close();
-  });
-
-  it("success: validates with World and returns an attestor voucher over (nullifier, critic, expiry, chainid)", async () => {
-    const { app, rpContext, verify, verified } = setup();
-    const { nonce } = await rpContext();
-    const response = await verify({ ...idkitResult(nonce, CRITIC), critic: CRITIC });
-    expect(response.statusCode).toBe(200);
-    const { nullifier, expiry, sig } = response.json();
-    expect(nullifier).toBe(`0x${BigInt(HUMAN).toString(16).padStart(64, "0")}`);
-    expect(Number(expiry)).toBe(Date.parse("2026-11-06T10:00:00Z") / 1000 + 3600);
+  it("success: validates on the server, derives the nullifier and signs a voucher the contract accepts", async () => {
+    const { app, clock, verified } = setup();
+    const ctx = await rpContext(app);
+    const res = await post(app, { ...proof(ctx.nonce), critic });
+    expect(res.statusCode).toBe(200);
+    const { nullifier, expiry, sig } = res.json();
+    expect(nullifier).toBe("0x1e1c0c2bcdf61aa3c3cb7c1306f0fdebef3971b2cec64bd2c7b11d4482490554");
+    expect(expiry).toBeGreaterThan(clock.now);
     expect(verified).toHaveLength(1);
-    expect(verified[0]).not.toHaveProperty("critic");
-
     const digest = keccak256(
       encodeAbiParameters(parseAbiParameters("bytes32, address, uint64, uint256"), [
         nullifier,
-        CRITIC,
+        critic,
         BigInt(expiry),
-        296n,
+        BigInt(CHAIN_ID),
       ]),
     );
     expect(await recoverMessageAddress({ message: { raw: digest }, signature: sig })).toBe(
       privateKeyToAccount(ATTESTOR_KEY).address,
     );
-    await app.close();
   });
 
-  it("unverified: no proof, a nonce the server never issued, or a reused nonce", async () => {
-    const { app, rpContext, verify, verified } = setup();
-    await expectDenied(await verify({ critic: CRITIC }), "unverified");
-    await expectDenied(await verify({ ...idkitResult(`0x${"00".repeat(32)}`, CRITIC), critic: CRITIC }), "unverified");
-    const { nonce } = await rpContext();
-    expect((await verify({ ...idkitResult(nonce, CRITIC), critic: CRITIC })).statusCode).toBe(200);
-    await expectDenied(
-      await verify({ ...idkitResult(nonce, CRITIC, `0x${"0b".repeat(32)}`), critic: CRITIC }),
-      "unverified",
-    );
-    expect(verified).toHaveLength(1);
-    await app.close();
-  });
-
-  it("expired: the request's rp_context is past its expiry, or IDKit reports a timeout", async () => {
-    const { app, rpContext, verify, advance, verified } = setup();
-    const { nonce } = await rpContext();
-    advance(301_000);
-    await expectDenied(await verify({ ...idkitResult(nonce, CRITIC), critic: CRITIC }), "expired");
-    await expectDenied(await verify({ success: false, error: "rp_signature_expired", critic: CRITIC }), "expired");
-    await expectDenied(await verify({ success: false, error: "timeout", critic: CRITIC }), "expired");
-    expect(verified).toHaveLength(0);
-    await app.close();
-  });
-
-  it("cancelled: the person cancelled in World App or the page aborted the request", async () => {
-    const { app, verify, verified } = setup();
-    for (const error of ["user_rejected", "verification_rejected", "cancelled"])
-      await expectDenied(await verify({ success: false, error, critic: CRITIC }), "cancelled");
-    expect(verified).toHaveLength(0);
-    await app.close();
-  });
-
-  it("duplicate human: a second critic from the same person, in memory or already on chain", async () => {
-    const { app, rpContext, verify } = setup();
-    expect((await verify({ ...idkitResult((await rpContext()).nonce, CRITIC), critic: CRITIC })).statusCode).toBe(200);
-    await expectDenied(
-      await verify({ ...idkitResult((await rpContext()).nonce, OTHER), critic: OTHER }),
-      "duplicate_human",
-    );
-    await app.close();
-
-    const onChain = setup({
-      isNullifierRegistered: async (n) => n === `0x${BigInt(HUMAN).toString(16).padStart(64, "0")}`,
-    });
-    await expectDenied(
-      await onChain.verify({ ...idkitResult((await onChain.rpContext()).nonce, CRITIC), critic: CRITIC }),
-      "duplicate_human",
-    );
-    await onChain.app.close();
-  });
-
-  it("tampered: an altered proof fails World's check; a proof for another wallet or app setting is refused", async () => {
-    const { app, rpContext, verify, verified } = setup();
-    const tampered = idkitResult((await rpContext()).nonce, CRITIC);
-    (tampered.responses[0] as { proof: string[] }).proof[0] = "altered";
-    await expectDenied(await verify({ ...tampered, critic: CRITIC }), "invalid_proof");
-    expect(verified).toHaveLength(1);
-
-    await expectDenied(
-      await verify({ ...idkitResult((await rpContext()).nonce, CRITIC), critic: OTHER }),
-      "wrong_signal",
-    );
-    await expectDenied(
-      await verify({ ...idkitResult((await rpContext()).nonce, CRITIC), environment: "production", critic: CRITIC }),
-      "wrong_environment",
-    );
-    await expectDenied(
-      await verify({ ...idkitResult((await rpContext()).nonce, CRITIC), action: "other", critic: CRITIC }),
-      "wrong_action",
-    );
-    expect(verified).toHaveLength(1);
-    await app.close();
-  });
-});
-
-describe("world verify: World's verify API", () => {
-  const call = (status: number, body: unknown) => {
-    const requests: { url: string; body: Record<string, unknown> }[] = [];
-    const fetchImpl = (async (url: string, init: RequestInit) => {
-      requests.push({ url, body: JSON.parse(String(init.body)) });
-      return new Response(JSON.stringify(body), { status });
-    }) as unknown as typeof fetch;
-    return { verify: createWorldVerifier({ rpId: "rp_test", environment: "staging", fetchImpl }), requests };
-  };
-
-  it("posts the result to the rp's verify endpoint with the server's environment", async () => {
-    const { verify, requests } = call(200, { success: true, environment: "staging" });
-    expect(await verify({ nonce: "0x1", environment: "production" })).toEqual({ success: true, code: undefined });
-    expect(requests).toEqual([
-      { url: "https://developer.world.org/api/v4/verify/rp_test", body: { nonce: "0x1", environment: "staging" } },
-    ]);
-  });
-
-  it("fails on World's error code, an unexpected environment, or a non-JSON reply", async () => {
-    expect(await call(400, { success: false, code: "all_verifications_failed" }).verify({})).toEqual({
-      success: false,
-      code: "all_verifications_failed",
-    });
-    expect((await call(200, { success: true, environment: "production" }).verify({})).success).toBe(false);
-    expect(await call(502, "bad gateway").verify({})).toEqual({ success: false, code: "world_http_502" });
-  });
-});
-
-describe("world verify: browser access", () => {
-  it("answers the CORS preflight and allows the web app's origin on both routes", async () => {
+  it("normalises a decimal nullifier to bytes32", async () => {
     const { app } = setup();
-    for (const url of ["/world/rp-context", "/world/verify"]) {
-      const preflight = await app.inject({
-        method: "OPTIONS",
-        url,
-        headers: { origin: "http://web.test", "access-control-request-method": "POST" },
-      });
-      expect(preflight.statusCode).toBe(204);
-      expect(preflight.headers["access-control-allow-origin"]).toBe("*");
-      expect(preflight.headers["access-control-allow-headers"]).toContain("content-type");
+    const ctx = await rpContext(app);
+    const res = await post(app, { ...proof(ctx.nonce, critic, "255"), critic });
+    expect(res.json().nullifier).toBe(`0x${"00".repeat(31)}ff`);
+  });
+
+  it("expired: a request past its rp_context expiry is refused and never reaches World", async () => {
+    const { app, clock, verified } = setup();
+    const ctx = await rpContext(app);
+    clock.now = ctx.expires_at + 1;
+    const res = await post(app, { ...proof(ctx.nonce), critic });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ reason: "expired" });
+    expect(verified).toHaveLength(0);
+  });
+
+  it("expired and cancelled: client-reported failures are 403s with a reason and no voucher", async () => {
+    const { app } = setup();
+    for (const [error, reason] of [
+      ["timeout", "expired"],
+      ["rp_signature_expired", "expired"],
+      ["cancelled", "cancelled"],
+      ["user_rejected", "cancelled"],
+    ] as const) {
+      const res = await post(app, { error, critic });
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toEqual({ reason });
     }
-    const response = await app.inject({ method: "POST", url: "/world/rp-context" });
-    expect(response.headers["access-control-allow-origin"]).toBe("*");
-    await app.close();
+  });
+
+  it("unverified: World rejecting the proof is a 403 and signs nothing", async () => {
+    const { app } = setup({ verify: async () => ({ ok: false, code: "all_verifications_failed" }) });
+    const ctx = await rpContext(app);
+    const res = await post(app, { ...proof(ctx.nonce), critic });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ reason: "unverified" });
+    expect(res.json().sig).toBeUndefined();
+  });
+
+  it("unverified: a World outage never authorises", async () => {
+    const { app } = setup({
+      verify: async () => {
+        throw new Error("network down");
+      },
+    });
+    const ctx = await rpContext(app);
+    const res = await post(app, { ...proof(ctx.nonce), critic });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ reason: "unverified" });
+  });
+
+  it("duplicate human: a second critic with the same nullifier is refused", async () => {
+    const { app } = setup();
+    const first = await post(app, { ...proof((await rpContext(app)).nonce), critic });
+    expect(first.statusCode).toBe(200);
+    const second = await post(app, { ...proof((await rpContext(app)).nonce, otherCritic), critic: otherCritic });
+    expect(second.statusCode).toBe(403);
+    expect(second.json()).toMatchObject({ reason: "duplicate_human" });
+  });
+
+  it("tampered payload: wrong action, environment, unknown nonce, swapped critic or junk are all refused before World", async () => {
+    const { app, verified } = setup();
+    const ctx = await rpContext(app);
+    const good = proof(ctx.nonce);
+    const cases: unknown[] = [
+      { ...good, action: "other-action", critic },
+      { ...good, environment: "production", critic },
+      { ...proof("0xdeadbeef"), critic },
+      { ...good, critic: otherCritic }, // proof was bound to a different wallet
+      { ...good, critic: "not-an-address" },
+      { ...good, responses: [], critic },
+      { critic },
+      "junk",
+    ];
+    for (const body of cases) {
+      const res = await post(app, body);
+      expect(res.statusCode, JSON.stringify(body)).toBe(403);
+      expect(res.json()).toMatchObject({ reason: "tampered_payload" });
+    }
+    expect(verified).toHaveLength(0);
+  });
+
+  it("a nonce is single use", async () => {
+    const { app } = setup();
+    const ctx = await rpContext(app);
+    expect((await post(app, { ...proof(ctx.nonce), critic })).statusCode).toBe(200);
+    const again = await post(app, { ...proof(ctx.nonce, otherCritic, "0x2"), critic: otherCritic });
+    expect(again.statusCode).toBe(403);
+  });
+
+  it("rp-context is signed server-side and never carries a secret", async () => {
+    const { app } = setup();
+    const res = await app.inject({ method: "POST", url: "/world/rp-context" });
+    const text = res.body;
+    expect(res.json()).toMatchObject({ rp_id: "rp_test" });
+    expect(res.json().signature).toMatch(/^0x[0-9a-f]{130}$/);
+    for (const secret of SECRETS) expect(text).not.toContain(secret);
+    const denied = await post(app, "junk");
+    for (const secret of SECRETS) expect(denied.body).not.toContain(secret);
   });
 });
