@@ -16,30 +16,30 @@ const values: Record<string, string> = {
   "eth.skeptique.confidence": "0.6",
   "eth.skeptique.round": "12",
   "eth.skeptique.hedera.tx": "0xabc",
+  url: "https://service.invalid/call",
+  description: "Converter service",
 };
 
 test("both pages show resolver score 43 when the API says 99", async ({ page }) => {
   test.skip(!configured, "Run with the documented local API and RPC URLs");
   await page.route(`${api}/**`, async (route) => {
-    const body = route.request().url().endsWith("/services")
-      ? [
-          {
-            id: 1,
-            name: "converter",
-            category: "conversion",
-            endpoint: "https://service.invalid/call",
-            seller: resolver,
-            pricePerCall: "1",
-            ensName: "converter.svc.skeptique.eth",
-            median: 99,
-            confidence: 0.6,
-            rank: 90,
-            nRounds: 1,
-            lastRoundAt: null,
-            popularityCalls: 0,
-          },
-        ]
-      : [];
+    const service = {
+      id: 1,
+      name: "converter",
+      category: "conversion",
+      endpoint: "https://service.invalid/call",
+      seller: resolver,
+      pricePerCall: "1",
+      ensName: "converter.svc.skeptique.eth",
+      median: 99,
+      confidence: 0.6,
+      rank: 90,
+      nRounds: 1,
+      lastRoundAt: null,
+      popularityCalls: 0,
+    };
+    const path = new URL(route.request().url()).pathname;
+    const body = path === "/services" ? [service] : path === "/services/1" ? service : [];
     await route.fulfill({ json: body });
   });
   const seenBlocks: string[] = [];
@@ -50,7 +50,6 @@ test("both pages show resolver score 43 when the API says 99", async ({ page }) 
       if (request.method === "eth_blockNumber") result = "0xb71b00";
       else {
         expect(request.method).toBe("eth_call");
-        seenBlocks.push(request.params[1]);
         const call = decodeFunctionData({ abi: universal, data: request.params[0].data });
         if (call.functionName === "findResolver")
           result = encodeFunctionResult({
@@ -60,6 +59,7 @@ test("both pages show resolver score 43 when the API says 99", async ({ page }) 
           });
         else {
           const record = decodeFunctionData({ abi: text, data: call.args[1] });
+          if (record.args[1].startsWith("eth.skeptique.")) seenBlocks.push(request.params[1]);
           result = encodeFunctionResult({
             abi: universal,
             functionName: "resolveWithGateways",
@@ -86,6 +86,6 @@ test("both pages show resolver score 43 when the API says 99", async ({ page }) 
       ),
     ).toBeVisible();
   }
-  expect(seenBlocks.length).toBeGreaterThanOrEqual(10);
+  expect(seenBlocks.length).toBeGreaterThanOrEqual(8);
   expect(seenBlocks.every((block) => block === "0xb71b00")).toBe(true);
 });

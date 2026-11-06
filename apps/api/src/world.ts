@@ -1,178 +1,171 @@
-// World ID 4.0 critic onboarding (spec/notes/world.md, spec/03 `/world/*`). The browser only ever gets a
-// server-signed rp_context; the IDKit result it returns is never trusted until every check below passes.
-import { hashSignal } from "@worldcoin/idkit-core/hashing";
-import type { FastifyInstance } from "fastify";
-import { encodeAbiParameters, type Hex, isAddress, keccak256, parseAbiParameters } from "viem";
+import { hashSignal } from "@worldcoin/idkit-core";
+import { signRequest } from "@worldcoin/idkit-server";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import type { PublicClient } from "viem";
+import { encodeAbiParameters, isAddress, keccak256, parseAbiParameters } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { z } from "zod";
 
-export type WorldDenial =
-  | "unverified"
-  | "cancelled"
-  | "expired"
-  | "wrong_environment"
-  | "wrong_action"
-  | "wrong_signal"
-  | "invalid_proof"
-  | "duplicate_human";
+/** The protected act. One fixed action, so a nullifier means "this human, as a critic of skeptique". */
+export const WORLD_ACTION = "register-critic";
 
-export interface WorldConfig {
-  /** Public app_... id the browser passes to IDKit. */
-  appId: string;
+export type WorldEnvironment = "production" | "staging" | "sandbox";
+
+const proofResponse = z.object({
+  identifier: z.string(),
+  issuer_schema_id: z.number(),
+  nullifier: z.string().min(1),
+  proof: z.array(z.string()),
+  expires_at_min: z.number(),
+  signal_hash: z.string().optional(),
+});
+
+/** The World ID 4.0 IDKit result, forwarded unchanged by the client. */
+export const WorldProofResultSchema = z.object({
+  protocol_version: z.string(),
+  nonce: z.string().min(1),
+  action: z.string(),
+  environment: z.string(),
+  responses: z.array(proofResponse).min(1),
+});
+export type WorldProofResult = z.infer<typeof WorldProofResultSchema>;
+
+export type WorldVerifyOutcome = { ok: true } | { ok: false; code?: string };
+
+export interface WorldDeps {
   rpId: string;
-  /** IDKit action for the protected act; one per act so the nullifier means "this human, as a critic". */
-  action: string;
-  /** "staging" accepts simulator proofs; "production" only real World App proofs. */
-  environment: string;
-  /** Signs an rp_context with the World signing key (`signRequest` from @worldcoin/idkit-server). */
-  signRequest(action: string): { sig: string; nonce: string; createdAt: number; expiresAt: number };
-  /** World's verify API for a result (see createWorldVerifier). */
-  verifyProof(result: unknown): Promise<{ success: boolean; code?: string }>;
-  /** Attestor key that CriticRegistry trusts for vouchers (ATTESTOR_PRIVATE_KEY). */
-  attestorKey: Hex;
-  /** Whether a nullifier already registered a critic on chain. */
-  isNullifierRegistered?(nullifier: Hex): Promise<boolean>;
+  /** Secret. Signs each IDKit request; never leaves the server. */
+  signingKey: string;
+  environment: WorldEnvironment;
+  /** Secret. Signs critic vouchers after server-side World validation. */
+  attestorKey: `0x${string}`;
+  /** Asks World whether the proof is valid. Defaults to developer.world.org. */
+  verify?: (body: WorldProofResult & { environment: WorldEnvironment }) => Promise<WorldVerifyOutcome>;
+  now?: () => number;
   voucherTtlSecs?: number;
-  now?(): number;
+  rpTtlSecs?: number;
+  verifyBase?: string;
 }
 
-/** World's Developer Portal verify API (spec/notes/world.md "Server-side validation"). */
-export function createWorldVerifier(options: {
-  rpId: string;
-  environment: string;
-  fetchImpl?: typeof fetch;
-}): WorldConfig["verifyProof"] {
-  const fetchImpl = options.fetchImpl ?? fetch;
-  return async (result) => {
-    const res = await fetchImpl(`https://developer.world.org/api/v4/verify/${options.rpId}`, {
+const CANCELLED = new Set(["cancelled", "user_rejected", "verification_rejected"]);
+const EXPIRED = new Set(["timeout", "rp_signature_expired", "timestamp_too_old", "request_expired"]);
+
+function httpVerifier(rpId: string, base: string): NonNullable<WorldDeps["verify"]> {
+  return async (body) => {
+    const res = await fetch(`${base}/api/v4/verify/${rpId}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...(result as object), environment: options.environment }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(10_000),
     });
-    const body = (await res.json().catch(() => ({}))) as { success?: unknown; code?: string; environment?: string };
-    const success = res.ok && body.success === true && (!body.environment || body.environment === options.environment);
-    return { success, code: body.code ?? (success ? undefined : `world_http_${res.status}`) };
+    const out = (await res.json().catch(() => ({}))) as { success?: boolean; code?: string; environment?: string };
+    if (!res.ok || out.success !== true || (out.environment && out.environment !== body.environment))
+      return { ok: false, code: out.code ?? `world_http_${res.status}` };
+    return { ok: true };
   };
 }
 
-const CANCELLED = new Set(["user_rejected", "verification_rejected", "cancelled"]);
-const EXPIRED = new Set(["timeout", "rp_signature_expired", "timestamp_too_old", "request_expired"]);
-
-const toBytes32 = (value: string): Hex => `0x${BigInt(value).toString(16).padStart(64, "0")}`;
-
-export function signVoucher(
-  attestorKey: Hex,
-  voucher: { nullifier: Hex; critic: Hex; expiry: bigint; chainId: number },
-) {
-  const digest = keccak256(
-    encodeAbiParameters(parseAbiParameters("bytes32, address, uint64, uint256"), [
-      voucher.nullifier,
-      voucher.critic,
-      voucher.expiry,
-      BigInt(voucher.chainId),
-    ]),
-  );
-  return privateKeyToAccount(attestorKey).signMessage({ message: { raw: digest } });
+// 0x + 64 lowercase hex, whether World sent it as hex or decimal.
+function toBytes32(nullifier: string): `0x${string}` | null {
+  try {
+    const value = BigInt(nullifier);
+    if (value < 0n || value >= 1n << 256n) return null;
+    return `0x${value.toString(16).padStart(64, "0")}`;
+  } catch {
+    return null;
+  }
 }
 
-interface ProofResponse {
-  nullifier: string;
-  proof: unknown;
-  signal_hash?: string;
-}
-interface IdkitResult {
-  protocol_version: string;
-  nonce: string;
-  action: string;
-  environment: string;
-  responses: ProofResponse[];
-}
+const deny = (reply: FastifyReply, reason: string, detail?: string) =>
+  reply.code(403).send(detail ? { reason, detail } : { reason });
 
-function asResult(body: Record<string, unknown>): IdkitResult | undefined {
-  const response = Array.isArray(body.responses) ? (body.responses[0] as Partial<ProofResponse>) : undefined;
-  const ok =
-    body.protocol_version === "4.0" &&
-    typeof body.nonce === "string" &&
-    typeof body.action === "string" &&
-    typeof body.environment === "string" &&
-    typeof response?.nullifier === "string" &&
-    /^(0x[0-9a-fA-F]{1,64}|\d{1,78})$/.test(response.nullifier) &&
-    Array.isArray(response.proof);
-  return ok ? (body as unknown as IdkitResult) : undefined;
-}
+/**
+ * World ID onboarding for critics. The client's IDKit result is never authorisation: the server checks it against the
+ * request it issued, asks World to verify it, and only then signs the voucher that registerCritic requires.
+ */
+export function registerWorldRoutes(
+  root: FastifyInstance,
+  world: WorldDeps,
+  chain: Pick<PublicClient, "getChainId">,
+): void {
+  const now = world.now ?? (() => Math.floor(Date.now() / 1000));
+  const verify = world.verify ?? httpVerifier(world.rpId, world.verifyBase ?? "https://developer.world.org");
+  const attestor = privateKeyToAccount(world.attestorKey);
+  const issued = new Map<string, number>(); // nonce -> expires_at (secs), single use
+  const humans = new Map<string, string>(); // nullifier -> critic that got the voucher
 
-export function registerWorldRoutes(app: FastifyInstance, config: WorldConfig, chainId: () => Promise<number>): void {
-  const now = config.now ?? Date.now;
-  const ttl = BigInt(config.voucherTtlSecs ?? 3600);
-  const issued = new Map<string, number>(); // nonce -> deadline on this server's clock (ms)
-  const vouched = new Set<Hex>();
+  // Own scope: whatever the client sends (any content type, broken JSON) ends in a 403 with a reason.
+  root.register(async (app) => {
+    app.addContentTypeParser("*", { parseAs: "string" }, (_request, body, done) => done(null, body));
+    app.setErrorHandler((_error, _request, reply) => deny(reply, "tampered_payload"));
 
-  // The Critics page calls these routes from its own origin. They take no cookies, so any origin may call them.
-  app.addHook("onSend", async (request, reply) => {
-    if (request.url.startsWith("/world/")) reply.header("access-control-allow-origin", "*");
-  });
-  for (const url of ["/world/rp-context", "/world/verify"])
-    app.options(url, async (_request, reply) =>
-      reply
-        .code(204)
-        .header("access-control-allow-methods", "POST")
-        .header("access-control-allow-headers", "content-type")
-        .send(),
-    );
-
-  app.post("/world/rp-context", async () => {
-    const { sig, nonce, createdAt, expiresAt } = config.signRequest(config.action);
-    issued.set(nonce, now() + (expiresAt - createdAt) * 1000);
-    return {
-      app_id: config.appId,
-      action: config.action,
-      environment: config.environment,
-      rp_id: config.rpId,
-      nonce,
-      created_at: createdAt,
-      expires_at: expiresAt,
-      signature: sig,
-    };
-  });
-
-  app.post("/world/verify", async (request, reply) => {
-    const deny = (reason: WorldDenial, detail?: string) => reply.code(403).send({ reason, ...(detail && { detail }) });
-    const body = (request.body ?? {}) as Record<string, unknown>;
-
-    if (typeof body.error === "string") {
-      if (CANCELLED.has(body.error)) return deny("cancelled", body.error);
-      if (EXPIRED.has(body.error)) return deny("expired", body.error);
-      return deny("unverified", body.error);
-    }
-    const { critic, ...forwarded } = body;
-    const result = asResult(forwarded);
-    if (!result || typeof critic !== "string" || !isAddress(critic)) return deny("unverified");
-
-    const deadline = issued.get(result.nonce);
-    if (deadline === undefined) return deny("unverified", "unknown_or_used_request");
-    issued.delete(result.nonce);
-    if (now() > deadline) return deny("expired");
-
-    if (result.environment !== config.environment) return deny("wrong_environment");
-    if (result.action !== config.action) return deny("wrong_action");
-    const [response] = result.responses;
-    if (!response || BigInt(response.signal_hash ?? "0x0") !== BigInt(hashSignal(critic.toLowerCase())))
-      return deny("wrong_signal");
-
-    const verdict = await config.verifyProof({ ...forwarded, environment: config.environment });
-    if (!verdict.success) return deny("invalid_proof", verdict.code);
-
-    const nullifier = toBytes32(response.nullifier);
-    if (vouched.has(nullifier) || (await config.isNullifierRegistered?.(nullifier))) return deny("duplicate_human");
-    vouched.add(nullifier);
-
-    const expiry = BigInt(Math.floor(now() / 1000)) + ttl;
-    const sig = await signVoucher(config.attestorKey, {
-      nullifier,
-      critic: critic as Hex,
-      expiry,
-      chainId: await chainId(),
+    app.post("/world/rp-context", async () => {
+      const { sig, nonce, createdAt, expiresAt } = signRequest({
+        signingKeyHex: world.signingKey,
+        action: WORLD_ACTION,
+        ttl: world.rpTtlSecs ?? 300,
+      });
+      for (const [n, expires] of issued) if (expires < now() - 3600) issued.delete(n);
+      issued.set(nonce, expiresAt);
+      return { rp_id: world.rpId, nonce, created_at: createdAt, expires_at: expiresAt, signature: sig };
     });
-    return { nullifier, expiry: expiry.toString(), sig };
+
+    app.post("/world/verify", async (request, reply) => {
+      const body = request.body;
+      if (typeof body !== "object" || body === null) return deny(reply, "tampered_payload");
+      const { critic, error } = body as { critic?: unknown; error?: unknown };
+      if (typeof critic !== "string" || !isAddress(critic, { strict: false })) return deny(reply, "tampered_payload");
+
+      // The client reports a failure instead of a proof: refuse with a reason, sign nothing.
+      if (typeof error === "string") {
+        if (CANCELLED.has(error)) return deny(reply, "cancelled");
+        return EXPIRED.has(error) ? deny(reply, "expired") : deny(reply, "unverified", error);
+      }
+
+      const parsed = WorldProofResultSchema.safeParse(body);
+      if (!parsed.success) return deny(reply, "tampered_payload");
+      const result = parsed.data;
+      const first = result.responses[0];
+      if (!first) return deny(reply, "tampered_payload");
+      if (result.action !== WORLD_ACTION || result.environment !== world.environment)
+        return deny(reply, "tampered_payload");
+      const expiresAt = issued.get(result.nonce);
+      if (expiresAt === undefined) return deny(reply, "tampered_payload");
+      if (expiresAt <= now()) return deny(reply, "expired");
+      if (first.signal_hash?.toLowerCase() !== hashSignal(critic.toLowerCase()).toLowerCase())
+        return deny(reply, "tampered_payload");
+      const nullifier = toBytes32(first.nullifier);
+      if (!nullifier) return deny(reply, "tampered_payload");
+
+      let outcome: WorldVerifyOutcome;
+      try {
+        outcome = await verify({ ...result, environment: world.environment });
+      } catch {
+        return deny(reply, "unverified", "world_unreachable");
+      }
+      if (!outcome.ok) return deny(reply, "unverified", outcome.code);
+
+      // Checked and recorded in one synchronous step, so two racing requests cannot both win.
+      const holder = humans.get(nullifier);
+      if (holder !== undefined && holder !== critic.toLowerCase()) return deny(reply, "duplicate_human");
+      if (!issued.delete(result.nonce)) return deny(reply, "tampered_payload");
+      humans.set(nullifier, critic.toLowerCase());
+
+      const expiry = now() + (world.voucherTtlSecs ?? 3600);
+      const chainId = await chain.getChainId();
+      const sig = await attestor.signMessage({
+        message: {
+          raw: keccak256(
+            encodeAbiParameters(parseAbiParameters("bytes32, address, uint64, uint256"), [
+              nullifier,
+              critic as `0x${string}`,
+              BigInt(expiry),
+              BigInt(chainId),
+            ]),
+          ),
+        },
+      });
+      return { nullifier, expiry, sig };
+    });
   });
 }

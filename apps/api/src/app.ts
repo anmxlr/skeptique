@@ -8,7 +8,7 @@ import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
 import { type RoundViewSource, registerRoundRoutes } from "./rounds";
 import { registerServiceReviewRoutes, type ServiceReviewSource } from "./service-reviews";
-import { registerWorldRoutes, type WorldConfig } from "./world";
+import { registerWorldRoutes, type WorldDeps } from "./world";
 
 export interface AppDeps {
   /** Client for the chain the mechanism contracts live on. */
@@ -21,22 +21,24 @@ export interface AppDeps {
   listings?: ListingSource;
   /** CriticRegistry registrations indexed from the chain; serves the critics routes. */
   critics?: CriticSource;
-  /** World ID critic onboarding; serves `/world/rp-context` and `/world/verify`. */
-  world?: WorldConfig;
+  /** World ID onboarding for critics. */
+  world?: WorldDeps;
+  /** Compatibility alias; evidence takes precedence when both are supplied. */
   evidenceStore?: EvidenceStore;
   serviceReviews?: ServiceReviewSource;
   rounds?: RoundViewSource;
+  /** Where published evidence is kept, by hash; defaults to memory. */
+  evidence?: EvidenceStore;
 }
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
 export { createFinalizedRankingSource } from "./ranking-source";
 export { createRoundSource, type RoundViewSource } from "./rounds";
-export { createWorldVerifier, type WorldConfig } from "./world";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   const app = Fastify(options);
-  // Public read models are shared with the separately hosted web app; write routes retain their own policy.
+  // Public reads are consumed by the separately hosted web app.
   app.addHook("onSend", async (request, reply) => {
     if (request.method === "GET") reply.header("Access-Control-Allow-Origin", "*");
   });
@@ -59,18 +61,10 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
   if (deps.rounds) registerRoundRoutes(app, deps.rounds);
-  if (deps.world) {
-    const critics = deps.critics;
-    const isNullifierRegistered =
-      deps.world.isNullifierRegistered ??
-      (critics &&
-        (async (nullifier: string) =>
-          (await critics.list()).some((c) => c.nullifier.toLowerCase() === nullifier.toLowerCase())));
-    registerWorldRoutes(app, { ...deps.world, isNullifierRegistered }, () => deps.publicClient.getChainId());
-  }
+  registerEvidenceRoutes(app, deps.evidence ?? deps.evidenceStore ?? new MemoryEvidenceStore());
   registerBuyerRunRoutes(app);
-  registerEvidenceRoutes(app, deps.evidenceStore ?? new MemoryEvidenceStore());
   if (deps.serviceReviews) registerServiceReviewRoutes(app, deps.serviceReviews);
+  if (deps.world) registerWorldRoutes(app, deps.world, deps.publicClient);
 
   return app;
 }

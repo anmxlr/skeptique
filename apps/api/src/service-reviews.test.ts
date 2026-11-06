@@ -53,7 +53,20 @@ describe("finalized service review evidence", () => {
   });
   it("wires publication and retrieval and rejects invalid service IDs", async () => {
     const { source } = fixture();
-    const app = buildApp({ publicClient: { getChainId: async () => 31337 }, contracts: {}, serviceReviews: source });
+    const app = buildApp({
+      publicClient: { getChainId: async () => 31337 },
+      contracts: {},
+      serviceReviews: source,
+      evidence: new MemoryEvidenceStore(),
+      evidenceStore: {
+        put() {
+          throw new Error("Legacy alias must not create another store");
+        },
+        get() {
+          return undefined;
+        },
+      },
+    });
     try {
       const published = await app.inject({ method: "POST", url: "/evidence", payload: evidence });
       expect(published.statusCode).toBe(200);

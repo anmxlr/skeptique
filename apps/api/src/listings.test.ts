@@ -39,11 +39,16 @@ const serveSuite = (served: unknown) => async (url: string | URL | Request) => {
   return new Response(JSON.stringify(served), { headers: { "content-type": "application/json" } });
 };
 
-function app(specHash: string, served: unknown = suite) {
+function app(specHash: string, served: unknown = suite, ensParent?: string) {
   return buildApp({
     publicClient: { getChainId: async () => 31337 },
     contracts: { ServiceRegistry: REGISTRY },
-    listings: createRegistrySource({ client: chain(specHash), address: REGISTRY, fetch: serveSuite(served) }),
+    listings: createRegistrySource({
+      client: chain(specHash),
+      address: REGISTRY,
+      ensParent,
+      fetch: serveSuite(served),
+    }),
   });
 }
 
@@ -77,6 +82,12 @@ describe("indexed service listings", () => {
         bounty: "2000000000",
       },
     ]);
+  });
+
+  it("names a listing under svc of the configured ENS parent", async () => {
+    current = app(suiteHash(suite), suite, "skeptique.eth");
+    const list = await current.inject({ method: "GET", url: "/services" });
+    expect(list.json()[0]).toMatchObject({ ensName: "length-convert.svc.skeptique.eth" });
   });
 
   it("serves one service's detail and 404s an unknown id", async () => {

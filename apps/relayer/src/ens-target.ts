@@ -10,26 +10,19 @@ import {
   parseAbi,
   type Transport,
   toBytes,
-  toHex,
   zeroAddress,
 } from "viem";
 import { sepolia } from "viem/chains";
-import { packetToBytes } from "viem/ens";
+import { dnsName, registryAbi, resolverAbi } from "./ens/sepolia";
 import type { TextTarget } from "./scores";
 import type { TransactionJournal } from "./transaction-journal";
 
 // ENSv2 contracts pinned to 07e55a056f5b6a9c90119f501bdd05714e67dddd; see spec/notes/ens.md.
-export const ensResolverAbi = parseAbi([
-  "function setText(bytes name, string key, string value)",
-  "function hasRoles(uint256 resource, uint256 roleBitmap, address account) view returns (bool)",
-  "function multicall(bytes[] calls) returns (bytes[])",
-]);
-export const ensRegistryAbi = parseAbi([
-  "function findOwner(string label) view returns (address)",
-  "function getResolver(string label) view returns (address)",
-  "function hasRootRoles(uint256 roleBitmap, address account) view returns (bool)",
-  "function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)",
-]);
+export const ensResolverAbi = resolverAbi;
+export const ensRegistryAbi = [
+  ...registryAbi,
+  ...parseAbi(["function hasRootRoles(uint256 roleBitmap, address account) view returns (bool)"]),
+];
 
 /** Runtime signer only. Namespace provisioning and administrator secrets stay outside this process. */
 export function createEnsTarget(options: {
@@ -131,7 +124,7 @@ export function createEnsTarget(options: {
         encodeFunctionData({
           abi: ensResolverAbi,
           functionName: "setText",
-          args: [toHex(packetToBytes(name)), key, value],
+          args: [dnsName(name), key, value],
         }),
       );
       await pub.simulateContract({
