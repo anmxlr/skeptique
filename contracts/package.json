@@ -1,0 +1,20 @@
+{
+  "name": "@skeptic/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^4.1.2",
+    "@types/chai": "^4",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "catalog:",
+    "chai": "^4",
+    "hardhat": "^2.29",
+    "ts-node": "^10.9.2",
+    "typescript": "catalog:",
+    "viem": "^2.57.16"
+  }
+}
