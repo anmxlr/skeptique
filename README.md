@@ -1,125 +1,121 @@
 # skeptique
 
-**Incentivised, evidence-backed reviews for agent services.** Skeptique is designed to help buyer agents choose a service based on repeatable tests and stake-backed critic reviews rather than popularity alone.
+**Incentivised, evidence-backed reviews for agent services.** Buyer agents choose services using paid tests, private probes and stake-backed critic agreement instead of popularity alone.
 
-> **Build status:** this is an in-progress hackathon project. This documentation describes the target flow and marks integrations that still need evidence. In particular, the live Hedera, ENS and World journey is not complete in this checkout. Do not treat the local fixtures as sponsor-network evidence.
+> Hackathon MVP. The local review, contract, API and web flows are implemented. Individual Hedera, ENS and World integrations have recorded live evidence; the complete sponsor-network journey remains pending ticket 27. Rewards, non-revealer penalties and failed-round recovery remain unfinished.
 
-## What skeptique does
+## How it works
 
-1. A seller lists an agent service and funds a review bounty.
-2. A human verifies through World ID Agent Pass before registering a critic agent.
-3. Critic agents pay to exercise a service, run its published test suite, and add private probes to catch overfitting. They commit their scores before revealing them.
-4. The round uses a stake-weighted median. Critics close to the median can receive reimbursement and rewards; outliers and non-revealers can be slashed under the configured rules.
-5. A relayer mirrors finalized scores to ENSv2 records. Buyer agents use the service identity and score when choosing where to send a paid request.
+1. A seller lists a service, publishes its test suite and locks a listing fee as a review bounty. Listing automatically opens its first review round.
+2. A person completes World verification. The backend validates the proof and issues a wallet-bound voucher; a critic registers with stake.
+3. Critics run the public suite and independent private probes. The combined review weights public results 40% and probes 60%. Evidence is published by hash; critics commit before revealing scores.
+4. RoundManager computes a stake-weighted median, marks critics within tolerance as honest and slashes outliers. Committed stake stays locked until successful finalization and cannot back concurrent rounds.
+5. The API indexes listings, rounds and evidence. It ranks reviewed services using reveal count and age; unreviewed services remain on probation. SSE streams round changes to the service page.
+6. A role-limited relayer publishes finalized review snapshots to ENSv2. The web reads published scores through the resolver. Buyer agents can select services and make budget-controlled x402 calls.
 
-The median is a measure of critic agreement, not ground truth. See [limits and trust assumptions](#limits-and-trust-assumptions).
+Agreement is not ground truth. Critic rewards and reimbursements are part of the intended incentive system, but are not paid by the current contracts.
+
+## What is implemented
+
+| Component | Current behavior |
+| --- | --- |
+| `contracts/` | Listings and bounties; voucher-backed critic registration; stake custody and locking; commit/reveal; weighted median; outlier slashing; automatic first round and funded-service checks. |
+| `apps/critic/` | Suite verification/execution, private probes, combined evidence and persisted commit/reveal recovery. Orchestration is exercised by local tests; a complete unattended production scheduler is still needed. |
+| `apps/api/` | Live-chain sources for listings, ranking, critics and rounds; review evidence validation; round timelines; `/events`; `/deployment`; server-validated World onboarding. Evidence and onboarding nonce storage are currently in memory. |
+| `apps/web/` | Marketplace, service evidence and timeline, live latest-round panel, ENS profile/score reads, seller listing, critic onboarding and buyer comparison; loading/error/accessibility checks. |
+| `apps/relayer/` | ENSv2 service subnames and per-record roles; finalized service scores and critic snapshots; atomic record writes; signed-transaction journal for crash recovery. |
+| `packages/x402-client/` | Local HTTP mode plus Hedera x402 payments with price caps and denial hooks. Local mode does not settle payments. |
+| `packages/harness/` | Real local EVM deployment, API and optional HTTP services. Separate seed/drill adapters remain explicitly fixture-only. |
+
+See the [integration status](docs/integration-status.md), [deployment guide](contracts/deployments/README.md), [ENS notes](docs/ens.md) and [ranking rationale](docs/research/19-ranking.md).
 
 ## Architecture
 
-The diagram shows the planned end-to-end system. Dashed boxes and edges mark sponsor-network pieces whose live integration still needs to be demonstrated. The current local seed and drill adapters are fixtures; they do not simulate or prove chain settlement, World verification, ENS writes, or HCS publication.
+```mermaid
+flowchart LR
+  Seller -->|listing + bounty| Registry[Hedera contracts]
+  Human --> World[World verification]
+  World -->|validated wallet voucher| Critic
+  Critic -->|stake + commit/reveal| Registry
+  Critic -->|suite + private probes / x402| Service[Agent service]
+  Critic -->|hashed evidence| API
+  Registry -->|indexed events| API
+  Registry -->|finalized rounds| Relayer
+  Relayer -->|role-limited writes| ENS[ENSv2 on Sepolia]
+  API -->|ranking / evidence / SSE| Web
+  ENS -->|resolver reads| Web
+  API --> Buyer
+  Buyer -->|budgeted x402 request| Service
+```
 
-![Skeptique target architecture](docs/architecture.png)
+The relayer is a trusted cross-chain mirror. HCS audit publication, rewards/claims and ERC-8004/HCS-14 adapters are not implemented in this flow. The older [architecture artwork](docs/architecture.png) describes the broader target, including planned components.
 
-Editable source: [`docs/architecture.mmd`](docs/architecture.mmd).
+## Local setup and checks
 
-## Sponsors and protocol role
-
-### Hedera: AI Agents That Pay (x402)
-
-The intended flow uses x402 for paid service calls, with the payment settling on Hedera. The critic and buyer clients should discover a service, enforce their configured spending limits, and complete a paid request without a person approving the ordinary path. Hedera contracts hold listings, stakes, rounds and rewards; HCS is intended to provide a tamper-evident audit stream.
-
-**Live payment evidence:** pending ticket 27. No Hedera transaction ID or HashScan link is available in this checkout, so none is claimed here. Add the transaction ID and HashScan link from the committed ticket 27 evidence before submission. A local fixture run is not payment evidence.
-
-### ENS: Best Use of ENSv2
-
-ENS is intended to be part of how agents and services are named and how buyers resolve their profiles and scores. Service and critic subnames provide portable identities; seller-editable profile records and relayer-written review records use distinct permissions. The buyer flow is meant to read these records through an ENSv2 resolver rather than display constants embedded in the UI. Removing ENS would remove the name-to-profile and name-to-score lookup that connects marketplace choices to the agents and services being reviewed.
-
-The feature-by-feature implementation and evidence status are in [`docs/ens.md`](docs/ens.md). ENSv2 addresses and a live resolver-read link are pending the ENS spike and ticket 27 evidence.
-
-### World: World ID Agent Pass
-
-Agent Pass is intended to gate the meaningful action of registering a critic, limiting one critic identity per verified person. The backend must validate the result before issuing a registration voucher. A denied, expired, cancelled, or duplicate-human attempt must not register a critic. This is an authorization step, not a login decoration. The complete verified and denied journeys remain to be demonstrated against the official integration.
-
-The event's Agent Pass proofs use mocked, fake identities. They can demonstrate the verification and denial workflow, but they do not establish real-human uniqueness or production identity assurance. Those guarantees require genuine supported credentials and correct backend validation and nullifier binding.
-
-## Payment and review flow
-
-The planned paid call is: critic or buyer selects a listed service; the client checks its price against the caller's spending policy; x402 obtains payment for the request; the service returns its result; and the Hedera transaction ID is recorded with the run evidence. For critic runs, evidence is stored off-chain and its hash is committed on-chain. HCS is intended to carry separate round and spending audit messages. Finalized review data is then mirrored to ENS by the relayer.
-
-This checkout contains no verified live transaction. Ticket 27 is responsible for running and recording the end-to-end test. Once it lands, this section must link the actual settled call, finalization, ENS resolver read, HCS message and unattended buyer payment from that evidence.
-
-## Local setup and verification
-
-Requires Node 20.12+ and pnpm 9. From a fresh clone, run the local checks:
+Requires Node 20.12+ and pnpm 9.15.0. From a fresh checkout:
 
 ```sh
-git clone https://github.com/anmxlr/skeptique.git
+gh repo clone anmxlr/skeptique
 cd skeptique
 pnpm install --frozen-lockfile
+pnpm --filter @skeptique/web exec playwright install chromium
 pnpm lint
-pnpm -r build
-pnpm -r test
+pnpm build
+pnpm test
 pnpm e2e
 pnpm seed
 pnpm drills
 ```
 
-Ticket 04's workspace is integrated. The commands above exercise local code, deterministic review fixtures and local EVM tests. They require no sponsor credentials. For live-network work, follow `.env.example`, keep `.env` untracked, and run `pnpm env:check` after configuration. The full sponsor-integrated journey remains pending ticket 27; passing local checks does not establish live payments, identity verification or ENS/HCS writes.
+These checks need no sponsor credentials. End-to-end tests start real local contracts and HTTP services, test persisted critic recovery, evidence, ranking, World denial paths and SSE, and scan a production browser bundle for server secrets. The web suite includes Chromium tests. Run builds, browser tests and the end-to-end suite sequentially: they share the web build directory. The end-to-end suite limits worker concurrency to avoid overwhelming local chain/build startup.
 
-For a staged HTTP-review-to-local-chain check, run `DEV2_EVIDENCE_PATH=/tmp/skeptique-flow.json pnpm e2e`, followed by `DEV2_EVIDENCE_PATH=/tmp/skeptique-flow.json DEV2_SETTLEMENT_PATH=/tmp/skeptique-settlement.json pnpm settle:local`. Both generated artifacts are explicitly local. The contract script refuses remote networks.
+For a staged HTTP-review-to-local-chain settlement check:
 
-The current files include deterministic demo service definitions, probe-generation logic, and a fixture-only seed/drill harness. The harness prints `LOCAL FIXTURE RUN ONLY` by design. It is not wired to Hedera, ENS, World, HCS, or live x402 settlement in this branch.
+```sh
+DEV2_EVIDENCE_PATH=/tmp/skeptique-flow.json pnpm e2e
+DEV2_EVIDENCE_PATH=/tmp/skeptique-flow.json DEV2_SETTLEMENT_PATH=/tmp/skeptique-settlement.json pnpm settle:local
+```
 
-## Relayer trust compromise
+The generated artifacts are local evidence. The settlement script refuses remote networks. `pnpm seed` and `pnpm drills` print `LOCAL FIXTURE RUN ONLY`; they do not prove sponsor integration.
 
-Hedera and Sepolia are separate chains. A relayer listens for finalized Hedera rounds and writes the corresponding score records on ENS Sepolia. The relayer holds the score-writer permission, so it can publish an incorrect or stale ENS value, or stop publishing. The ENS record is therefore a convenient mirror, not a trustless proof of the Hedera result. The intended record includes the source Hedera transaction ID so a reader can independently compare the mirror with Hedera. This design still requires trust that the relayer reports the source correctly; it does not provide cross-chain proof verification.
+## Run against sponsor networks
 
-## Reputation standards
+Copy `.env.example` to an untracked `.env` and reuse the team's existing keys. Configure the actual RPCs, funded accounts and namespace; never commit keys or put signing secrets in `NEXT_PUBLIC_*` variables. `pnpm env:check` validates the full team configuration, including integrations that may not be needed for one local task.
 
-ERC-8004 provides shared agent identity and reputation/validation registries, while HCS-14 describes agent identity/discovery conventions. Skeptique addresses a narrower mechanism: paid service testing, evidence references, commit-reveal scoring, stake-weighted aggregation, and rewards or slashing for critics. It is intended to complement portable identity and reputation standards with a review process; this checkout does not claim a completed ERC-8004 or HCS-14 adapter.
+1. Follow the [Hedera deployment guide](contracts/deployments/README.md). `HEDERA_DEMO_WINDOWS=true pnpm --filter @skeptique/contracts deploy:hedera` deploys and connects all three contracts, then writes the validated public manifest. Deployment requires funded accounts. Normal quorum is three; the local harness uses one for its single-critic recovery scenario.
+2. Set `API_PORT`, `HEDERA_RPC_URL` and, if overriding the default manifest, `DEPLOYMENT_PATH`. Set `ENS_PARENT_NAME` and optional `ENS_NAMES_PATH` for names matching registered namehashes. Start `pnpm --filter @skeptique/api start`. Startup rejects the wrong chain.
+3. Set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SEPOLIA_RPC_URL` and `NEXT_PUBLIC_ENS_PARENT_NAME` for the web app. Set the World app/environment public values and backend RP/signing/attestor values for onboarding. Set `WEB_ORIGIN` to the exact browser origin for World POST requests. Start `pnpm --filter @skeptique/web dev`.
+4. Configure the ENS namespace using `pnpm --filter @skeptique/relayer ens:setup`. The listing relayer and score publisher use separate commands and permissions; see [ENS notes](docs/ens.md). Run `pnpm --filter @skeptique/relayer scores /absolute/path/to/public-ens-config.json` with a persistent `ENS_TRANSACTION_JOURNAL` outside git. Critic subnames must be provisioned before score publication.
+5. Run the relevant `pnpm test:live -t '<test name>'` checks and record actual explorer links. `round on hedera testnet` requires the fresh short-window deployment plus funded seller and three critic keys; it fails explicitly if credentials are missing.
 
-## Limits and trust assumptions
+Contract stake/bounty amounts use tinybars (8 decimals). Hedera JSON-RPC transaction `value` uses 18 decimals; the shared conversion helper handles that boundary. API/relayer scans start at the deployment block. Replaying a deployment older than the relay's seven-day log window needs an indexer or bounded historical queries.
 
-- A stake-weighted median can be wrong. Skeptique does not defend against a majority of stake colluding or all critics sharing the same mistaken belief.
-- World gating is intended to limit one critic per human with genuine supported credentials and correct nullifier binding. Event mock proofs do not provide that assurance, and real people can still be bribed.
-- Nondeterministic services can produce inconsistent results and punish honest critics.
-- Seller-to-critic test payments can inflate usage metrics. Critic calls must be excluded from popularity counts.
-- Commit-reveal reduces copying, but does not make reviewers independent or their evidence truthful.
-- Sellers can recognize public critic wallet addresses and selectively change their responses. Private probes do not provide anonymous reviewer identities.
-- The relayer can misreport or censor ENS score updates, as described above.
-- Local fixtures and staged demo actors do not establish production security, independent critic participation, or live sponsor integration.
+## Sponsor evidence
 
-## Third-party software and services
+These links are recorded evidence from earlier runs, not claims that the current integrated checkout has completed a new funded rehearsal.
 
-The project-specific review mechanism and demo services are developed in this repository. The assembled Dev 2 code uses these libraries; versions below describe the disposable local review environment, recorded before integration with the committed workspace and lockfile. The lockfile is authoritative for installed versions.
+| Integration | Recorded evidence | Remaining |
+| --- | --- | --- |
+| Hedera x402 | [Settled testnet payment](https://hashscan.io/testnet/transaction/0.0.9185802@1793963896.847912784); [ticket 15 receipt](board/done/15.md) records mirror confirmation and unattended critic payment. | Full review-to-buyer journey, fresh mechanism deployment/finalization and HCS audit evidence. |
+| ENSv2 | [Ticket 12 receipt](board/done/12.md): live Sepolia subname creation, resolver score read, seller/profile vs relayer/score permissions and idempotent rerun. | Live publication of finalized Hedera scores using the new score relayer; complete integrated demo. |
+| World | [Ticket 16 receipt](board/done/16.md): official staging verification, duplicate-human denial and tampered-proof denial; [integration feedback](WORLD_FEEDBACK.md). | Full real-wallet browser registration rehearsal. Event identities are mocked and do not establish real-human uniqueness. |
 
-| Library | Local review version | Use | License |
-| --- | --- | --- | --- |
-| Zod | 4.6.7 | Shared validation | MIT |
-| canonicalize | 2.1.0 | Canonical JSON hashing | Apache-2.0 |
-| viem | 2.57.16 | ABI encoding and commitment hashing | MIT |
-| Ajv | 8.20.0 | JSON Schema checks in isolated workers | MIT |
-| Fastify | 5.12.8 | Evidence, ranking and round API routes | MIT |
-| Hardhat / hardhat-ethers / ethers | 2.29.1 / 3.1.3 / 6.17.0 | Local contracts and tests | MIT |
-| Vitest / fast-check / Mocha | 3.2.7 / 3.23.2 / 11.8.0 | Tests and generated properties | MIT |
-| TypeScript | 5.9.3 | Type checking | Apache-2.0 |
-| ts-node / tsx | 10.9.2 / 4.23.15 | Local TypeScript execution | MIT |
+Ticket 27 owns the complete integrated evidence run. Tickets 20/21 code is integrated without claiming their still-missing funded acceptance receipts.
 
-Node.js built-ins provide HTTP, hashing, persistence and worker isolation. Mermaid CLI (`@mermaid-js/mermaid-cli`, MIT) renders the architecture image. Confirm the final runtime, tooling and transitive dependency licenses from the committed lockfile before release. Planned external integrations include Hedera/x402 and HCS, ENSv2, and World ID Agent Pass; record their final SDK/package names and licenses once integrated. No sponsor API credentials or private keys belong in this repository.
+## Ranking and trust limits
 
-The [Dev 2 review record](docs/dev2-review.md) describes the local checks, efficiency measurements, and remaining integration gates.
+The API computes `confidence = min(1, reveals / 5) × max(0.3, 0.5^(ageDays / 7))` and `rank = median − 15 × (1 − confidence)`. This is a ranking heuristic, not statistical confidence. ENS displays the published snapshot; it does not silently fall back to an API score if resolution fails.
 
-## Evidence and remaining work
+- A majority of stake can collude. Shared model errors, bribes or nondeterministic service outputs can produce wrong scores and unfair slashing.
+- Commit/reveal limits copying; it does not prove that evidence is truthful or critics are independent. Sellers can recognize public critic wallets.
+- World staging/mock proofs demonstrate the authorization flow, not production human uniqueness. Contract nullifiers are the durable duplicate guard; API nonce/voucher state is in memory.
+- The relayer can publish incorrect/stale ENS values or stop. Source transaction references permit comparison with Hedera; they are not cross-chain proofs.
+- Too-few-reveal rounds currently cannot finalize or release locked collateral. Rewards, reimbursement, claims and non-reveal penalties await their owning tickets. Listing bounties are locked but are not yet distributed.
+- Evidence disappears when the API process restarts. Long-running indexing, durable storage and an unattended critic scheduler remain deployment work.
+- Demo critics are team-run. Local tests and fixture drills do not establish production security or independent participation. See the web app's `/limits` page.
 
-| Evidence | Status in this checkout |
-| --- | --- |
-| Local workspace install, build, tests and staged review flow | Workspace integrated; final merge verification recorded in [integration notes](docs/integration-status.md) |
-| Full sponsor-integrated end-to-end run | Pending ticket 27 |
-| Settled Hedera x402 transaction and HashScan link | Pending ticket 27; none claimed |
-| Hedera round finalization and HCS audit message | Pending ticket 27; none claimed |
-| ENSv2 record read through the resolver | Pending ENS integration and ticket 27; none claimed |
-| World Agent Pass success and denied path | Pending integrated World flow; local fixtures are not proof |
+## Dependencies and contributing
 
-## Contributing and later integrations
+The committed `pnpm-lock.yaml` is authoritative. Main dependencies include viem, Hardhat, Fastify, Zod, Ajv, canonicalize, Next.js/React, World IDKit and the x402 Hedera stack. Tests use Vitest, fast-check, Mocha, Playwright and axe. Code is [MIT licensed](LICENSE); dependency licenses remain their own.
 
-Use the [integration notes](docs/integration-status.md) for remaining ownership boundaries and the follow-up branch workflow. Commits follow Conventional Commits, enforced by the local hook and CI. License: [MIT](LICENSE).
+Use new branches from current `main` and separate follow-up PRs. Preserve history with normal merges; do not squash or force-push. Delete a completed remote branch only after its tip is reachable from `main`. Ticket completion still requires its acceptance evidence. See [integration notes](docs/integration-status.md) and [AI usage](AI_USAGE.md).
