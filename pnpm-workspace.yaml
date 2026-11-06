@@ -1,0 +1,11 @@
+packages:
+  - contracts
+  - packages/*
+  - apps/*
+  - apps/services/*
+  - scripts
+
+catalog:
+  "@types/node": ^20.19.0
+  typescript: ~5.9.0
+  vitest: ^3.2.0
