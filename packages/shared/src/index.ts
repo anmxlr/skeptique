@@ -64,10 +64,15 @@ export const CaseResultSchema = z.object({
   weight: z.number().positive().finite(),
   latencyMs: z.number().nonnegative().finite(),
   error: z.string().optional(),
+  output: jsonValue.optional(),
+}).superRefine((result, context) => {
+  if (Object.hasOwn(result, 'output') && result.output === undefined) {
+    context.addIssue({ code: 'custom', path: ['output'], message: 'Omit output when no JSON response is available' });
+  }
 });
 export type CaseResult = z.infer<typeof CaseResultSchema>;
 
-export const ProbeResultSchema = CaseResultSchema.extend({ case: TestCaseSchema });
+export const ProbeResultSchema = CaseResultSchema.safeExtend({ case: TestCaseSchema });
 export type ProbeResult = z.infer<typeof ProbeResultSchema>;
 
 export const EvidenceSchema = z.object({

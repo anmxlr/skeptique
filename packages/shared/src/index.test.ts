@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ROUND_CONFIG,
+  CaseResultSchema,
   EventSchemas,
   EvidenceSchema,
   RoundConfigSchema,
@@ -39,6 +40,20 @@ describe('shared schemas', () => {
       expect(schema.safeParse(eventFixtures[name as keyof typeof eventFixtures]).success, name).toBe(true);
     }
     expect(EventSchemas.CriticRevealed.safeParse({ ...eventFixtures.CriticRevealed, score: 101 }).success).toBe(false);
+  });
+
+  it('preserves JSON service output in evidence while allowing an omitted response', () => {
+    const result = { caseId: 'c1', passed: true, weight: 1, latencyMs: 1, output: { answer: [42, null, true] } };
+    const evidence = EvidenceSchema.parse({ roundId: 1, critic: '0x0000000000000000000000000000000000000001', suite: [result], probes: [{ ...result, case: suite.cases[0] }], latencyMs: { p50: 1, p95: 1 }, x402Txs: [], claimedCost: '0', score: 100, model: 'none' });
+    const roundtrip = EvidenceSchema.parse(JSON.parse(JSON.stringify(evidence)));
+    expect(roundtrip.suite[0]).toHaveProperty('output', result.output);
+    expect(roundtrip.probes[0]).toHaveProperty('output', result.output);
+    const { output: _output, ...withoutOutput } = result;
+    expect(CaseResultSchema.parse(withoutOutput)).not.toHaveProperty('output');
+    expect(CaseResultSchema.parse({ ...result, output: null })).toHaveProperty('output', null);
+    for (const output of [undefined, NaN, Infinity, { nested: undefined }]) {
+      expect(CaseResultSchema.safeParse({ ...result, output }).success).toBe(false);
+    }
   });
 });
 
