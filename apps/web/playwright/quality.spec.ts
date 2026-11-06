@@ -106,3 +106,21 @@ test("keyboard: the skip link comes first and moves focus to the main content", 
   await expect(page).toHaveURL(/#main$/);
   await expect(page.locator("main")).toBeFocused();
 });
+
+test("a failed refresh shows a readable toast over the last good buyer runs", async ({ page }) => {
+  let calls = 0;
+  await page.route(`${MOCK_API_URL}/buyer/runs`, async (route) => {
+    calls++;
+    const headers = { "access-control-allow-origin": "*" };
+    // Dev mode mounts effects twice, so the first two loads succeed; refreshes after that fail.
+    await route.fulfill(calls <= 2 ? { json: RUNS, headers } : { status: 503, json: {}, headers });
+  });
+  await page.goto("/buyer");
+  const toast = page.getByRole("alert").filter({ hasText: "Could not refresh buyer runs" });
+  await expect(toast).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Picked unit-convert: rank 94.0.")).toBeVisible();
+  const { violations } = await new AxeBuilder({ page }).include(".toast").withTags(["wcag2aa"]).analyze();
+  expect(violations.map((v) => v.id)).toEqual([]);
+  const box = await toast.boundingBox();
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeGreaterThan((page.viewportSize()?.width ?? 0) - 40);
+});
