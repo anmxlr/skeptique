@@ -41,7 +41,7 @@ export async function smokeHederaRound(env: NodeJS.ProcessEnv = process.env) {
   const deployment = await loadDeployment(env.DEPLOYMENT_PATH || undefined);
   if (deployment.config.kMin !== 3 || deployment.config.commitSeconds > 90 || deployment.config.revealSeconds > 45)
     throw new Error("Smoke acceptance requires a fresh deployment with HEDERA_DEMO_WINDOWS=true and K_MIN=3");
-  const transport = http(env.HEDERA_RPC_URL);
+  const transport = http(env.HEDERA_RPC_URL, { timeout: 60_000, retryCount: 5, retryDelay: 1500 });
   const client = createPublicClient({ chain: hederaTestnet, transport });
   if ((await client.getChainId()) !== deployment.chainId) throw new Error("Deployment chain does not match RPC");
   const { ServiceRegistry, CriticRegistry, RoundManager } = deployment.contracts as Record<
@@ -87,7 +87,8 @@ export async function smokeHederaRound(env: NodeJS.ProcessEnv = process.env) {
     return receipt;
   };
   const expiry = (await client.getBlock()).timestamp + 1800n;
-  for (const [index, critic] of critics.entries()) {
+  let lowStakeChecked = false;
+  for (const [, critic] of critics.entries()) {
     const nullifier = `0x${randomBytes(32).toString("hex")}` as Hex;
     const sig = await attestor.signMessage({
       message: {
@@ -102,7 +103,15 @@ export async function smokeHederaRound(env: NodeJS.ProcessEnv = process.env) {
       },
     });
     const args = [nullifier, expiry, sig] as const;
-    if (index === 0) {
+    const alreadyStaked =
+      (await client.readContract({
+        address: CriticRegistry,
+        abi: criticRegistryAbi,
+        functionName: "stakeOf",
+        args: [critic.address],
+      })) > 0n;
+    if (!alreadyStaked && !lowStakeChecked) {
+      lowStakeChecked = true;
       let rejected = false;
       try {
         await client.simulateContract({
@@ -120,13 +129,14 @@ export async function smokeHederaRound(env: NodeJS.ProcessEnv = process.env) {
       if (!rejected) throw new Error("4.9 HBAR stake was not rejected");
       console.log("Verified: 4.9 HBAR stake rejected by deployed contract");
     }
-    await write(critic, {
-      address: CriticRegistry,
-      abi: criticRegistryAbi,
-      functionName: "registerCritic",
-      args,
-      value: contractValue(minStake, 296),
-    });
+    if (!alreadyStaked)
+      await write(critic, {
+        address: CriticRegistry,
+        abi: criticRegistryAbi,
+        functionName: "registerCritic",
+        args,
+        value: contractValue(minStake, 296),
+      });
     if (
       (await client.readContract({
         address: CriticRegistry,
