@@ -1,0 +1,24 @@
+{
+  "name": "@skeptic/harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@skeptic/api": "workspace:*",
+    "@skeptic/contracts": "workspace:*",
+    "viem": "^2.57.16"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "hardhat": "^2.29",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

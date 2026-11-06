@@ -23,6 +23,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.6.5
         version: 2.6.5
+      '@skeptic/harness':
+        specifier: workspace:^
+        version: link:packages/harness
       '@types/node':
         specifier: ^20.19.43
         version: 20.19.43
@@ -38,6 +41,9 @@ importers:
       fastify:
         specifier: ^5.12.8
         version: 5.12.8
+      viem:
+        specifier: ^2.57.16
+        version: 2.57.16(typescript@5.9.3)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -205,6 +211,31 @@ importers:
       viem:
         specifier: ^2.57.16
         version: 2.57.16(typescript@5.9.3)
+
+  packages/harness:
+    dependencies:
+      '@skeptic/api':
+        specifier: workspace:*
+        version: link:../../apps/api
+      '@skeptic/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      viem:
+        specifier: ^2.57.16
+        version: 2.57.16(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.43
+      hardhat:
+        specifier: ^2.29
+        version: 2.29.1(ts-node@10.9.2(@types/node@20.19.43)(typescript@5.9.3))(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@20.19.43)(lightningcss@1.33.0)(tsx@4.23.15)
 
   packages/shared:
     devDependencies:
@@ -4127,7 +4158,7 @@ snapshots:
 
   '@types/chai-as-promised@7.1.8':
     dependencies:
-      '@types/chai': 5.2.3
+      '@types/chai': 4.3.20
 
   '@types/chai@4.3.20': {}
 
