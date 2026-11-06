@@ -1,0 +1,58 @@
+flowchart TB
+  subgraph people[Agents and services]
+    direction LR
+    seller[Seller]
+    critic[Critic agent]
+    buyer[Buyer agent]
+    service[Service endpoint<br/>published suite + private probes]
+  end
+
+  subgraph world[World]
+    pass[World ID Agent Pass]
+  end
+
+  subgraph app[Application services]
+    direction LR
+    api[API + indexer]
+    evidence[Evidence store<br/>off-chain JSON]
+    relayer[ENS score relayer<br/>score-writer role]
+  end
+
+  subgraph hedera[Hedera testnet]
+    direction LR
+    contracts[ServiceRegistry<br/>CriticRegistry<br/>RoundManager]
+    facilitator[x402 facilitator]
+    settlement[Ledger payment settlement]
+    hcs[HCS audit topic]
+  end
+
+  subgraph ens[ENSv2 on Sepolia]
+    registry[Permissioned subname registry]
+    resolver[Permissioned resolver<br/>agent + service records]
+  end
+
+  seller -->|list service + fund bounty| contracts
+  seller -->|editable profile records| registry
+  critic -->|verify human| pass
+  pass -.->|backend validates; issues voucher| api
+  api -.->|registration voucher| contracts
+  critic -->|paid test request| service
+  service -->|402 challenge / result| critic
+  critic -.->|x402 settlement| facilitator
+  facilitator -.->|payment transaction| settlement
+  settlement -->|service proceeds| seller
+  critic -->|suite + probe evidence| api
+  api --> evidence
+  api -.->|evidence hash| contracts
+  critic -->|commit then reveal score| contracts
+  contracts -.->|events + final score| api
+  api -->|finalized round event| relayer
+  relayer -.->|round + spend audit messages| hcs
+  relayer -.->|write score + Hedera tx reference| resolver
+  registry --> resolver
+  buyer -->|resolve service identity and score| resolver
+  buyer -->|select + paid request| service
+  buyer -.->|x402 settlement| facilitator
+
+  classDef pending stroke-dasharray: 5 5;
+  class pass,facilitator,settlement,hcs,contracts,relayer,registry,resolver pending;
