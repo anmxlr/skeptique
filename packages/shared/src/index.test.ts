@@ -8,19 +8,20 @@ import {
   ServiceViewSchema,
   TestCaseSchema,
   TestSuiteSchema,
+  type TestSuite,
   commitmentHash,
   commitmentVector,
   eventFixtures,
   suiteHash,
 } from './index';
 
-const suite = {
+const suite: TestSuite = {
   version: 1,
   serviceName: 'unit-convert',
   category: 'conversion',
   determinism: 'none',
   cases: [{ id: 'c1', input: { from: 'm', to: 'cm', value: 2 }, expect: { kind: 'exact', value: 200 }, weight: 2 }],
-} as const;
+};
 
 describe('shared schemas', () => {
   it('validates every shared view and rejects invalid data', () => {
@@ -43,7 +44,7 @@ describe('shared schemas', () => {
 
 describe('hashes', () => {
   it('hashes canonical suite JSON independent of object-key order', () => {
-    const reordered = {
+    const reordered: TestSuite = {
       cases: [{ weight: 2, expect: { value: 200, kind: 'exact' }, input: { value: 2, to: 'cm', from: 'm' }, id: 'c1' }],
       determinism: 'none', category: 'conversion', serviceName: 'unit-convert', version: 1,
     };
