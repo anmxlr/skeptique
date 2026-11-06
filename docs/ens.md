@@ -1,29 +1,25 @@
-# ENSv2 showcase notes
+# ENSv2 implementation and evidence
 
-## Why ENS is part of the product
+ENS is the service/critic identity and published review layer. Names are hierarchical (`<slug>.svc.<parent>` and `<handle>.critic.<parent>`), with permissioned registries/resolvers and Enhanced Access Control. Seller roles cover profile records (`url`, `description`); relayer roles cover only review keys. No wildcard, aliasing or expiration feature beyond the implemented provisioning is claimed.
 
-Skeptique uses ENS as the public identity and score-resolution layer for services and critic agents. The marketplace should let a buyer resolve a service name to its profile and current score, and inspect which agent identity the name refers to. This makes ENS part of discovery and verification, not a decorative label.
+## Records and reads
 
-## ENSv2 features in the design
+Record keys are derived from the normalized parent, reversed into a record-key prefix. For `skeptique.eth`, service keys are `eth.skeptique.score`, `eth.skeptique.confidence`, `eth.skeptique.round`, `eth.skeptique.hedera.tx`; critic keys are `eth.skeptique.stake`, `eth.skeptique.honestRounds`, `eth.skeptique.slashes`. `packages/shared/src/ens.ts` is authoritative.
 
-| Feature | Intended use | Evidence status |
-| --- | --- | --- |
-| Hierarchical subnames / subname registry | Service names such as `<slug>.svc.skeptique.eth` and critic names such as `<handle>.critic.skeptique.eth` give agents separate, attributable namespaces. | Specified; live registry and addresses pending ENS spike/integration. |
-| Permissioned Resolver | Service and critic records are resolved from the name's resolver, including profile and review data. | Specified; no live resolver read captured in this checkout. |
-| Enhanced Access Control | Seller can update profile fields; only the authorized relayer can update review score fields. | Intended access split; deployed roles and authorization checks pending ENS integration. |
-| Agent namespaces | Service and critic agents each have their own ENS subname and records. | Central to the identity model; live demo pending. |
+The listing relayer verifies the fetched suite hash and registered service namehash before deriving/creating the service subname. The marketplace and service page resolve profiles/scores using ENS; unavailable scores stay unavailable rather than falling back to API scores. Published confidence is a snapshot, separate from the API's time-decayed ranking heuristic.
 
-The current design does not claim wildcard resolution, record aliasing, namespace aliasing, expiring names, or revocable names. Those features are not required by the current mechanism spec and should only be added to this note if implemented and shown in the demo.
+## Operations
 
-## Record plan
+- `pnpm --filter @skeptique/relayer ens:setup`: one-time namespace provisioning with the operator key; re-runnable.
+- `pnpm --filter @skeptique/relayer start`: listing relay, requiring its documented namespace/source configuration (`apps/relayer/src/cli.ts`).
+- `pnpm --filter @skeptique/relayer scores /absolute/path/to/public-ens-config.json`: finalized service and critic snapshot publication. Source contracts/start block come from the deployment manifest. The public JSON supplies `parentName`, `ensCriticRegistry`, `ensCriticResolver`, `ensCriticExpiry` (decimal string), `confirmations` (decimal string), `serviceNames` and `criticNames` maps. See `apps/relayer/src/run-scores.ts` and `src/ens-target.ts`.
 
-The interface spec names these records:
+Provision critic subnames and grant the per-record writer roles separately. The running score publisher uses only the relayer key; it does not need the operator key. `ENS_TRANSACTION_JOURNAL` must be persistent and outside git. Each signed transaction is journaled before broadcast, allowing retries to recover the same transaction rather than duplicate writes. Record updates use resolver multicall.
 
-- Service subname `<slug>.svc.skeptique.eth`: `skeptique.score`, `skeptique.confidence`, `skeptique.round`, and `skeptique.hedera.tx` are relayer-writable; `url` and `description` are seller-writable.
-- Critic subname `<handle>.critic.skeptique.eth`: `skeptique.stake`, `skeptique.honestRounds`, and `skeptique.slashes`.
+Configure the same parent for the seller, API, browser and relayer. Old zero-node listings must be relisted with a correct namehash because their ENS node cannot be changed after listing.
 
-Exact resolver record keys, registry/resolver addresses, transaction links, and deployed access-control role IDs must be checked against the ENS spike notes and deployed contracts before this is treated as implementation evidence. No ENS API or contract address is inferred here.
+## Evidence and trust
 
-## Live evidence to add
+[Receipt 12](../board/done/12.md) records a live Sepolia subname, resolver read, access-control denials and idempotent rerun. The new score publisher has local recovery/permission tests and browser regression coverage, but fresh finalized Hedera → Sepolia publication evidence remains outstanding for ticket 20 and the integrated ticket 27 demo.
 
-Ticket 27 must provide a resolver read of a real service record and its link. Add the actual name, record key, returned value, chain, and transaction or explorer link here and in the README after the integrated run. Do not substitute fixture data or hard-code a value into the UI.
+The relayer can misreport, delay or censor records. The Hedera transaction reference enables independent comparison, not trustless cross-chain verification. Do not interpret a successfully resolved name as proof that its service is good.

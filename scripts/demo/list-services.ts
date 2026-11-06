@@ -1,4 +1,5 @@
 import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
+import { contractValue } from "@skeptique/shared/deployment";
 import {
   type Account,
   type Address,
@@ -26,6 +27,7 @@ export async function listDemoServices(options: {
   const transport = http(options.rpcUrl);
   const publicClient = createPublicClient({ transport });
   const wallet = createWalletClient({ account: options.seller, transport });
+  const chainId = await publicClient.getChainId();
   const fee = await publicClient.readContract({
     address: options.registry,
     abi: serviceRegistryAbi,
@@ -41,7 +43,7 @@ export async function listDemoServices(options: {
       abi: serviceRegistryAbi,
       functionName: "listService",
       args: [service.specHash as `0x${string}`, new URL("/call", origin).href, PRICE_PER_CALL_TINYBARS, zeroHash],
-      value: fee,
+      value: contractValue(fee, chainId),
       chain: null,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash });

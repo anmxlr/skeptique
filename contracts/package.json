@@ -5,6 +5,8 @@
   "scripts": {
     "build": "hardhat compile && tsc --noEmit",
     "test": "hardhat test",
+    "deploy:hedera": "hardhat compile && tsx scripts/deploy-hedera.ts",
+    "export:abis": "hardhat compile && tsx scripts/export-abis.ts",
     "settle:local": "hardhat run scripts/settle-local-review.ts"
   },
   "devDependencies": {

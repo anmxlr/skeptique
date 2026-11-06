@@ -8,6 +8,8 @@ export default defineConfig({
     include: ["e2e/**/*.e2e.test.ts", "{apps,packages}/**/*.e2e.test.ts", "scripts/demo/dev2-flow.test.ts"],
     exclude: ["**/node_modules/**"],
     passWithNoTests: true,
+    // Each worker boots an EVM or a Next build; serialize startup to avoid memory pressure and starvation.
+    maxWorkers: 1,
     testTimeout: 60_000,
   },
 });

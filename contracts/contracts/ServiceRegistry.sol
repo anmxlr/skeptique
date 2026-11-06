@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+interface IRoundOpener {
+    function openRound(uint256 serviceId) external returns (uint256 roundId);
+}
+
 /// Sellers list services here. The listing fee is locked as the service's bounty; anyone can top it up and
 /// nothing lets the seller take it back (spec/02 §3 steps 1 and 6). Amounts are in the chain's native unit
 /// as seen by the EVM (tinybars on Hedera).
@@ -16,6 +20,9 @@ contract ServiceRegistry {
 
     uint256 public immutable minListingFee;
     uint256 public serviceCount;
+    address public immutable deployer;
+    /// Set once by the deployer; listing a service opens its round 1 there.
+    IRoundOpener public roundManager;
 
     mapping(uint256 => Service) private services;
     /// Addresses that have listed a service; CriticRegistry bars them from critiquing (spec/02 §6).
@@ -23,6 +30,7 @@ contract ServiceRegistry {
 
     error FeeTooLow(uint256 sent, uint256 minimum);
     error UnknownService(uint256 serviceId);
+    error AlreadySet();
 
     event ServiceListed(
         uint256 indexed serviceId,
@@ -36,6 +44,12 @@ contract ServiceRegistry {
 
     constructor(uint256 minListingFee_) {
         minListingFee = minListingFee_;
+        deployer = msg.sender;
+    }
+
+    function setRoundManager(address roundManager_) external {
+        if (msg.sender != deployer || address(roundManager) != address(0)) revert AlreadySet();
+        roundManager = IRoundOpener(roundManager_);
     }
 
     function listService(bytes32 specHash, string calldata endpoint, uint256 pricePerCall, bytes32 ensNode)
@@ -48,6 +62,7 @@ contract ServiceRegistry {
         isSeller[msg.sender] = true;
         services[serviceId] = Service(msg.sender, specHash, endpoint, pricePerCall, ensNode, msg.value);
         emit ServiceListed(serviceId, msg.sender, specHash, endpoint, pricePerCall, ensNode);
+        if (address(roundManager) != address(0)) roundManager.openRound(serviceId);
     }
 
     function topUp(uint256 serviceId) external payable {

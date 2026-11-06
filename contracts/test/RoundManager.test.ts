@@ -201,4 +201,31 @@ describe("RoundManager", () => {
     await restartedProcess.reveal(Number(roundId));
     assert.equal(await manager.hasRevealed(roundId, await critic.getAddress()), true);
   });
+  it("opens round 1 when a service is listed, and only reopens after it finalises", async () => {
+    const registry = await (await ethers.getContractFactory("ServiceRegistry")).deploy(100);
+    await registry.waitForDeployment();
+    await registry.setRoundManager(await manager.getAddress());
+    await manager.setServiceRegistry(await registry.getAddress());
+    const specHash = `0x${"aa".repeat(32)}`;
+    await registry.listService(specHash, "http://svc.test/call", 1, `0x${"00".repeat(32)}`, { value: 100 });
+    const round = await manager.getRound(roundId);
+    assert.equal(round.serviceId, 1n);
+    await reverted(manager.openRound(1), "RoundAlreadyOpen");
+    await reverted(manager.openRound(2), "InvalidService");
+    await reverted(registry.setRoundManager(await manager.getAddress()), "AlreadySet");
+
+    const critic = signers[1]!;
+    await manager
+      .connect(critic)
+      .commit(roundId, commitmentHash({ score: 60, salt, evidenceHash, critic: await critic.getAddress() }));
+    await network.provider.send("evm_increaseTime", [11]);
+    await network.provider.send("evm_mine");
+    await manager.connect(critic).reveal(roundId, 60, salt, evidenceHash, 0);
+    await network.provider.send("evm_increaseTime", [11]);
+    await network.provider.send("evm_mine");
+    await manager.finalize(roundId);
+    assert.equal((await manager.getRound(roundId)).median, 60n);
+    await manager.openRound(1);
+    assert.equal(await manager.nextRoundId(), roundId + 2n);
+  });
 });

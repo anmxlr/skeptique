@@ -4,6 +4,12 @@ import { ApiError, apiClient, createApiClient } from "../lib/api";
 describe("typed API client", () => {
   afterEach(() => vi.unstubAllEnvs());
 
+  it("rejects incomplete or wrong-chain deployment data before it can supply contract addresses", async () => {
+    const client = createApiClient("http://api.test", (async () =>
+      Response.json({ chainId: 1, contracts: {} })) as typeof fetch);
+    await expect(client.getDeployment()).rejects.toThrow();
+  });
+
   it("GETs a route relative to the base URL and returns its body", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ ok: true, chainId: 296 }));
     const client = createApiClient("http://api.test", fetchImpl as unknown as typeof fetch);

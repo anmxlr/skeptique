@@ -1,8 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { PLAYWRIGHT_PUBLIC_ENV } from "./playwright/fixtures";
 
 const port = 3107;
-/** Never a real host (.test is reserved); playwright/quality.spec.ts answers it with fixtures via page.route. */
-export const MOCK_API_URL = "http://api.skeptique.test";
+/** Shared test-only API origin; Playwright intercepts requests with local fixtures. */
+export const MOCK_API_URL = PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_API_URL;
 
 export default defineConfig({
   testDir: "playwright",
@@ -13,8 +14,8 @@ export default defineConfig({
   webServer: {
     command: `pnpm exec next dev --port ${port} --hostname 127.0.0.1`,
     url: `http://127.0.0.1:${port}`,
-    env: { NEXT_PUBLIC_API_URL: MOCK_API_URL },
-    reuseExistingServer: !process.env.CI,
+    env: PLAYWRIGHT_PUBLIC_ENV,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

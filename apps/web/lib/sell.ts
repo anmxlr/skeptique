@@ -1,6 +1,16 @@
 import { suiteHash, type TestSuite, TestSuiteSchema } from "@skeptique/shared";
 import { serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
-import { createPublicClient, createWalletClient, custom, type EIP1193Provider, parseEventLogs, zeroHash } from "viem";
+import { contractValue } from "@skeptique/shared/deployment";
+import { serviceEnsName, serviceSlug } from "@skeptique/shared/ens";
+import {
+  createPublicClient,
+  createWalletClient,
+  custom,
+  type EIP1193Provider,
+  namehash,
+  parseEventLogs,
+  zeroHash,
+} from "viem";
 import { formatHbar } from "../components/marketplace";
 
 export interface ListingForm {
@@ -82,14 +92,26 @@ export interface ListServiceInput {
   /** The seller's wallet (EIP-1193), e.g. window.ethereum. */
   provider: Pick<EIP1193Provider, "request">;
   registry: `0x${string}`;
+  expectedChainId?: number;
+  ensParent?: string;
   form: ListingForm;
   fetchImpl?: typeof fetch;
 }
 
 /** Checks, then submits the listing from the seller's wallet. Nothing is sent unless every check passes. */
-export async function listService({ provider, registry, form, fetchImpl }: ListServiceInput) {
+export async function listService({
+  provider,
+  registry,
+  form,
+  fetchImpl,
+  expectedChainId,
+  ensParent,
+}: ListServiceInput) {
   const transport = custom(provider as EIP1193Provider);
   const reader = createPublicClient({ transport });
+  const chainId = await reader.getChainId();
+  if (expectedChainId !== undefined && chainId !== expectedChainId)
+    throw new ListingError("invalid", "Switch your wallet to the marketplace's network before listing.");
 
   const fee = parseHbar(form.fee);
   const price = parseHbar(form.price);
@@ -120,6 +142,14 @@ export async function listService({ provider, registry, form, fetchImpl }: ListS
   if (suite.serviceName !== form.name.trim() || suite.category !== form.category.trim()) {
     throw new ListingError("suite", "Name and category must match the published suite.");
   }
+  let ensNode: `0x${string}` = zeroHash;
+  if (ensParent) {
+    try {
+      ensNode = namehash(serviceEnsName(serviceSlug(suite.serviceName), ensParent));
+    } catch {
+      throw new ListingError("invalid", "Service naming is not configured correctly.");
+    }
+  }
 
   const wallet = createWalletClient({ transport });
   const [account] = await wallet.requestAddresses().catch((error) => {
@@ -136,8 +166,8 @@ export async function listService({ provider, registry, form, fetchImpl }: ListS
       address: registry,
       abi: serviceRegistryAbi,
       functionName: "listService",
-      args: [specHash, form.endpoint, price, zeroHash],
-      value: fee,
+      args: [specHash, form.endpoint, price, ensNode],
+      value: contractValue(fee, chainId),
     });
     const receipt = await reader.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success") throw new ListingError("failed", "The listing transaction reverted.");

@@ -23,6 +23,7 @@ export interface CriticSource {
 export function createCriticSource(options: {
   client: Pick<PublicClient, "getContractEvents" | "readContract">;
   address: `0x${string}`;
+  fromBlock?: bigint;
   roundManager?: `0x${string}`;
 }): CriticSource {
   const list = async (): Promise<CriticView[]> => {
@@ -30,7 +31,7 @@ export function createCriticSource(options: {
       address: options.address,
       abi: criticRegistryAbi,
       eventName: "CriticRegistered",
-      fromBlock: 0n,
+      fromBlock: options.fromBlock ?? 0n,
       strict: true,
     });
     const [reveals, finalized] = options.roundManager
@@ -39,14 +40,14 @@ export function createCriticSource(options: {
             address: options.roundManager,
             abi: roundManagerAbi,
             eventName: "CriticRevealed",
-            fromBlock: 0n,
+            fromBlock: options.fromBlock ?? 0n,
             strict: true,
           }),
           options.client.getContractEvents({
             address: options.roundManager,
             abi: roundManagerAbi,
             eventName: "RoundFinalized",
-            fromBlock: 0n,
+            fromBlock: options.fromBlock ?? 0n,
             strict: true,
           }),
         ])

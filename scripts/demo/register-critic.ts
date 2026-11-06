@@ -1,4 +1,5 @@
 import { criticRegisteredEvent, criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
+import { contractValue } from "@skeptique/shared/deployment";
 import {
   type Account,
   type Address,
@@ -56,7 +57,7 @@ export async function registerDemoCritic(options: {
     abi: criticRegistryAbi,
     functionName: "registerCritic",
     args: [options.nullifier, expiry, sig],
-    value: minStake,
+    value: contractValue(minStake, chainId),
     chain: null,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });

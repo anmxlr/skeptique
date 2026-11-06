@@ -62,7 +62,6 @@ it("lazy and bribed critics slashed: actual registered stakes, retained funds, A
     const receipt = await client.waitForTransactionReceipt({ hash });
     expect(receipt.status).toBe("success");
   };
-  await write("openRound", [1n]);
   const scores = [
     68,
     72,

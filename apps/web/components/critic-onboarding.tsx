@@ -1,8 +1,10 @@
 "use client";
 
 import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
+import { contractValue } from "@skeptique/shared/deployment";
 import { useState } from "react";
 import { createPublicClient, createWalletClient, custom, type EIP1193Provider } from "viem";
+import { apiClient } from "../lib/api";
 import { type OnboardOutcome, type OnboardStep, onboardCritic, type RpContext, type Voucher } from "../lib/onboard";
 
 export type OnboardingState =
@@ -81,7 +83,8 @@ function requiredEnv(value: string | undefined, name: string): string {
 async function runOnboarding(onChange: (state: OnboardingState) => void, signal: AbortSignal) {
   const apiUrl = requiredEnv(process.env.NEXT_PUBLIC_API_URL, "NEXT_PUBLIC_API_URL");
   const appId = requiredEnv(process.env.NEXT_PUBLIC_WORLD_APP_ID, "NEXT_PUBLIC_WORLD_APP_ID");
-  const registry = requiredEnv(process.env.NEXT_PUBLIC_CRITIC_REGISTRY, "NEXT_PUBLIC_CRITIC_REGISTRY") as `0x${string}`;
+  const deployment = await apiClient().getDeployment();
+  const registry = deployment.contracts.CriticRegistry;
   const environment = (process.env.NEXT_PUBLIC_WORLD_ENVIRONMENT ?? "production") as
     | "production"
     | "staging"
@@ -147,8 +150,8 @@ async function runOnboarding(onChange: (state: OnboardingState) => void, signal:
         client.readContract({ address: registry, abi: criticRegistryAbi, functionName: "minStake" }),
         client.getChainId(),
       ]);
-      // Hedera's JSON-RPC takes weibars while the contract counts tinybars (spec/notes/hedera-x402.md section 7).
-      const value = chainId === 296 ? minStake * 10n ** 10n : minStake;
+      if (chainId !== deployment.chainId) throw new Error("Switch your wallet to Hedera testnet before registering.");
+      const value = contractValue(minStake, chainId);
       const hash = await wallet.writeContract({
         address: registry,
         abi: criticRegistryAbi,
@@ -157,7 +160,8 @@ async function runOnboarding(onChange: (state: OnboardingState) => void, signal:
         value,
         chain: null,
       });
-      await client.waitForTransactionReceipt({ hash });
+      if ((await client.waitForTransactionReceipt({ hash })).status !== "success")
+        throw new Error("Critic registration reverted.");
       return hash;
     },
   });

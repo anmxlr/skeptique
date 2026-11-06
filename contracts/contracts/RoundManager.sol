@@ -9,6 +9,19 @@ interface ICriticStakeRegistry {
     function releaseStake(address critic, uint256 roundId) external;
 }
 
+interface IServiceBounty {
+    struct Service {
+        address seller;
+        bytes32 specHash;
+        string endpoint;
+        uint256 pricePerCall;
+        bytes32 ensNode;
+        uint256 bounty;
+    }
+
+    function getService(uint256 serviceId) external view returns (Service memory);
+}
+
 contract RoundManager {
     struct Round {
         uint256 serviceId;
@@ -27,6 +40,9 @@ contract RoundManager {
     uint16 public immutable slashBps;
     ICriticStakeRegistry public immutable criticRegistry;
     uint256 public nextRoundId = 1;
+    address public immutable deployer;
+    /// Set once by the deployer. When set, rounds open only for listed services that still have bounty.
+    IServiceBounty public serviceRegistry;
 
     mapping(uint256 => Round) private rounds;
     mapping(uint256 => mapping(address => bytes32)) private commitments;
@@ -42,6 +58,8 @@ contract RoundManager {
 
     error InvalidConfiguration();
     error InvalidService();
+    error RegistryAlreadySet();
+    error BountyExhausted();
     error RoundAlreadyOpen();
     error NoOpenRound();
     error CommitPhaseActive();
@@ -73,10 +91,23 @@ contract RoundManager {
         criticRegistry = ICriticStakeRegistry(criticRegistry_);
         tolerance = tolerance_;
         slashBps = slashBps_;
+        deployer = msg.sender;
+    }
+
+    function setServiceRegistry(address serviceRegistry_) external {
+        if (msg.sender != deployer || address(serviceRegistry) != address(0)) revert RegistryAlreadySet();
+        serviceRegistry = IServiceBounty(serviceRegistry_);
     }
 
     function openRound(uint256 serviceId) external returns (uint256 roundId) {
         if (serviceId == 0) revert InvalidService();
+        if (address(serviceRegistry) != address(0)) {
+            try serviceRegistry.getService(serviceId) returns (IServiceBounty.Service memory listed) {
+                if (listed.bounty == 0) revert BountyExhausted();
+            } catch {
+                revert InvalidService();
+            }
+        }
         uint256 existing = openRoundPlusOne[serviceId];
         if (existing != 0 && !rounds[existing - 1].finalized) revert RoundAlreadyOpen();
         roundId = nextRoundId++;

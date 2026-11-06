@@ -10,7 +10,7 @@ import { DEFAULT_ROUND_CONFIG, suiteHash } from "../packages/shared/src/index";
 
 const webRequire = createRequire(new URL("../apps/web/package.json", import.meta.url));
 const { createElement } = webRequire("react") as typeof import("react");
-const { encodeFunctionData } = webRequire("viem") as typeof import("viem");
+const { decodeFunctionResult, encodeFunctionData, namehash } = webRequire("viem") as typeof import("viem");
 const { renderToString } = webRequire("react-dom/server") as typeof import("react-dom/server");
 
 const serve =
@@ -137,5 +137,34 @@ describe("seller lists from the web form", () => {
     expect(html).toContain("unit-convert");
     expect(html).toContain(`${DEFAULT_ROUND_CONFIG.MIN_LISTING_FEE} HBAR`);
     expect(html).toContain("Pending");
+  });
+
+  it("binds a configured service name to its immutable ENS node and rejects a mismatched wallet chain", async () => {
+    let sent = 0;
+    await expect(
+      listService({ provider: wallet(stack.rpcUrl, () => sent++), registry, form, expectedChainId: 296 }),
+    ).rejects.toThrow("Switch your wallet");
+    expect(sent).toBe(0);
+    const listed = await listService({
+      provider: wallet(stack.rpcUrl),
+      registry,
+      form,
+      expectedChainId: 31337,
+      ensParent: "example.eth",
+    });
+    const data = await rpc<`0x${string}`>(stack.rpcUrl, "eth_call", [
+      {
+        to: registry,
+        data: encodeFunctionData({
+          abi: serviceRegistryAbi,
+          functionName: "getService",
+          args: [BigInt(listed.serviceId)],
+        }),
+      },
+      "latest",
+    ]);
+    const service = decodeFunctionResult({ abi: serviceRegistryAbi, functionName: "getService", data });
+    expect(service.ensNode).toBe(namehash("unit-convert.svc.example.eth"));
+    expect(service.bounty).toBe(BigInt(DEFAULT_ROUND_CONFIG.MIN_LISTING_FEE) * 100000000n);
   });
 });

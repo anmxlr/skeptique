@@ -2,17 +2,21 @@ import { type RoundView, RoundViewSchema } from "@skeptique/shared";
 import { roundManagerAbi } from "@skeptique/shared/abi/RoundManager";
 import type { FastifyInstance } from "fastify";
 import type { PublicClient } from "viem";
-import { toRoundView } from "./round-view";
+import { createRoundSource as createRoundIndex } from "./round-chain";
+import { getServiceRoundTimeline, toRoundView } from "./round-view";
 
 export interface RoundViewSource {
+  all?(): Promise<RoundView[]>;
   get(roundId: number): Promise<RoundView | undefined> | RoundView | undefined;
 }
 
 export function createRoundSource(options: {
   client: Pick<PublicClient, "getBlock" | "readContract" | "getContractEvents">;
   address: `0x${string}`;
+  fromBlock?: bigint;
 }): RoundViewSource {
   return {
+    all: createRoundIndex(options).all,
     async get(roundId) {
       const block = await options.client.getBlock();
       const round = await options.client.readContract({
@@ -23,13 +27,13 @@ export function createRoundSource(options: {
         blockNumber: block.number,
       });
       if (round.serviceId === 0n) return undefined;
-      const [logs, finalizations] = await Promise.all([
+      const [logs, finalizations, commits] = await Promise.all([
         options.client.getContractEvents({
           address: options.address,
           abi: roundManagerAbi,
           eventName: "CriticRevealed",
           args: { roundId: BigInt(roundId) },
-          fromBlock: 0n,
+          fromBlock: options.fromBlock ?? 0n,
           toBlock: block.number,
           strict: true,
         }),
@@ -38,7 +42,16 @@ export function createRoundSource(options: {
           abi: roundManagerAbi,
           eventName: "RoundFinalized",
           args: { roundId: BigInt(roundId) },
-          fromBlock: 0n,
+          fromBlock: options.fromBlock ?? 0n,
+          toBlock: block.number,
+          strict: true,
+        }),
+        options.client.getContractEvents({
+          address: options.address,
+          abi: roundManagerAbi,
+          eventName: "CriticCommitted",
+          args: { roundId: BigInt(roundId) },
+          fromBlock: options.fromBlock ?? 0n,
           toBlock: block.number,
           strict: true,
         }),
@@ -68,7 +81,7 @@ export function createRoundSource(options: {
           revealEnd: Number(round.revealEnd),
           finalized: round.finalized,
           median: round.finalized && !isVoid ? round.median : null,
-          committed: [],
+          committed: commits.map((log) => log.args.critic),
           reveals,
           void: isVoid,
         },
@@ -79,6 +92,13 @@ export function createRoundSource(options: {
 }
 
 export function registerRoundRoutes(app: FastifyInstance, source: RoundViewSource): void {
+  if (source.all) {
+    const all = source.all.bind(source);
+    app.get<{ Params: { id: string } }>("/services/:id/rounds", async (request, reply) => {
+      if (!/^\d+$/.test(request.params.id)) return reply.code(400).send({ error: "Invalid service ID" });
+      return getServiceRoundTimeline(await all(), Number(request.params.id));
+    });
+  }
   app.get<{ Params: { id: string } }>("/rounds/:id", async (request, reply) => {
     if (!/^\d+$/.test(request.params.id)) return reply.code(400).send({ error: "Invalid round ID" });
     const roundId = Number(request.params.id);

@@ -21,6 +21,31 @@ const service = (id: number, name: string, median: number | null) => ({
   bounty: "500000000",
 });
 const SERVICES = [service(1, "unit-convert", 100), service(2, "suite-gamer", 40), service(3, "brand-new", null)];
+// Public deployment fixture only; these addresses are never used for network transactions.
+const DEPLOYMENT = {
+  version: 1,
+  network: "hedera-testnet",
+  chainId: 296,
+  deployedAt: "2026-11-06T00:00:00.000Z",
+  deploymentBlock: "42",
+  contracts: {
+    ServiceRegistry: `0x${"11".repeat(20)}`,
+    CriticRegistry: `0x${"22".repeat(20)}`,
+    RoundManager: `0x${"33".repeat(20)}`,
+  },
+  transactions: [],
+  config: {
+    minStakeTinybars: "500000000",
+    minListingFeeTinybars: "2000000000",
+    withdrawCooldown: 300,
+    commitSeconds: 90,
+    revealSeconds: 45,
+    kMin: 3,
+    kMax: 7,
+    tolerance: 10,
+    slashBps: 2000,
+  },
+};
 const CRITICS = [
   { address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", nullifier: `0x${"0c".repeat(32)}`, stake: "1000000000" },
 ];
@@ -48,16 +73,19 @@ async function mockApi(page: Page) {
         headers: { "content-type": "text/event-stream", "access-control-allow-origin": "*" },
         body: "retry: 60000\n\n",
       });
+    if (path === "/deployment") return route.fulfill({ json: DEPLOYMENT });
     const body =
       path === "/services"
         ? SERVICES
-        : path.startsWith("/services/")
-          ? SERVICES.find((s) => s.id === Number(path.split("/")[2]))
-          : path === "/critics"
-            ? CRITICS
-            : path === "/buyer/runs"
-              ? RUNS
-              : undefined;
+        : /^\/services\/\d+\/(rounds|reviews)$/.test(path)
+          ? []
+          : path.startsWith("/services/")
+            ? SERVICES.find((s) => s.id === Number(path.split("/")[2]))
+            : path === "/critics"
+              ? CRITICS
+              : path === "/buyer/runs"
+                ? RUNS
+                : undefined;
     await route.fulfill(
       body === undefined
         ? { status: 404, json: { error: "Not found" }, headers: { "access-control-allow-origin": "*" } }
@@ -91,6 +119,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+        if (path === "/audit") await expect(page.getByRole("region", { name: "Verified deployment" })).toBeVisible();
         await page.waitForLoadState("networkidle");
 
         const { violations } = await new AxeBuilder({ page })
@@ -160,6 +189,7 @@ test("live updates: a round phase change appears on an open service page without
         commitEnd: "2026-11-06T10:00:00.000Z",
         revealEnd: "2026-11-06T10:05:00.000Z",
         median: finalized ? 88 : null,
+        committed: [],
         reveals: [],
       },
       headers: { "access-control-allow-origin": "*" },

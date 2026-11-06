@@ -353,3 +353,16 @@ a {
 .latest-round h2 {
   margin: 0 0 8px;
 }
+
+.market-probation {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.market-stats meter {
+  width: 6rem;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}

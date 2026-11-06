@@ -1,4 +1,5 @@
 import type { BuyerRun, Evidence, RoundView, ServiceView } from "@skeptique/shared";
+import { type Deployment, DeploymentSchema } from "@skeptique/shared/deployment";
 
 /** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
 export interface CriticView {
@@ -12,6 +13,7 @@ export interface CriticView {
 }
 
 export interface ApiRoutes {
+  [path: `/services/${string}/reviews`]: { evidenceHash: string; evidence: Evidence }[];
   "/health": { ok: true; chainId: number } | { ok: false };
   "/buyer/runs": BuyerRun[];
   "/critics": CriticView[];
@@ -30,6 +32,11 @@ export class ApiError extends Error {
 
 export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch) {
   return {
+    async getDeployment(): Promise<Deployment> {
+      const response = await fetchImpl(new URL("/deployment", baseUrl));
+      if (!response.ok) throw new ApiError(response.status, "/deployment");
+      return DeploymentSchema.parse(await response.json());
+    },
     async getRound(id: number): Promise<RoundView> {
       if (!Number.isSafeInteger(id) || id < 1) throw new Error("Invalid round ID");
       const path = `/rounds/${id}`;
@@ -54,6 +61,13 @@ export async function fetchService(id: number, baseUrl: string, fetchImpl: typeo
   if (res.status === 404) return null;
   if (!res.ok) throw new ApiError(res.status, `/services/${id}`);
   return (await res.json()) as ServiceDetail;
+}
+
+/** GET /services/:id/rounds: the service's rounds, oldest first. */
+export async function fetchServiceRounds(id: number, baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  const res = await fetchImpl(new URL(`/services/${id}/rounds`, baseUrl));
+  if (!res.ok) throw new ApiError(res.status, `/services/${id}/rounds`);
+  return (await res.json()) as RoundView[];
 }
 
 /** GET /evidence/:hash; null when the API does not know the hash. */

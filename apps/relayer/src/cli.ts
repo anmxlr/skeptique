@@ -1,13 +1,22 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { loadDeployment } from "@skeptique/shared/deployment-file";
 import { createPublicClient, http } from "viem";
 import { ensFromEnv, need } from "./env";
 import { createRegistryFeed } from "./feed";
 import { createListingRelayer } from "./relayer";
 
+const envFile = fileURLToPath(new URL("../../../.env", import.meta.url));
+if (existsSync(envFile)) process.loadEnvFile(envFile);
+const deployment = await loadDeployment();
+const client = createPublicClient({ transport: http(need("HEDERA_RPC_URL")) });
+if ((await client.getChainId()) !== deployment.chainId) throw new Error("Relayer RPC chain does not match deployment");
 const ens = ensFromEnv(console.log);
 const relayer = createListingRelayer({
   feed: createRegistryFeed({
-    client: createPublicClient({ transport: http(need("HEDERA_RPC_URL")) }),
-    address: need("SERVICE_REGISTRY_ADDRESS") as `0x${string}`,
+    client,
+    address: deployment.contracts.ServiceRegistry,
+    fromBlock: BigInt(deployment.deploymentBlock),
   }),
   chain: ens.chain,
   onError: (serviceId, cause) => console.error(`listing ${serviceId}:`, cause),

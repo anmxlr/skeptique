@@ -97,7 +97,7 @@ export const resolverAbi = parseAbi([
   "function multicall(bytes[] calls) returns (bytes[])",
   ...eacErrors,
 ]);
-const factoryAbi = parseAbi([
+export const factoryAbi = parseAbi([
   "function deployProxy(address implementation, uint256 salt, bytes data) returns (address)",
   "function predictProxyAddress(address deployer, uint256 salt) view returns (address)",
 ]);
@@ -110,7 +110,7 @@ const erc20Abi = parseAbi([
 
 export const dnsName = (name: string): Hex => toHex(packetToBytes(name));
 const textResource = (key: string) => BigInt(keccak256(toBytes(key)));
-const proxySalt = (tag: string, node: Hex) =>
+export const proxySalt = (tag: string, node: Hex) =>
   BigInt(
     keccak256(
       encodeAbiParameters(

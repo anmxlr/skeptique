@@ -29,7 +29,7 @@ jobs:
           fi
           node scripts/commit-msg.mjs --range "$range"
       - run: pnpm lint
-      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: pnpm --filter @skeptique/web exec playwright install --with-deps chromium
       - run: pnpm -r build
       - run: pnpm -r test
       - name: Local review flow

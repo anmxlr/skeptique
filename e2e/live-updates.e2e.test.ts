@@ -83,10 +83,9 @@ describe("live updates", () => {
       expect((await client.waitForTransactionReceipt({ hash })).status).toBe("success");
     };
 
-    // Subscribe first, then change the round: the events must arrive on the open stream.
+    // The listing opened round 1; replay it, then stream a fresh commit on the same connection.
     const live = readEvents(stack.apiUrl, (events) => events.some((e) => e.type === "CriticCommitted"));
     await new Promise((resolve) => setTimeout(resolve, 500));
-    await write("openRound", [1n], accounts[0] as `0x${string}`);
     const commitment = commitmentHash({
       score: 80,
       salt: `0x${"22".repeat(32)}`,
@@ -99,8 +98,9 @@ describe("live updates", () => {
     const opened = streamed.find((e) => e.type === "RoundOpened");
     expect(EventSchemas.RoundOpened.parse(opened?.data)).toMatchObject({ roundId: 1, serviceId: 1 });
     const committed = streamed.find((e) => e.type === "CriticCommitted");
-    expect(EventSchemas.CriticCommitted.parse(committed?.data)).toMatchObject({ roundId: 1 });
-    expect((committed?.data.critic as string).toLowerCase()).toBe(critic.toLowerCase());
+    const commitEvent = EventSchemas.CriticCommitted.parse(committed?.data);
+    expect(commitEvent).toMatchObject({ roundId: 1 });
+    expect(commitEvent.critic.toLowerCase()).toBe(critic.toLowerCase());
 
     // A page opened later learns the same history from the replay.
     const replayed = await readEvents(stack.apiUrl, (events) => events.length >= 2);
