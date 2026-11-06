@@ -14,6 +14,16 @@ describe('demo seed', () => {
     expect(seed.critics.map(critic => critic.persona)).toEqual(['balanced', 'balanced', 'balanced', 'lazy-copier', 'bribed']);
     expect(seed.services.find(service => service.name === 'suite-gamer')!.popularityCalls).toBeGreaterThan(Math.max(...seed.services.filter(service => service.name !== 'suite-gamer').map(service => service.popularityCalls)));
     expect(seed.scoreHistory).toHaveLength(5);
+    expect(new Set(seed.scoreHistory.map(round => round.roundId)).size).toBe(seed.scoreHistory.length);
+    expect(seed.openRound.roundId).toBeGreaterThan(Math.max(...seed.scoreHistory.map(round => round.roundId)));
+  });
+
+  it('allows concurrent deterministic seeds without colliding temporary files', async () => {
+    directory = await mkdtemp(join(tmpdir(), 'skeptic-seed-concurrent-'));
+    const path = join(directory, 'demo-state.json');
+    const states = await Promise.all(Array.from({ length: 8 }, () => seedDemoState(path)));
+    expect(states.every(state => JSON.stringify(state) === JSON.stringify(states[0]))).toBe(true);
+    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual(states[0]);
   });
 
   it('writes byte-identical state when seeded twice', async () => {

@@ -30,8 +30,10 @@ export function createJsonExtract(extractor: JsonExtractor) {
   };
 }
 
-export function createOpenAICompatibleExtractor(config: { apiKey: string; baseUrl?: string; model: string; fetchImpl?: typeof fetch }): JsonExtractor {
+export function createOpenAICompatibleExtractor(config: { apiKey: string; baseUrl?: string; model: string; fetchImpl?: typeof fetch; timeoutMs?: number }): JsonExtractor {
   const fetchImpl = config.fetchImpl ?? fetch;
+  const timeoutMs = config.timeoutMs ?? 15_000;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 0x7fff_ffff) throw new Error('timeoutMs must be a positive integer within the supported timer range');
   const baseUrl = (config.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '');
   return {
     async extract(text, fields) {
@@ -39,6 +41,7 @@ export function createOpenAICompatibleExtractor(config: { apiKey: string; baseUr
       const response = await fetchImpl(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { authorization: `Bearer ${config.apiKey}`, 'content-type': 'application/json' },
+        signal: AbortSignal.timeout(timeoutMs),
         body: JSON.stringify({
           model: config.model,
           temperature: 0,
@@ -92,7 +95,7 @@ export const jsonExtractSuite: TestSuite = {
     { id: 'email', input: { text: 'Write us at help@example.com for assistance.', fields: ['email'] }, expect: { kind: 'exact', value: jsonExtractExpected.email }, weight: 1 },
     { id: 'product', input: { text: 'Item 1: Blue Pen. Quantity: 2.', fields: ['product'] }, expect: { kind: 'exact', value: jsonExtractExpected.product }, weight: 1 },
     { id: 'vendor', input: { text: 'NORTHWIND / invoice no. NW-73', fields: ['vendor', 'invoice_number'] }, expect: { kind: 'schema', schema: { type: 'object', required: ['vendor', 'invoice_number'], properties: { vendor: { type: 'string' }, invoice_number: { type: 'string' } }, additionalProperties: false } }, weight: 1 },
-    { id: 'code', input: { text: 'reference: INV-2048', fields: ['code'] }, expect: { kind: 'regex', pattern: '^INV-\\d{4}$' }, weight: 1 },
+    { id: 'code', input: { text: 'reference: INV-2048', fields: ['code'] }, expect: { kind: 'exact', value: jsonExtractExpected.code }, weight: 1 },
     { id: 'merchant', input: { text: 'Paid 42 dollars to Mira at checkout.', fields: ['merchant', 'amount'] }, expect: { kind: 'judge', rubric: 'Extract merchant Mira and amount $42.00.' }, weight: 1 },
     { id: 'sku', input: { text: 'Blue Pen (sku P-04), 2 units', fields: ['product', 'sku'] }, expect: { kind: 'schema', schema: { type: 'object', required: ['product', 'sku'], properties: { product: { type: 'string' }, sku: { type: 'string' } }, additionalProperties: false } }, weight: 1 },
   ],

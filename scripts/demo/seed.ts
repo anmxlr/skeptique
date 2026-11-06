@@ -1,7 +1,9 @@
-import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, rename, unlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { demoServices } from '../../apps/services/catalog';
+import { demoCriticFixtures } from './drill-fixtures';
 
 export type DemoSeed = {
   version: 1;
@@ -29,15 +31,9 @@ export function buildDemoSeed(): DemoSeed {
     specHash: service.specHash,
     popularityCalls: popularityByService[service.name] ?? 0,
   }));
-  const critics: DemoSeed['critics'] = [
-    { id: 'balanced-1', address: '0x0000000000000000000000000000000000000001', nullifier: `0x${'01'.repeat(32)}`, persona: 'balanced', stake: '5000000000000000000' },
-    { id: 'balanced-2', address: '0x0000000000000000000000000000000000000002', nullifier: `0x${'02'.repeat(32)}`, persona: 'balanced', stake: '5000000000000000000' },
-    { id: 'balanced-3', address: '0x0000000000000000000000000000000000000003', nullifier: `0x${'03'.repeat(32)}`, persona: 'balanced', stake: '5000000000000000000' },
-    { id: 'lazy-copier', address: '0x0000000000000000000000000000000000000004', nullifier: `0x${'04'.repeat(32)}`, persona: 'lazy-copier', stake: '5000000000000000000' },
-    { id: 'bribed', address: '0x0000000000000000000000000000000000000005', nullifier: `0x${'05'.repeat(32)}`, persona: 'bribed', stake: '5000000000000000000' },
-  ];
+  const critics: DemoSeed['critics'] = demoCriticFixtures.map(({ score: _score, ...critic }) => critic);
   const scoreByService: Record<string, number> = { 'unit-convert': 92, 'csv-clean': 68, 'json-extract': 91, 'flaky-fx': 72, 'suite-gamer': 96 };
-  const scoreHistory = services.map(service => ({ serviceId: service.id, roundId: 1, median: scoreByService[service.name] ?? 0, confidence: 0.8, reveals: 4 }));
+  const scoreHistory = services.map((service, index) => ({ serviceId: service.id, roundId: index + 1, median: scoreByService[service.name] ?? 0, confidence: 0.8, reveals: 4 }));
   return {
     version: 1,
     seed: 1306,
@@ -45,15 +41,19 @@ export function buildDemoSeed(): DemoSeed {
     services,
     critics,
     scoreHistory,
-    openRound: { serviceId: services[0]!.id, roundId: 2, commitWindowSeconds: 90, revealWindowSeconds: 45 },
+    openRound: { serviceId: services[0]!.id, roundId: scoreHistory.length + 1, commitWindowSeconds: 90, revealWindowSeconds: 45 },
   };
 }
 
 export async function seedDemoState(path = join(tmpdir(), 'skeptique-demo-seed-v1.json')): Promise<DemoSeed> {
   const seed = buildDemoSeed();
   await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.tmp-${process.pid}`;
-  await writeFile(temporary, `${JSON.stringify(seed, null, 2)}\n`, { mode: 0o600 });
-  await rename(temporary, path);
+  const temporary = `${path}.tmp-${randomUUID()}`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(seed, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+    await rename(temporary, path);
+  } finally {
+    await unlink(temporary).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; });
+  }
   return seed;
 }

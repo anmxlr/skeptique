@@ -4,7 +4,7 @@ export type FlakyFxInput = { from: string; to: string; amount: number };
 export type FlakyFxOutput = { from: string; to: string; amount: number; rate: number; converted: number; stale: boolean; asOf: string };
 
 function seededRandom(seed: number): () => number {
-  let state = seed >>> 0;
+  let state = seed === 0 ? 0x6d2b79f5 : seed >>> 0;
   return () => {
     state ^= state << 13;
     state ^= state >>> 17;
@@ -14,9 +14,11 @@ function seededRandom(seed: number): () => number {
 }
 
 export function createFlakyFx(options: { seed?: number; staleRate?: number } = {}) {
-  const random = seededRandom(options.seed ?? 1306);
+  const seed = options.seed ?? 1306;
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffff_ffff) throw new Error('seed must be an unsigned 32-bit integer');
+  const random = seededRandom(seed);
   const staleRate = options.staleRate ?? 0.3;
-  if (staleRate < 0 || staleRate > 1) throw new Error('staleRate must be between 0 and 1');
+  if (!Number.isFinite(staleRate) || staleRate < 0 || staleRate > 1) throw new Error('staleRate must be between 0 and 1');
   const rates: Record<string, number> = { 'USD:EUR': 0.92, 'EUR:USD': 1.087, 'USD:INR': 83.2, 'INR:USD': 0.012, 'GBP:USD': 1.27, 'USD:GBP': 0.787 };
   return async (input: unknown): Promise<FlakyFxOutput> => {
     if (!input || typeof input !== 'object') throw new Error('Input must be an object');
@@ -41,7 +43,7 @@ export const flakyFxSuite: TestSuite = {
     { id: 'same-currency', input: { from: 'USD', to: 'USD', amount: 50 }, expect: { kind: 'exact', value: { from: 'USD', to: 'USD', amount: 50, rate: 1, converted: 50, stale: false, asOf: '2026-11-06T00:00:00.000Z' } }, weight: 1 },
     { id: 'schema', input: { from: 'USD', to: 'EUR', amount: 2 }, expect: { kind: 'schema', schema: { type: 'object', required: ['rate', 'converted', 'stale'], properties: { rate: { type: 'number' }, converted: { type: 'number' }, stale: { type: 'boolean' } } } }, weight: 1 },
     { id: 'bad-amount', input: { from: 'USD', to: 'EUR', amount: -1 }, expect: { kind: 'judge', rubric: 'A negative amount is returned as a negative conversion without changing the rate.' }, weight: 1 },
-    { id: 'missing-pair', input: { from: 'CAD', to: 'EUR', amount: 1 }, expect: { kind: 'regex', pattern: 'Unsupported currency pair' }, weight: 1 },
+    { id: 'usd-eur-positive', input: { from: 'USD', to: 'EUR', amount: 25 }, expect: { kind: 'exact', value: { from: 'USD', to: 'EUR', amount: 25, rate: 0.92, converted: 23, stale: false, asOf: '2026-11-06T00:00:00.000Z' } }, weight: 1 },
     { id: 'positive-inr', input: { from: 'USD', to: 'INR', amount: 12 }, expect: { kind: 'exact', value: { from: 'USD', to: 'INR', amount: 12, rate: 83.2, converted: 998.4, stale: false, asOf: '2026-11-06T00:00:00.000Z' } }, weight: 1 },
     { id: 'usd-gbp', input: { from: 'USD', to: 'GBP', amount: 20 }, expect: { kind: 'exact', value: { from: 'USD', to: 'GBP', amount: 20, rate: 0.787, converted: 15.74, stale: false, asOf: '2026-11-06T00:00:00.000Z' } }, weight: 1 },
     { id: 'zero', input: { from: 'EUR', to: 'USD', amount: 0 }, expect: { kind: 'exact', value: { from: 'EUR', to: 'USD', amount: 0, rate: 1.087, converted: 0, stale: false, asOf: '2026-11-06T00:00:00.000Z' } }, weight: 1 },

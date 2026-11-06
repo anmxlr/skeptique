@@ -11,6 +11,8 @@ const units: Record<string, { group: string; factor: number }> = {
 };
 
 function round(value: number): number {
+  if (!Number.isFinite(value)) throw new Error('Conversion result must be finite');
+  if (Math.abs(value) >= 1e21) return value;
   return Math.round((value + Number.EPSILON) * 1e8) / 1e8;
 }
 
@@ -29,10 +31,10 @@ export async function handleUnitConvert(input: unknown): Promise<UnitConvertOutp
 
   let result = convertTemperature(value.value, value.from, value.to);
   if (result === undefined) {
-    const from = units[value.from];
-    const to = units[value.to];
+    const from = Object.hasOwn(units, value.from) ? units[value.from] : undefined;
+    const to = Object.hasOwn(units, value.to) ? units[value.to] : undefined;
     if (!from || !to || from.group !== to.group) throw new Error(`Unsupported conversion: ${value.from} to ${value.to}`);
-    result = round(value.value * from.factor / to.factor);
+    result = round(value.value * (from.factor / to.factor));
   }
   return value.format === 'text' ? `${result} ${value.to}` : { result, unit: value.to };
 }
