@@ -1,0 +1,5 @@
+created topic 0.0.11335650 (tx 0.0.11334611@1793948343.733720772)
+topic: 0.0.11335650  https://hashscan.io/testnet/topic/0.0.11335650
+submitted seq 1 status SUCCESS tx 0.0.11334611@1793948344.804105697
+mirror read-back seq 1 at 1793948352.228674019:
+{"type":"agent_spend","spike":"ticket-02","ts":"2026-11-06T06:59:12.439Z"}

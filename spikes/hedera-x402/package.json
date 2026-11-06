@@ -1,0 +1,15 @@
+{
+  "name": "spike-hedera-x402",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Ticket 02 spike: one real x402 payment and one HCS message on Hedera testnet. Plain node, outside the pnpm workspace.",
+  "scripts": {
+    "hcs": "node hcs.mjs",
+    "x402": "node x402.mjs"
+  },
+  "dependencies": {
+    "@hashgraph/sdk": "^2.81.0",
+    "dotenv": "^18.0.9"
+  }
+}
