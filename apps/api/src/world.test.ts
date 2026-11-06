@@ -1,7 +1,6 @@
 import { hashSignal } from "@worldcoin/idkit-core";
-import { recoverMessageAddress } from "viem";
+import { encodeAbiParameters, keccak256, parseAbiParameters, recoverMessageAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { encodeAbiParameters, keccak256, parseAbiParameters } from "viem";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "./app";
 import type { WorldDeps, WorldProofResult } from "./world";
@@ -14,7 +13,7 @@ const otherCritic = "0x00000000000000000000000000000000000000c2";
 const CHAIN_ID = 31337;
 
 function setup(overrides: Partial<WorldDeps> = {}) {
-  const clock = { now: 1_800_000_000 };
+  const clock = { now: Math.floor(Date.now() / 1000) };
   const verified: unknown[] = [];
   const verify: WorldDeps["verify"] = async (body) => {
     verified.push(body);
@@ -42,7 +41,11 @@ async function rpContext(app: ReturnType<typeof setup>["app"]) {
   return res.json() as { rp_id: string; nonce: string; created_at: number; expires_at: number; signature: string };
 }
 
-function proof(nonce: string, who = critic, nullifier = "0x1e1c0c2bcdf61aa3c3cb7c1306f0fdebef3971b2cec64bd2c7b11d4482490554") {
+function proof(
+  nonce: string,
+  who = critic,
+  nullifier = "0x1e1c0c2bcdf61aa3c3cb7c1306f0fdebef3971b2cec64bd2c7b11d4482490554",
+) {
   return {
     protocol_version: "4.0",
     nonce,
@@ -66,13 +69,13 @@ const post = (app: ReturnType<typeof setup>["app"], body: unknown) =>
 
 describe("world verify", () => {
   it("success: validates on the server, derives the nullifier and signs a voucher the contract accepts", async () => {
-    const { app, verified } = setup();
+    const { app, clock, verified } = setup();
     const ctx = await rpContext(app);
     const res = await post(app, { ...proof(ctx.nonce), critic });
     expect(res.statusCode).toBe(200);
     const { nullifier, expiry, sig } = res.json();
     expect(nullifier).toBe("0x1e1c0c2bcdf61aa3c3cb7c1306f0fdebef3971b2cec64bd2c7b11d4482490554");
-    expect(expiry).toBeGreaterThan(1_800_000_000);
+    expect(expiry).toBeGreaterThan(clock.now);
     expect(verified).toHaveLength(1);
     const digest = keccak256(
       encodeAbiParameters(parseAbiParameters("bytes32, address, uint64, uint256"), [
