@@ -1,4 +1,5 @@
 import type { DrillHarness } from './drills';
+import { voidRoundDrillFixture } from './drill-fixtures';
 
 // Local fixture only. Replace these adapters with the 07/27 stack before the
 // ticket is marked done or the demo results are presented as integration proof.
@@ -12,7 +13,7 @@ export function createLocalTestHarness(): DrillHarness {
       };
     },
     async voidRound() {
-      return { void: true, bountyBefore: '20', bountyAfter: '20', rewardsAccrued: '0', nonRevealSlashApplied: true };
+      return { void: true, bountyBefore: voidRoundDrillFixture.bounty, bountyAfter: voidRoundDrillFixture.bounty, rewardsAccrued: '0', nonRevealSlashApplied: true };
     },
     async worldDenial(path) {
       return { path, denied: true, registrationOccurred: false };
