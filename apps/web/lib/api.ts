@@ -1,4 +1,4 @@
-import type { BuyerRun, ServiceView } from "@skeptique/shared";
+import type { BuyerRun, Evidence, ServiceView } from "@skeptique/shared";
 
 /** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
 export interface CriticView {
@@ -33,6 +33,25 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       return (await res.json()) as ApiRoutes[P];
     },
   };
+}
+
+/** One service, as returned by GET /services/:id. */
+export type ServiceDetail = ApiRoutes["/services"][number];
+
+/** GET /services/:id; null when the API does not know the id. */
+export async function fetchService(id: number, baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  const res = await fetchImpl(new URL(`/services/${id}`, baseUrl));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(res.status, `/services/${id}`);
+  return (await res.json()) as ServiceDetail;
+}
+
+/** GET /evidence/:hash; null when the API does not know the hash. */
+export async function fetchEvidence(hash: string, baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  const res = await fetchImpl(new URL(`/evidence/${encodeURIComponent(hash)}`, baseUrl));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(res.status, `/evidence/${hash}`);
+  return (await res.json()) as Evidence;
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
