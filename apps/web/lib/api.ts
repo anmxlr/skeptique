@@ -1,4 +1,5 @@
 import type { BuyerRun, Evidence, RoundView, ServiceView } from "@skeptique/shared";
+import { type Deployment, DeploymentSchema } from "@skeptique/shared/deployment";
 
 /** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
 export interface CriticView {
@@ -31,6 +32,11 @@ export class ApiError extends Error {
 
 export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch) {
   return {
+    async getDeployment(): Promise<Deployment> {
+      const response = await fetchImpl(new URL("/deployment", baseUrl));
+      if (!response.ok) throw new ApiError(response.status, "/deployment");
+      return DeploymentSchema.parse(await response.json());
+    },
     async getRound(id: number): Promise<RoundView> {
       if (!Number.isSafeInteger(id) || id < 1) throw new Error("Invalid round ID");
       const path = `/rounds/${id}`;

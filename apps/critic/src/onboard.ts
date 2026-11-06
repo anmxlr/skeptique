@@ -1,5 +1,6 @@
 import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
 import { contractValue } from "@skeptique/shared/deployment";
+import { loadDeployment } from "@skeptique/shared/deployment-file";
 import { type Account, type Address, createPublicClient, createWalletClient, type Hex, http } from "viem";
 
 export type Onboarding =
@@ -16,7 +17,7 @@ export async function registerWithWorld(options: {
   result: object;
   critic: Account | Address;
   rpcUrl: string;
-  registry: Address;
+  registry?: Address;
   fetchImpl?: typeof fetch;
 }): Promise<Onboarding> {
   const criticAddress = typeof options.critic === "string" ? options.critic : options.critic.address;
@@ -35,17 +36,21 @@ export async function registerWithWorld(options: {
 
   const transport = http(options.rpcUrl);
   const publicClient = createPublicClient({ transport });
+  const chainId = await publicClient.getChainId();
+  const deployment = options.registry ? undefined : await loadDeployment();
+  if (deployment && chainId !== deployment.chainId) throw new Error("Critic RPC chain does not match deployment");
+  const registry = options.registry ?? deployment!.contracts.CriticRegistry;
   const minStake = await publicClient.readContract({
-    address: options.registry,
+    address: registry,
     abi: criticRegistryAbi,
     functionName: "minStake",
   });
   const txHash = await createWalletClient({ account: options.critic, transport }).writeContract({
-    address: options.registry,
+    address: registry,
     abi: criticRegistryAbi,
     functionName: "registerCritic",
     args: [body.nullifier, BigInt(body.expiry), body.sig],
-    value: contractValue(minStake, await publicClient.getChainId()),
+    value: contractValue(minStake, chainId),
     chain: null,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });

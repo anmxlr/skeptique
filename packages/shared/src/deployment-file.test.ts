@@ -6,6 +6,8 @@ describe("shared deployment path", () => {
     expect(resolveDeploymentPath("")).toBe(DEFAULT_DEPLOYMENT_PATH);
     expect(resolveDeploymentPath("  ")).toBe(DEFAULT_DEPLOYMENT_PATH);
     expect(resolveDeploymentPath("contracts/deployments/hedera-testnet.json")).toBe(DEFAULT_DEPLOYMENT_PATH);
-    expect(resolveDeploymentPath("/private/tmp/explicit-deployment.json")).toBe("/private/tmp/explicit-deployment.json");
+    expect(resolveDeploymentPath("/private/tmp/explicit-deployment.json")).toBe(
+      "/private/tmp/explicit-deployment.json",
+    );
   });
 });

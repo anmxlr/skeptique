@@ -10,9 +10,11 @@ import { privateKeyToAccount } from "viem/accounts";
 import { hederaTestnet } from "viem/chains";
 
 const names = ["ServiceRegistry", "CriticRegistry", "RoundManager"] as const;
-export type MechanismName = typeof names[number];
+export type MechanismName = (typeof names)[number];
 export async function readMechanismArtifact(name: MechanismName): Promise<{ abi: Abi; bytecode: Hex }> {
-  return JSON.parse(await readFile(new URL(`../artifacts/contracts/${name}.sol/${name}.json`, import.meta.url), "utf8"));
+  return JSON.parse(
+    await readFile(new URL(`../artifacts/contracts/${name}.sol/${name}.json`, import.meta.url), "utf8"),
+  );
 }
 
 export function privateKey(env: NodeJS.ProcessEnv, name: string): Hex {
@@ -28,8 +30,10 @@ export function deploymentConfig(demo = false): Deployment["config"] {
     withdrawCooldown: DEFAULT_ROUND_CONFIG.WITHDRAW_COOLDOWN,
     commitSeconds: demo ? 90 : DEFAULT_ROUND_CONFIG.COMMIT_SECS,
     revealSeconds: demo ? 45 : DEFAULT_ROUND_CONFIG.REVEAL_SECS,
-    kMin: DEFAULT_ROUND_CONFIG.K_MIN, kMax: DEFAULT_ROUND_CONFIG.K_MAX,
-    tolerance: DEFAULT_ROUND_CONFIG.TOLERANCE, slashBps: DEFAULT_ROUND_CONFIG.SLASH_BPS,
+    kMin: DEFAULT_ROUND_CONFIG.K_MIN,
+    kMax: DEFAULT_ROUND_CONFIG.K_MAX,
+    tolerance: DEFAULT_ROUND_CONFIG.TOLERANCE,
+    slashBps: DEFAULT_ROUND_CONFIG.SLASH_BPS,
   };
 }
 
@@ -40,7 +44,7 @@ export async function deployHedera(env: NodeJS.ProcessEnv = process.env): Promis
   const transport = http(env.HEDERA_RPC_URL);
   const client = createPublicClient({ chain: hederaTestnet, transport });
   const wallet = createWalletClient({ account, chain: hederaTestnet, transport });
-  if (await client.getChainId() !== 296) throw new Error("Deployment requires Hedera testnet chain 296");
+  if ((await client.getChainId()) !== 296) throw new Error("Deployment requires Hedera testnet chain 296");
   if (env.HEDERA_CHAIN_ID && env.HEDERA_CHAIN_ID !== "296") throw new Error("HEDERA_CHAIN_ID must be 296");
   const config = deploymentConfig(env.HEDERA_DEMO_WINDOWS === "true");
   const artifacts = await Promise.all(names.map(readMechanismArtifact));
@@ -63,17 +67,46 @@ export async function deployHedera(env: NodeJS.ProcessEnv = process.env): Promis
     return receipt.contractAddress;
   };
   const ServiceRegistry = await deploy(0, [BigInt(config.minListingFeeTinybars)]);
-  const CriticRegistry = await deploy(1, [attestor.address, BigInt(config.minStakeTinybars), ServiceRegistry, BigInt(config.withdrawCooldown)]);
-  const RoundManager = await deploy(2, [BigInt(config.commitSeconds), BigInt(config.revealSeconds), config.kMin, config.kMax, CriticRegistry, config.tolerance, config.slashBps]);
-  const hash = await wallet.writeContract({ address: CriticRegistry, abi: artifacts[1]!.abi,
-    functionName: "setRoundManager", args: [RoundManager] });
+  const CriticRegistry = await deploy(1, [
+    attestor.address,
+    BigInt(config.minStakeTinybars),
+    ServiceRegistry,
+    BigInt(config.withdrawCooldown),
+  ]);
+  const RoundManager = await deploy(2, [
+    BigInt(config.commitSeconds),
+    BigInt(config.revealSeconds),
+    config.kMin,
+    config.kMax,
+    CriticRegistry,
+    config.tolerance,
+    config.slashBps,
+  ]);
+  const hash = await wallet.writeContract({
+    address: CriticRegistry,
+    abi: artifacts[1]!.abi,
+    functionName: "setRoundManager",
+    args: [RoundManager],
+  });
   console.log(`Authorize RoundManager: ${hashscanTransaction(hash)}`);
-  if ((await client.waitForTransactionReceipt({ hash })).status !== "success") throw new Error("RoundManager authorization failed");
+  if ((await client.waitForTransactionReceipt({ hash })).status !== "success")
+    throw new Error("RoundManager authorization failed");
   transactions.push({ name: "AuthorizeRoundManager", hash });
-  const deployment = DeploymentSchema.parse({ version: 1, network: "hedera-testnet", chainId: 296,
-    deployedAt: new Date().toISOString(), deploymentBlock: deploymentBlock?.toString(),
-    contracts: { ServiceRegistry, CriticRegistry, RoundManager }, transactions, config });
-  await Promise.all(names.map((name, index) => writeFile(`${abiDirectory}${name}.json`, JSON.stringify(artifacts[index]!.abi, null, 2) + "\n")));
+  const deployment = DeploymentSchema.parse({
+    version: 1,
+    network: "hedera-testnet",
+    chainId: 296,
+    deployedAt: new Date().toISOString(),
+    deploymentBlock: deploymentBlock?.toString(),
+    contracts: { ServiceRegistry, CriticRegistry, RoundManager },
+    transactions,
+    config,
+  });
+  await Promise.all(
+    names.map((name, index) =>
+      writeFile(`${abiDirectory}${name}.json`, JSON.stringify(artifacts[index]!.abi, null, 2) + "\n"),
+    ),
+  );
   const temporary = `${output}.tmp-${process.pid}`;
   await writeFile(temporary, JSON.stringify(deployment, null, 2) + "\n");
   await rename(temporary, output);

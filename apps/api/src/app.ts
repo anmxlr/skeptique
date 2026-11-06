@@ -1,3 +1,4 @@
+import type { Deployment } from "@skeptique/shared/deployment";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { PublicClient } from "viem";
 import { registerBuyerRunRoutes } from "./buyer-runs";
@@ -15,6 +16,7 @@ export interface AppDeps {
   publicClient: Pick<PublicClient, "getChainId">;
   /** Deployed contract addresses by name. */
   contracts: Record<string, `0x${string}`>;
+  deployment?: Deployment;
   /** Listed services and the critic lookup used to keep critic calls out of popularity. */
   marketplace?: { source: MarketplaceSource; isCritic: IsCritic };
   /** ServiceRegistry listings indexed from the chain; serves the service list when no marketplace is given. */
@@ -48,6 +50,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
       return reply.code(503).send({ ok: false });
     }
   });
+  if (deps.deployment) app.get("/deployment", async () => deps.deployment);
 
   if (deps.marketplace) {
     const counter = new PopularityCounter(deps.marketplace.isCritic);
