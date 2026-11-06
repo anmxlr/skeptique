@@ -21,13 +21,17 @@ describe('RoundManager', () => {
   let signers: Awaited<ReturnType<typeof ethers.getSigners>>;
   let temporaryDirectory: string;
   let roundId: bigint;
+  let criticRegistry: any;
   const salt = `0x${'11'.repeat(32)}` as `0x${string}`;
   const evidenceHash = `0x${'22'.repeat(32)}` as `0x${string}`;
 
   beforeEach(async () => {
     signers = await ethers.getSigners();
+    criticRegistry = await (await ethers.getContractFactory('MockCriticRegistry')).deploy();
+    await criticRegistry.waitForDeployment();
+    for (const signer of signers.slice(1, 6)) await criticRegistry.setStake(await signer.getAddress(), 5);
     const factory = await ethers.getContractFactory('RoundManager');
-    manager = await factory.deploy(10, 10, 1, 7);
+    manager = await factory.deploy(10, 10, 1, 7, await criticRegistry.getAddress(), 10, 2000);
     await manager.waitForDeployment();
     temporaryDirectory = await mkdtemp(join(tmpdir(), 'skeptic-round-'));
     roundId = await manager.nextRoundId();
