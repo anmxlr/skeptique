@@ -119,3 +119,9 @@ The API computes `confidence = min(1, reveals / 5) × max(0.3, 0.5^(ageDays / 7)
 The committed `pnpm-lock.yaml` is authoritative. Main dependencies include viem, Hardhat, Fastify, Zod, Ajv, canonicalize, Next.js/React, World IDKit and the x402 Hedera stack. Tests use Vitest, fast-check, Mocha, Playwright and axe. Code is [MIT licensed](LICENSE); dependency licenses remain their own.
 
 Use new branches from current `main` and separate follow-up PRs. Preserve history with normal merges; do not squash or force-push. Delete a completed remote branch only after its tip is reachable from `main`. Ticket completion still requires its acceptance evidence. See [integration notes](docs/integration-status.md) and [AI usage](AI_USAGE.md).
+
+## Contributors
+
+Human contributors are listed in the [GitHub contributor history](https://github.com/anmxlr/skeptique/graphs/contributors).
+
+**OpenAI Codex — AI development contributor:** assisted with implementation, code review, integration fixes, testing, and documentation. Ticket receipts and [AI_USAGE.md](AI_USAGE.md) document AI assistance across the project.
