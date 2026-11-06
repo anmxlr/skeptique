@@ -8,11 +8,17 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "start": "tsx src/cli.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "tsx": "^4.23.15"
+  },
+  "dependencies": {
+    "@skeptic/shared": "workspace:*",
+    "@skeptic/x402-client": "workspace:*"
   }
 }

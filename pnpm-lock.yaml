@@ -65,10 +65,20 @@ importers:
         version: 3.2.7(@types/node@20.19.43)(lightningcss@1.33.0)(tsx@4.23.15)
 
   apps/buyer:
+    dependencies:
+      '@skeptic/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@skeptic/x402-client':
+        specifier: workspace:*
+        version: link:../../packages/x402-client
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
