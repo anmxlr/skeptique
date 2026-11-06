@@ -79,12 +79,29 @@ ERC-8004 provides shared agent identity and reputation/validation registries, wh
 - Nondeterministic services can produce inconsistent results and punish honest critics.
 - Seller-to-critic test payments can inflate usage metrics. Critic calls must be excluded from popularity counts.
 - Commit-reveal reduces copying, but does not make reviewers independent or their evidence truthful.
+- Sellers can recognize public critic wallet addresses and selectively change their responses. Private probes do not provide anonymous reviewer identities.
 - The relayer can misreport or censor ENS score updates, as described above.
 - Local fixtures and staged demo actors do not establish production security, independent critic participation, or live sponsor integration.
 
 ## Third-party software and services
 
-The project-specific review mechanism and demo services are developed in this repository. Current third-party code imports are Ajv (MIT, JSON-schema validation) and Vitest (MIT, tests); Node.js built-ins are also used. Mermaid CLI (`@mermaid-js/mermaid-cli`, MIT) was used to render the committed architecture image and is not a runtime dependency. Versions and transitive dependency licenses must be confirmed from the lockfile once ticket 04 supplies the workspace. Planned external integrations include Hedera/x402 and HCS, ENSv2, and World ID Agent Pass; their final SDK/package names and licenses must also be recorded before release. No sponsor API credentials or private keys belong in this repository.
+The project-specific review mechanism and demo services are developed in this repository. The assembled Dev 2 code uses these libraries; versions below describe the disposable local review environment, pending ticket 04's committed workspace and lockfile.
+
+| Library | Local review version | Use | License |
+| --- | --- | --- | --- |
+| Zod | 4.6.7 | Shared validation | MIT |
+| canonicalize | 2.1.0 | Canonical JSON hashing | Apache-2.0 |
+| viem | 2.57.16 | ABI encoding and commitment hashing | MIT |
+| Ajv | 8.20.0 | JSON Schema checks in isolated workers | MIT |
+| Fastify | 5.12.8 | Evidence, ranking and round API routes | MIT |
+| Hardhat / hardhat-ethers / ethers | 2.29.1 / 3.1.3 / 6.17.0 | Local contracts and tests | MIT |
+| Vitest / fast-check / Mocha | 3.2.7 / 3.23.2 / 11.8.0 | Tests and generated properties | MIT |
+| TypeScript | 5.9.3 | Type checking | Apache-2.0 |
+| ts-node / tsx | 10.9.2 / 4.23.15 | Local TypeScript execution | MIT |
+
+Node.js built-ins provide HTTP, hashing, persistence and worker isolation. Mermaid CLI (`@mermaid-js/mermaid-cli`, MIT) renders the architecture image. Confirm the final runtime, tooling and transitive dependency licenses from the committed lockfile before release. Planned external integrations include Hedera/x402 and HCS, ENSv2, and World ID Agent Pass; record their final SDK/package names and licenses once integrated. No sponsor API credentials or private keys belong in this repository.
+
+The [Dev 2 review record](docs/dev2-review.md) describes the local checks, efficiency measurements, and remaining integration gates.
 
 ## Evidence and remaining work
 
