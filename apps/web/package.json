@@ -18,9 +18,10 @@
     "vitest": "catalog:"
   },
   "dependencies": {
+    "@skeptique/shared": "workspace:*",
     "next": "^16.4.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "@skeptique/shared": "workspace:*"
+    "viem": "^2.57.16"
   }
 }
