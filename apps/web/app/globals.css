@@ -279,3 +279,65 @@ a {
   gap: 8px;
   padding-left: 20px;
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 16px;
+}
+
+.skeleton-card {
+  height: 9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface) 0%, var(--border) 50%, var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-card {
+    animation: none;
+  }
+}
+
+.page .notice-error {
+  padding: 8px 12px;
+  border-left: 3px solid #b91c1c;
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.page .toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 20;
+  max-width: 28rem;
+  margin: 0 0 0 auto;
+  padding: 10px 14px;
+  border-left: 3px solid #b91c1c;
+  border-radius: 6px;
+  background: var(--fg);
+  color: var(--bg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
+}

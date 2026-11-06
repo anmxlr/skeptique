@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { fetchEvidence, fetchService, type ServiceDetail } from "../lib/api";
 import { EnsName } from "./ens-name";
 import { formatHbar } from "./marketplace";
+import { Skeleton } from "./states";
 
 export type ServiceDetailState =
   | { status: "loading" }
@@ -13,8 +14,13 @@ export type ServiceDetailState =
   | { status: "ready"; service: ServiceDetail; evidence?: Evidence };
 
 export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
-  if (state.status === "loading") return <p role="status">Loading service…</p>;
-  if (state.status === "error") return <p role="alert">Could not load service: {state.message}</p>;
+  if (state.status === "loading") return <Skeleton label="Loading service" count={1} />;
+  if (state.status === "error")
+    return (
+      <p role="alert" className="notice-error">
+        Could not load service: {state.message}
+      </p>
+    );
   if (state.status === "not-found") return <p>No such service.</p>;
   const { service, evidence } = state;
   return (

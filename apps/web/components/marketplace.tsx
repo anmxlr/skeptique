@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { type ApiRoutes, apiClient } from "../lib/api";
 import { EnsName } from "./ens-name";
+import { Skeleton } from "./states";
 
 type MarketplaceService = ApiRoutes["/services"][number];
 
@@ -43,8 +44,13 @@ function ServiceCard({ service }: { service: MarketplaceService }) {
 }
 
 export function MarketplaceView({ state }: { state: MarketplaceState }) {
-  if (state.status === "loading") return <p role="status">Loading services…</p>;
-  if (state.status === "error") return <p role="alert">Could not load services: {state.message}</p>;
+  if (state.status === "loading") return <Skeleton label="Loading services" />;
+  if (state.status === "error")
+    return (
+      <p role="alert" className="notice-error">
+        Could not load services: {state.message}
+      </p>
+    );
   if (state.services.length === 0) return <p>No services listed yet.</p>;
   return (
     <ul className="market-grid">
