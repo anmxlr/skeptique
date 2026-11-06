@@ -1,0 +1,32 @@
+/** Response body of each API route (spec/03). Later tickets add routes with types from @skeptic/shared. */
+export interface ApiRoutes {
+  "/health": { ok: true; chainId: number } | { ok: false };
+}
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly path: string,
+  ) {
+    super(`API ${path} responded ${status}`);
+  }
+}
+
+export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  return {
+    async get<P extends keyof ApiRoutes>(path: P): Promise<ApiRoutes[P]> {
+      const res = await fetchImpl(new URL(path, baseUrl));
+      if (!res.ok) throw new ApiError(res.status, path);
+      return (await res.json()) as ApiRoutes[P];
+    },
+  };
+}
+
+export type ApiClient = ReturnType<typeof createApiClient>;
+
+/** Client for the API configured by NEXT_PUBLIC_API_URL. */
+export function apiClient(): ApiClient {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!baseUrl) throw new Error("NEXT_PUBLIC_API_URL must be set");
+  return createApiClient(baseUrl);
+}
