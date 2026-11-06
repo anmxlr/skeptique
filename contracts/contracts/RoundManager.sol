@@ -38,6 +38,8 @@ contract RoundManager {
     uint8 public immutable kMax;
     uint8 public immutable tolerance;
     uint16 public immutable slashBps;
+    /// Stake share (basis points) slashed from a critic that committed and did not reveal in a void round (spec/02 §2).
+    uint16 public constant NOREVEAL_SLASH_BPS = 1000;
     ICriticStakeRegistry public immutable criticRegistry;
     uint256 public nextRoundId = 1;
     address public immutable deployer;
@@ -74,7 +76,6 @@ contract RoundManager {
     error CriticHasNoStake();
     error CriticNotRegistered();
     error TooManyCritics();
-    error TooFewReveals();
     error AlreadyFinalized();
 
     event RoundOpened(uint256 indexed roundId, uint256 indexed serviceId, uint64 commitEnd, uint64 revealEnd);
@@ -158,7 +159,10 @@ contract RoundManager {
         Round storage round = _round(roundId);
         if (block.timestamp < round.revealEnd) revert RevealPhaseActive();
         if (round.finalized) revert AlreadyFinalized();
-        if (round.nReveals < kMin) revert TooFewReveals();
+        if (round.nReveals < kMin) {
+            _voidRound(roundId, round);
+            return;
+        }
         round.median = _weightedMedian(roundId);
         round.finalized = true;
         openRoundPlusOne[round.serviceId] = 0;
@@ -181,6 +185,26 @@ contract RoundManager {
         address[] storage allCritics = committers[roundId];
         for (uint256 i = 0; i < allCritics.length; i++) criticRegistry.releaseStake(allCritics[i], roundId);
         emit RoundFinalized(roundId, round.serviceId, round.median, round.nReveals, false);
+    }
+
+    /// Fewer than kMin reveals: no score, no rewards, only non-revealers are slashed, every committer is released.
+    /// The bounty is untouched, so it stays in the service's pool for the next round.
+    function _voidRound(uint256 roundId, Round storage round) private {
+        round.finalized = true;
+        openRoundPlusOne[round.serviceId] = 0;
+        address[] storage allCritics = committers[roundId];
+        for (uint256 i = 0; i < allCritics.length; i++) {
+            address critic = allCritics[i];
+            if (!revealed[roundId][critic]) {
+                uint256 amount = stakeAtCommit[roundId][critic] * NOREVEAL_SLASH_BPS / 10_000;
+                if (amount > 0) {
+                    slashedAmount[roundId][critic] = amount;
+                    criticRegistry.slashStake(critic, roundId, amount, 'no-reveal');
+                }
+            }
+            criticRegistry.releaseStake(critic, roundId);
+        }
+        emit RoundFinalized(roundId, round.serviceId, 0, round.nReveals, true);
     }
 
     function getRound(uint256 roundId) external view returns (Round memory) {

@@ -5,6 +5,7 @@ export const roundManagerAbi = parseAbi([
   "function commit(uint256 roundId, bytes32 commitment)",
   "function reveal(uint256 roundId, uint8 score, bytes32 salt, bytes32 evidenceHash, uint256 claimedCost)",
   "function finalize(uint256 roundId)",
+  "function NOREVEAL_SLASH_BPS() view returns (uint16)",
   "function getRound(uint256 roundId) view returns ((uint256 serviceId, uint64 commitEnd, uint64 revealEnd, uint8 median, uint8 nReveals, bool finalized))",
   "function isHonest(uint256 roundId, address critic) view returns (bool)",
   "function slashedAmount(uint256 roundId, address critic) view returns (uint256)",
