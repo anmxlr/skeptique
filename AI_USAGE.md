@@ -29,6 +29,10 @@ Claude (Sonnet 5.5) wrote the e2e test, API wiring and web section. Existing cri
 
 Written with Claude Code (Sonnet 5.5); outputs checked by running the commands above.
 
+### 30: Web polish
+
+Event stream, live round section, banner, limits page, loading and error states, accessibility fixes and every test written by Claude Code (Claude Opus 5.5) from the ticket, spec/02 §6 and spec/05. Tests were written first. Screenshots of each new state were checked in light and dark themes, which is how the toast contrast bug was found. The human reviews and merges.
+
 ## ENS
 
 ### 03: Spike: ENSv2 on Sepolia
