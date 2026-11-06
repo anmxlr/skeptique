@@ -1,4 +1,32 @@
-# World feedback (raw notes)
+# World ID integration debrief (skeptique, ETHGlobal Mumbai)
+
+skeptique gates its protected action, a critic agent staking and registering on CriticRegistry, behind World ID 4.0 proof of human. We built it with IDKit 4.6.0 (`@worldcoin/idkit-core`, `@worldcoin/idkit-server`), a server-signed `rp_context`, `POST developer.world.org/api/v4/verify/{rp_id}`, and the World ID simulator for staging proofs. Times are UTC on 2026-11-06, taken from the raw notes below and our git history.
+
+## 1. Time to first success
+- **3h14m38s wall clock** from first touching the Developer Portal (05:22:02) to the first proof validated on our server (08:36:40). Most of that gap was other hackathon work.
+- **About 14 minutes of hands-on work** from starting the World spike (08:23) to that first validated proof. The first staging proof arrived on our first run (08:36:10), and `developer.world.org` accepted it on our first try.
+- **Full onboarding with denied paths** (server validation, voucher, Critics page, e2e for every failure path): the commits span 11:27–11:41, and a live run through the real simulator passed at 11:37:49, **6h15m after the timer started**.
+- **Total hands-on World work** was under an hour; most of it was reading docs, not writing code.
+
+## 2. Friction encountered
+- **Two products, one prize name.** The prize names "World ID Agent Pass (auth.world.org)", but no World page uses "Agent Pass". auth.world.org documents an OIDC IdP (client_id/client_secret), while the Developer Portal hands out World ID 4.0 relying-party credentials (app_id, rp_id, signing_key) that belong to IDKit on docs.world.org. We had to guess which one was meant.
+- **The portal didn't match our expectations.** We expected OIDC client credentials; the portal offered "Register relying party" instead, and we searched the docs to map one to the other.
+- **The useful testing tool is hidden.** The simulator's MCP tool `complete_test_request` delivers a real staging proof headlessly, which made our automated tests possible. We found it only by reading the simulator's source.
+- **Uniqueness is easy to get wrong.** Repeated runs returned the same nullifier and the verify endpoint accepted it every time. Rejecting a second critic from the same human is entirely the app's job. The docs say so, but it is easy to miss.
+
+## 3. Missing capability or docs
+- **The verify API reference** shows no example 200 body and only two error codes (`app_not_migrated`, `all_verifications_failed`).
+- **The nullifier wire format** is stated three ways: the type comment says decimal, the integrate guide says convert hex to decimal, and the verify examples show `0x` hex. We normalise through `BigInt`.
+- **Which verify host and `environment` to use for simulator (staging) proofs** isn't stated. `staging-developer.worldcoin.org` is listed, but the production host with `environment: "staging"` is what worked.
+- **The "staging registry"** that the simulator's instructions mention appears nowhere in the docs. A portal-registered RP turned out to be accepted.
+- **No documented way to simulate cancelled or expired results.** The simulator only completes requests, so we tested those paths with fixtures on our own server.
+
+## 4. The one improvement with the greatest impact
+**One "Agent Pass" quickstart page on auth.world.org** that says: for gating an agent action on a human, use IDKit 4.0 + an RP-signed request + `/api/v4/verify`; test headlessly with the simulator MCP; here is a real 200 and a real 400 from verify. That single page would have removed every guess listed above.
+
+---
+
+# Raw notes
 
 - 2026-11-06T05:22:02Z: World debrief timer started (ticket 01, first touch of the World portal)
 - Friction: expected OIDC client ID/secret (as in our .env.example); portal instead offers "Register relying party" (World ID 4.0: app_id, rp_id, signing_key). Had to search the docs to map it.
