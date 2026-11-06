@@ -78,7 +78,45 @@ Researched 2026-11-06 from first-party World sources only. "[D]" = docs page, "[
 
 ## Per-human id decision
 
-TBD by spike author
+**Decision: use the nullifier World returns. Nothing needs deriving.** `responses[0].nullifier` is a stable per-human id, scoped to user + RP + action [W5][W1]. The spike saw the same value on three separate runs for the simulator's one staging identity (`spikes/world/spike-transcript.txt`).
+
+- Action: one fixed action per protected act, `register-critic`. The nullifier then means "this human, as a critic of skeptique". A second registration by the same human gives the same nullifier.
+- Canonical form: `0x` + 64 lowercase hex (bytes32), computed as `BigInt(nullifier).toString(16).padStart(64, "0")`. This handles both the hex and decimal wire formats [S5][W1][W4]. It is the key the contract and the API store for "one critic per human" (spec/01 §3).
+- Uniqueness is ours to enforce. World's verify endpoint accepted the same nullifier on every run, so `apps/api` (and the contract, via the voucher) must reject a nullifier it has already registered [W1].
+- Signal: bind the proof to the critic by passing the critic's address as the `proofOfHuman({ signal })` value. This stops a proof being replayed for a different wallet [W1][W3]. The spike used a fixed string.
+
+## Spike result (ticket 05)
+
+`spikes/world/spike.mjs` runs everything headlessly on a laptop. Run it with `cd spikes/world && npm i && node spike.mjs`; the transcript is in `spikes/world/spike-transcript.txt`.
+
+1. The local server (`spikes/world/server.mjs`) signs an `rp_context` with `WORLD_SIGNING_KEY` via `signRequest({ signingKeyHex, action })`.
+2. The client calls `IDKit.request({ app_id, action, rp_context, allow_legacy_proofs: false, environment: "staging" }).preset(proofOfHuman({ signal }))` from `@worldcoin/idkit-core@4.6.0`, running in Node.
+3. A JSON-RPC `tools/call` of `complete_test_request({ connect_url })` to `https://simulator.worldcoin.org/api/mcp` returned `proof_delivered`, with no auth and no Origin header needed [S7].
+4. `pollUntilCompletion()` returned `{ protocol_version: "4.0", environment: "staging", responses: [1 item] }`.
+5. The server's `POST /world/verify` checks `environment` and `action`, then forwards the body to `POST https://developer.world.org/api/v4/verify/{rp_id}`. Results:
+   - **Valid proof:** 200, server returns `{ nullifier, expires_at_min }`.
+   - **Tampered proof** (one digit of `proof[0]` changed): World answers 400 `all_verifications_failed` ("All proof verifications failed."), and our server returns 403 `{ reason: "all_verifications_failed" }`.
+   - **Replayed nullifier** (same human again): our server returns 403 `{ reason: "nullifier_already_registered" }`.
+
+Settled by the spike:
+- The production verify host `developer.world.org` validates staging proofs when `environment: "staging"` is sent. `staging-developer.worldcoin.org` was not needed.
+- An RP registered in the normal Developer Portal passes the simulator's staging check.
+- The simulator MCP works from Node over plain HTTPS (Streamable HTTP, a stateless SSE reply).
+
+### How we produce each failure case (for ticket 16)
+
+- **Denied, invalid proof:** tamper any proof field before posting it. World returns 400 `all_verifications_failed` [W4]. Shown in the spike.
+- **Denied, second critic from the same human:** post the same staging proof (or any later one from the simulator's single identity) a second time. Our nullifier store rejects it. Shown in the spike.
+- **Denied, wrong environment:** our server rejects a result whose `environment` is not the configured one, before calling World [W1]. Covered by code, not exercised by the spike.
+- **Expired:** sign the `rp_context` with a short `ttl` (e.g. `signRequest({ ..., ttl: 1 })`) and wait past `expires_at` before completing. The simulator then reports `request_expired`, and IDKit reports `rp_signature_expired` / `timestamp_too_old` [S1][S6][W12]. A client poll that times out reports `timeout` [S3]. Not exercised by the spike.
+- **Cancelled:** abort `pollUntilCompletion({ signal })` with an `AbortController`. IDKit returns `{ success: false, error: "cancelled" }` [S3][W12]. In World App the user's "cancel" arrives as `user_rejected` [W12]. The simulator cannot cancel, because it only completes requests [S7]. Not exercised by the spike.
+- In every failure case the protected action (critic registration) must not run: `/world/verify` returns 403 and signs no voucher.
+
+### Proposed spec/03 change (not applied; spec/03 is frozen for this ticket)
+
+- `POST /world/verify` body: "the IDKit 4.0 result `{ protocol_version, nonce, action, environment, responses[] }`, forwarded unchanged, plus the critic address that was used as the signal".
+- Add `POST /world/rp-context`, which returns `{ rp_id, nonce, created_at, expires_at, signature }`. The client cannot build an IDKit request without a server-signed `rp_context` [W1].
+- Response `expiry`: World returns no proof expiry on success. `responses[0].expires_at_min` is the closest field (the credential's minimum validity) [W4]. Propose that `expiry` means the voucher expiry set by our attestor (spec/01 §3).
 
 ## Mocked proofs and staging
 
@@ -90,7 +128,7 @@ TBD by spike author
   - Sandbox accounts are deletable and "not production" [W11].
 - World IdP (OIDC) has its own sandbox issuer, `https://sandbox.auth.world.org`, using a manual selfie verify in the sandbox app [A3]. It is not relevant to our IDKit credentials.
 - Example mocked-proof payload: **not documented**. A staging proof has the same `IDKitResult` shape as production with `environment: "staging"` [S4][S6].
-- The event page's "proofs are mocked" most plausibly means staging/simulator proofs. No World page confirms this.
+- The event page's "proofs are mocked" most plausibly means staging/simulator proofs. No World page confirms this. We use staging + simulator for the demo.
 
 ## Failure cases (denied / expired / cancelled)
 
@@ -132,13 +170,11 @@ Client codes come from the `IDKitErrorCode` / `IDKitErrorCodes` enum, which also
 ## Open questions / not documented
 
 - "Agent Pass" as a product or API: **not documented** on any World page found. auth.world.org documents only World IdP (OIDC, step-up, device grant, XAA) [A1][A2].
-- Which verify host and `environment` value to use for staging/simulator proofs: **not documented explicitly**.
-  - `staging-developer.worldcoin.org` is listed as a server [W4], but the simulator resolves RP context against `developer.worldcoin.org` with `environment: "staging"` [S6].
-  - Try `developer.world.org` with `environment: "staging"` first.
+- Which verify host and `environment` value to use for staging/simulator proofs: **not documented explicitly**. Settled by the spike: `developer.world.org` with `environment: "staging"` works.
 - A full verify-API error-code list and a 200 example: **not documented** [W4].
 - Nullifier wire format (decimal or hex): sources conflict. Normalise via BigInt [S4][S5][W1][W4].
-- Whether the app registered in the production portal passes the simulator's staging check: **not documented**. Test it.
-- Whether the simulator MCP needs auth or an Origin header from Node clients: the source validates Host/Origin against an allow-list but shows no auth [S8]. Behaviour without an Origin header is untested.
+- Whether the app registered in the production portal passes the simulator's staging check: **not documented**. Settled by the spike: it does.
+- Whether the simulator MCP needs auth or an Origin header from Node clients: the source validates Host/Origin against an allow-list but shows no auth [S8]. Settled by the spike: neither is needed.
 
 ## Sources
 

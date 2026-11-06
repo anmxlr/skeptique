@@ -14,3 +14,5 @@
 - 2026-11-06T08:36:40Z: FIRST SERVER-VALIDATED SUCCESS: `POST https://developer.world.org/api/v4/verify/{rp_id}` accepted a simulator staging proof with `environment: "staging"` on the first try (3h14m38s after timer start; ~14 min of hands-on spike work). Tampered proof came back 400 `all_verifications_failed`.
 - Observation: three runs gave the same nullifier, so the simulator uses one fixed staging identity, and World's verify endpoint accepted the same nullifier every time. Uniqueness is entirely the app's job; the docs say so, but it is easy to miss.
 - Answer to an open question: the production verify host works for staging proofs; `staging-developer.worldcoin.org` was not needed.
+- 2026-11-06T08:45:00Z: Spike 05 closed (note + passing spike). World work so far: ~22 min hands-on (08:23 to 08:45), most of it reading docs.
+- Biggest-impact improvement (candidate): one "Agent Pass" quickstart page on auth.world.org that says "for agent/human gating use IDKit 4.0 + RP signature + /api/v4/verify; test with the simulator MCP", with a real 200 and 400 verify example. That would have removed every guess we made.
