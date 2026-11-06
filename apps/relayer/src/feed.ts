@@ -1,4 +1,4 @@
-import { TestSuiteSchema } from "@skeptique/shared";
+import { suiteHash, TestSuiteSchema } from "@skeptique/shared";
 import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import type { PublicClient } from "viem";
 import type { ListingFeed } from "./relayer";
@@ -25,7 +25,7 @@ export function createRegistryFeed(options: {
           const res = await fetchSuite(new URL("suite.json", listing.endpoint));
           if (!res.ok) continue;
           const suite = TestSuiteSchema.safeParse(await res.json());
-          if (suite.success)
+          if (suite.success && suiteHash(suite.data).toLowerCase() === listing.specHash.toLowerCase())
             named.push({
               serviceId: listing.serviceId,
               seller: listing.seller as `0x${string}`,
