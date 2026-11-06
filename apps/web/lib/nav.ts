@@ -1,4 +1,5 @@
 export const NAV_ITEMS = [
+  { href: "/lab", label: "Testing lab" },
   { href: "/", label: "Marketplace" },
   { href: "/critics", label: "Critics" },
   { href: "/sell", label: "Sell" },

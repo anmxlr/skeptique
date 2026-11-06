@@ -4,12 +4,14 @@ import { expect, it } from "vitest";
 import AuditPage from "../app/audit/page";
 import BuyerPage from "../app/buyer/page";
 import CriticsPage from "../app/critics/page";
+import LabPage from "../app/lab/page";
 import LimitsPage from "../app/limits/page";
 import MarketplacePage from "../app/page";
 import SellPage from "../app/sell/page";
 import { NAV_ITEMS } from "../lib/nav";
 
 const pages: Record<string, ComponentType> = {
+  "/lab": LabPage,
   "/": MarketplacePage,
   "/critics": CriticsPage,
   "/sell": SellPage,

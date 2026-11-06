@@ -7,6 +7,10 @@
     "node": ">=20.12"
   },
   "scripts": {
+    "lab:api": "pnpm --filter @skeptique/scripts exec tsx testing-lab.ts",
+    "lab:web": "SKEPTIQUE_LAB_ENABLED=1 pnpm --filter @skeptique/web exec next dev --hostname 127.0.0.1 --port 3100",
+    "lab:preview": "SKEPTIQUE_LAB_ENABLED=1 pnpm --filter @skeptique/web exec next start --hostname 127.0.0.1 --port 3100",
+    "lab:test": "pnpm --filter @skeptique/scripts exec vitest run demo/testing-lab.test.ts && pnpm --filter @skeptique/web exec playwright test --config playwright.lab.config.ts",
     "prepare": "node scripts/install-hooks.mjs",
     "build": "pnpm -r build",
     "test": "pnpm -r test",

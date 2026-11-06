@@ -29,6 +29,14 @@ Agreement is not ground truth. Critic rewards and reimbursements are part of the
 
 See the [integration status](docs/integration-status.md), [deployment guide](contracts/deployments/README.md), [ENS notes](docs/ens.md) and [ranking rationale](docs/research/19-ranking.md).
 
+## Local testing lab (early preview)
+
+Run `pnpm lab:api` and `pnpm lab:web` in separate terminals, then open **http://127.0.0.1:3100/lab**.
+
+The workbench evaluates the existing unit converter, suite gamer and CSV cleaner over local HTTP using the critic engine. Compare public checks against recorded probe fixtures, inject slow responses or outages, enforce a shared request budget, inspect case outputs and export evidence. The project map distinguishes implemented components from pending integration and incentive work.
+
+This is a fixture evaluation environment, not an RL training platform or a live sponsor-network demonstration. It needs no keys and makes no payments or model calls. Results remain in the runner's memory until restart. Run `pnpm lab:test` for API and browser checks. See [lab methodology and iteration plan](docs/testing-lab.md).
+
 ## Architecture
 
 ```mermaid
