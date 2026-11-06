@@ -5,6 +5,7 @@ import {
   type AppDeps,
   buildApp,
   createCriticSource,
+  createFinalizedRankingSource,
   createRegistrySource,
   createRoundSource,
   createServiceReviewSource,
@@ -71,9 +72,17 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     const publicClient = createPublicClient({ transport: http(rpcUrl) });
     const chainId = await publicClient.getChainId();
 
-    const listings = contracts.ServiceRegistry
+    const registryListings = contracts.ServiceRegistry
       ? createRegistrySource({ client: publicClient, address: contracts.ServiceRegistry })
       : undefined;
+    const listings =
+      registryListings && contracts.RoundManager
+        ? createFinalizedRankingSource({
+            listing: registryListings,
+            client: publicClient,
+            address: contracts.RoundManager,
+          })
+        : registryListings;
     const critics = contracts.CriticRegistry
       ? createCriticSource({
           client: publicClient,

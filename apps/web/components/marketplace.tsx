@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type ApiRoutes, apiClient } from "../lib/api";
 import { EnsName } from "./ens-name";
@@ -21,9 +22,12 @@ export function formatHbar(tinybars: string): string {
 }
 
 function ServiceCard({ service }: { service: MarketplaceService }) {
+  const probation = service.median === null || service.nRounds === 0 || service.confidence === 0;
   return (
     <li className="market-card">
-      <h2>{service.name}</h2>
+      <h2>
+        <Link href={`/services/${service.id}`}>{service.name}</Link>
+      </h2>
       <p className="market-muted">{service.category}</p>
       {service.ensName ? (
         <p className="market-muted">
@@ -32,7 +36,18 @@ function ServiceCard({ service }: { service: MarketplaceService }) {
       ) : null}
       <dl className="market-stats">
         <dt>Status</dt>
-        <dd>{service.median === null ? "Probation" : `Score ${service.median}`}</dd>
+        <dd>{probation ? <span className="market-probation">Probation</span> : `Score ${service.median}`}</dd>
+        <dt>Adjusted rank</dt>
+        <dd>{probation ? "Not ranked yet" : service.rank.toFixed(1)}</dd>
+        {!probation && (
+          <>
+            <dt>Review confidence</dt>
+            <dd>
+              <meter min={0} max={1} value={service.confidence} aria-label={`Review confidence for ${service.name}`} />
+              {` ${Math.round(service.confidence * 100)}%`}
+            </dd>
+          </>
+        )}
         <dt>Price per call</dt>
         <dd>{formatHbar(service.pricePerCall)}</dd>
         <dt>Bounty</dt>

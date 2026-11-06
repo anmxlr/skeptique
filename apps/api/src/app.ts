@@ -33,7 +33,7 @@ export interface AppDeps {
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
-
+export { createFinalizedRankingSource } from "./ranking-source";
 export { createRoundSource, type RoundViewSource } from "./rounds";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
