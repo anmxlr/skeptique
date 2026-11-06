@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 interface ICriticStakeRegistry {
     function stakeOf(address critic) external view returns (uint256);
+    function isCritic(address critic) external view returns (bool);
     function slashStake(address critic, uint256 roundId, uint256 amount, string calldata reason) external;
 }
 
@@ -50,6 +51,7 @@ contract RoundManager {
     error CommitmentMismatch();
     error ScoreOutOfRange();
     error CriticHasNoStake();
+    error CriticNotRegistered();
     error TooManyCritics();
     error TooFewReveals();
     error AlreadyFinalized();
@@ -91,6 +93,7 @@ contract RoundManager {
         if (block.timestamp >= round.commitEnd) revert CommitPhaseClosed();
         if (committed[roundId][msg.sender]) revert AlreadyCommitted();
         if (_committedCount(roundId) >= kMax) revert TooManyCritics();
+        if (!criticRegistry.isCritic(msg.sender)) revert CriticNotRegistered();
         uint256 stake = criticRegistry.stakeOf(msg.sender);
         if (stake == 0) revert CriticHasNoStake();
         committed[roundId][msg.sender] = true;

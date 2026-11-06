@@ -7,6 +7,7 @@ export function scorePersona(
   options: { lazyScore?: number; strictPenalty?: number; lenientBonus?: number; bribeBonus?: number } = {},
 ): PersonaScore {
   if (!Number.isInteger(measuredScore) || measuredScore < 0 || measuredScore > 100) throw new Error('Measured score must be from 0 to 100');
+  if (Object.values(options).some(value => value !== undefined && !Number.isFinite(value))) throw new Error('Persona configuration must be finite');
   const clamp = (score: number) => Math.max(0, Math.min(100, Math.round(score)));
   switch (persona) {
     case 'balanced': return { score: measuredScore, testsRun: true };

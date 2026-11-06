@@ -12,4 +12,9 @@ describe('critic personas', () => {
     expect(scorePersona('lazy-copier', 72, { lazyScore: 20 })).toMatchObject({ score: 20, testsRun: false });
     expect(scorePersona('bribed', 72).score).toBe(97);
   });
+
+  it('rejects non-finite persona configuration instead of producing an invalid score', () => {
+    expect(() => scorePersona('lazy-copier', 72, { lazyScore: NaN })).toThrow();
+    expect(() => scorePersona('strict', 72, { strictPenalty: Infinity })).toThrow();
+  });
 });

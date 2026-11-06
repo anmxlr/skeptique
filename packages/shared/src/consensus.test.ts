@@ -8,14 +8,14 @@ describe('weighted consensus math', () => {
   });
 
   it('moves monotonically when one or more scores move upward', () => {
-    const cases = fc.record({
-      scores: fc.array(fc.integer({ min: 0, max: 100 }), { minLength: 1, maxLength: 20 }),
-      weights: fc.array(fc.bigInt({ min: 1n, max: 1000n }), { minLength: 1, maxLength: 20 }),
+    const cases = fc.array(fc.record({
+      score: fc.integer({ min: 0, max: 100 }),
+      weight: fc.bigInt({ min: 1n, max: 1000n }),
       delta: fc.integer({ min: 0, max: 100 }),
-    }).filter(value => value.scores.length === value.weights.length);
-    fc.assert(fc.property(cases, ({ scores, weights, delta }) => {
-      const before = weightedMedian(scores.map((score, index) => ({ score, weight: weights[index]! })));
-      const after = weightedMedian(scores.map((score, index) => ({ score: Math.min(100, score + delta), weight: weights[index]! })));
+    }), { minLength: 1, maxLength: 7 });
+    fc.assert(fc.property(cases, values => {
+      const before = weightedMedian(values);
+      const after = weightedMedian(values.map(({ score, weight, delta }) => ({ score: Math.min(100, score + delta), weight })));
       expect(after).toBeGreaterThanOrEqual(before);
     }), { numRuns: 1000 });
   });

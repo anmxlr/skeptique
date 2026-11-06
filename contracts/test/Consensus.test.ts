@@ -2,9 +2,73 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'mocha';
 import '@nomicfoundation/hardhat-ethers';
 import { ethers, network } from 'hardhat';
+import fc from 'fast-check';
 import { scorePersona } from '../../apps/critic/src/personas';
+import { weightedMedian } from '../../packages/shared/src/consensus';
 
 describe('weighted median and slash settlement', () => {
+  it('matches the reference median and moves monotonically on-chain', async function () {
+    this.timeout(20_000);
+    const signers = await ethers.getSigners();
+    const registry = await (await ethers.getContractFactory('MockCriticRegistry')).deploy();
+    const manager: any = await (await ethers.getContractFactory('RoundManager')).deploy(100, 100, 1, 7, await registry.getAddress(), 100, 2000);
+    const settle = async (values: Array<{ score: number; weight: bigint }>) => {
+      const roundId = await manager.nextRoundId();
+      await manager.openRound(1);
+      for (const [i, value] of values.entries()) {
+        const critic = signers[i + 1]!;
+        await registry.setStake(await critic.getAddress(), value.weight);
+        await manager.connect(critic).commit(roundId, await manager.commitmentFor(value.score, ethers.ZeroHash, ethers.ZeroHash, await critic.getAddress()));
+      }
+      await network.provider.send('evm_increaseTime', [101]);
+      await network.provider.send('evm_mine');
+      for (const [i, value] of values.entries()) await manager.connect(signers[i + 1]!).reveal(roundId, value.score, ethers.ZeroHash, ethers.ZeroHash, 0);
+      await network.provider.send('evm_increaseTime', [101]);
+      await network.provider.send('evm_mine');
+      await manager.finalize(roundId);
+      const median = Number((await manager.getRound(roundId)).median);
+      assert.equal(median, weightedMedian(values));
+      return median;
+    };
+    const cases = fc.array(fc.record({ score: fc.integer({ min: 0, max: 100 }), weight: fc.bigInt({ min: 1n, max: 1000n }), delta: fc.integer({ min: 0, max: 100 }) }), { minLength: 3, maxLength: 7 });
+    await fc.assert(fc.asyncProperty(cases, async values => {
+      const before = await settle(values);
+      const after = await settle(values.map(({ score, weight, delta }) => ({ score: Math.min(100, score + delta), weight })));
+      assert(after >= before);
+    }), { numRuns: 12, seed: 20261106 });
+  });
+
+  it('rejects a positive stake belonging to an unregistered critic', async () => {
+    const [, critic] = await ethers.getSigners();
+    const registry = await (await ethers.getContractFactory('MockCriticRegistry')).deploy();
+    await registry.setStake(await critic!.getAddress(), 5);
+    await registry.setRegistered(await critic!.getAddress(), false);
+    const manager: any = await (await ethers.getContractFactory('RoundManager')).deploy(10, 30, 1, 7, await registry.getAddress(), 10, 2000);
+    await manager.openRound(1);
+    await assert.rejects(manager.connect(critic).commit(1, ethers.ZeroHash), /CriticNotRegistered/);
+  });
+
+  it('uses unequal stake weights instead of the unweighted middle score', async () => {
+    const signers = await ethers.getSigners();
+    const registry = await (await ethers.getContractFactory('MockCriticRegistry')).deploy();
+    const values = [{ score: 20, weight: 1 }, { score: 60, weight: 1 }, { score: 90, weight: 5 }];
+    const manager: any = await (await ethers.getContractFactory('RoundManager')).deploy(20, 30, 1, 7, await registry.getAddress(), 100, 2000);
+    await manager.openRound(1);
+    const evidence = ethers.ZeroHash;
+    for (const [i, value] of values.entries()) {
+      const critic = signers[i + 1]!;
+      await registry.setStake(await critic.getAddress(), value.weight);
+      await manager.connect(critic).commit(1, await manager.commitmentFor(value.score, evidence, evidence, await critic.getAddress()));
+    }
+    await network.provider.send('evm_increaseTime', [21]);
+    await network.provider.send('evm_mine');
+    for (const [i, value] of values.entries()) await manager.connect(signers[i + 1]!).reveal(1, value.score, evidence, evidence, 0);
+    await network.provider.send('evm_increaseTime', [31]);
+    await network.provider.send('evm_mine');
+    await manager.finalize(1);
+    assert.equal((await manager.getRound(1)).median, 90n);
+  });
+
   it('uses stake weights, ties low, and slashes only outliers by the configured amount', async () => {
     const signers = await ethers.getSigners();
     const registry = await (await ethers.getContractFactory('MockCriticRegistry')).deploy();
