@@ -47,7 +47,13 @@ An operator separately calls exported `provisionCriticNamespace({transport, oper
 pnpm --filter @skeptique/relayer exec vitest run -t scores
 pnpm --filter @skeptique/shared exec vitest run src/ens.test.ts
 pnpm --filter @skeptique/web exec vitest run test/ens-score.test.tsx
-pnpm test:live -- -t 'score written to ENS'
+pnpm exec vitest run --config vitest.live.config.ts -t 'score written to ENS'
+```
+
+The browser regression exercises both actual pages with real viem JSON-RPC encoding and a stale API score, using intercepted local transports:
+
+```sh
+NEXT_PUBLIC_API_URL=http://127.0.0.1:43199 NEXT_PUBLIC_SEPOLIA_RPC_URL=http://127.0.0.1:43200 pnpm --filter @skeptique/web exec playwright test ens-scores.spec.ts
 ```
 
 The live test requires the existing RPC/key variables plus `ENS_PARENT_NAME`, `ENS_SCORE_TEST_NAME`, `HEDERA_ROUND_MANAGER_ADDRESS`, `HEDERA_SERVICE_REGISTRY_ADDRESS`, `ENS_SCORE_TEST_FROM_BLOCK`, and `ENS_SCORE_TEST_ROUND_ID`. It finds an actual non-void Hedera finalization, verifies the service namehash, writes all four ENS records, proves duplicate replay is unchanged, and reads the values from Sepolia. Missing credentials skip the test; **a skip is not a completed live acceptance gate**. Do not write `board/done/20.md` until the real test passes.

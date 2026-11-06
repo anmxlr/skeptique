@@ -1,14 +1,14 @@
 import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
+import { roundManagerAbi } from "@skeptique/shared/abi/RoundManager";
 import { serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import { validateEnsSubname } from "@skeptique/shared/ens";
-import { type Address, createPublicClient, namehash, parseAbi, type Transport } from "viem";
+import { type Address, createPublicClient, getAbiItem, namehash, type Transport } from "viem";
 import type { createScoreRelayer } from "./scores";
 
-const roundAbi = parseAbi([
-  "event RoundFinalized(uint256 indexed roundId, uint256 indexed serviceId, uint8 median, uint8 nReveals, bool isVoid)",
-  "event CriticRevealed(uint256 indexed roundId, address indexed critic, uint8 score, bytes32 evidenceHash)",
-  "function isHonest(uint256 roundId, address critic) view returns (bool)",
-]);
+const roundEvents = [
+  getAbiItem({ abi: roundManagerAbi, name: "RoundFinalized" }),
+  getAbiItem({ abi: roundManagerAbi, name: "CriticRevealed" }),
+] as const;
 
 /** One bounded catch-up pass; rerun from the deployment block after a restart. */
 export async function relayScoresFromChain(options: {
@@ -51,7 +51,7 @@ export async function relayScoresFromChain(options: {
       }),
       pub.getLogs({
         address: options.roundManager,
-        events: roundAbi.filter((item) => item.type === "event"),
+        events: roundEvents,
         fromBlock: start,
         toBlock: end,
         strict: true,
@@ -98,7 +98,7 @@ export async function relayScoresFromChain(options: {
         if (
           await pub.readContract({
             address: options.roundManager,
-            abi: roundAbi,
+            abi: roundManagerAbi,
             functionName: "isHonest",
             args: [log.args.roundId, critic],
             blockNumber: toBlock,

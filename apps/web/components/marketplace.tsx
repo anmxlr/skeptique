@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type ApiRoutes, apiClient } from "../lib/api";
+import { EnsScore } from "./ens-score";
 
 type MarketplaceService = ApiRoutes["/services"][number];
 
@@ -30,12 +31,20 @@ function ServiceCard({ service }: { service: MarketplaceService }) {
       <p className="market-muted">{service.category}</p>
       <dl className="market-stats">
         <dt>Status</dt>
-        <dd>{probation ? <span className="market-probation">Probation</span> : `Score ${service.median}`}</dd>
-        <dt>Adjusted rank</dt>
+        <dd>
+          {service.ensName ? (
+            "Published via ENS"
+          ) : probation ? (
+            <span className="market-probation">Probation</span>
+          ) : (
+            "ENS name unavailable"
+          )}
+        </dd>
+        <dt>Indexed adjusted rank</dt>
         <dd>{probation ? "Not ranked yet" : service.rank.toFixed(1)}</dd>
         {!probation && (
           <>
-            <dt>Review confidence</dt>
+            <dt>Indexed confidence (time-adjusted)</dt>
             <dd>
               <meter min={0} max={1} value={service.confidence} aria-label={`Review confidence for ${service.name}`} />
               {` ${Math.round(service.confidence * 100)}%`}
@@ -47,6 +56,7 @@ function ServiceCard({ service }: { service: MarketplaceService }) {
         <dt>Bounty</dt>
         <dd>{service.bounty === undefined ? "Unknown" : formatHbar(service.bounty)}</dd>
       </dl>
+      {service.ensName ? <EnsScore name={service.ensName} /> : <p>ENS score unavailable</p>}
     </li>
   );
 }

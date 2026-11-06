@@ -2,6 +2,9 @@ import { readEnsScore } from "@skeptique/shared/ens";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EnsScoreView } from "../components/ens-score";
+import { MarketplaceView } from "../components/marketplace";
+import { ServiceDetailView } from "../components/service-detail";
+import type { ApiRoutes } from "../lib/api";
 
 describe("ENS scores UI", () => {
   it("renders the resolver's value and exact query even when the API mirror differs", async () => {
@@ -30,5 +33,34 @@ describe("ENS scores UI", () => {
   it("does not invent a score when records are missing or RPC fails", () => {
     expect(renderToStaticMarkup(<EnsScoreView state={{ status: "unavailable" }} />)).not.toContain("Score 0");
     expect(renderToStaticMarkup(<EnsScoreView state={{ status: "error" }} />)).toContain("Could not read ENS score");
+  });
+  it("mounts the resolver reader in both real views without displaying a stale API score", () => {
+    const service: ApiRoutes["/services"][number] = {
+      id: 1,
+      name: "converter",
+      category: "conversion",
+      seller: "0x0000000000000000000000000000000000000001",
+      endpoint: "https://service.invalid/call",
+      pricePerCall: "1",
+      ensName: "converter.svc.skeptique.eth",
+      median: 99,
+      confidence: 0.6,
+      rank: 90,
+      nRounds: 1,
+      lastRoundAt: "2026-11-06T00:00:00Z",
+      popularityCalls: 0,
+    };
+    for (const html of [
+      renderToStaticMarkup(<MarketplaceView state={{ status: "ready", services: [service] }} />),
+      renderToStaticMarkup(<ServiceDetailView state={{ status: "ready", service, reviews: [] }} />),
+    ]) {
+      expect(html).toContain("Reading ENS score");
+      expect(html).not.toContain("Score 99");
+    }
+    const unnamed = renderToStaticMarkup(
+      <MarketplaceView state={{ status: "ready", services: [{ ...service, ensName: "" }] }} />,
+    );
+    expect(unnamed).toContain("ENS score unavailable");
+    expect(unnamed).not.toContain("Score 99");
   });
 });

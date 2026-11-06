@@ -1,6 +1,7 @@
+import { roundManagerAbi } from "@skeptique/shared/abi/RoundManager";
 import { serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import { createSepoliaScoreReader, readEnsScore } from "@skeptique/shared/ens";
-import { type Address, createPublicClient, http, namehash, parseAbi } from "viem";
+import { type Address, createPublicClient, getAbiItem, http, namehash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
 import { createEnsTarget } from "./ens-target";
@@ -23,9 +24,7 @@ describe.skipIf(required.some((key) => !process.env[key]))("live ENS scores", ()
     expect(await source.getChainId()).toBe(296);
     const logs = await source.getLogs({
       address: process.env.HEDERA_ROUND_MANAGER_ADDRESS as Address,
-      event: parseAbi([
-        "event RoundFinalized(uint256 indexed roundId, uint256 indexed serviceId, uint8 median, uint8 nReveals, bool isVoid)",
-      ])[0],
+      event: getAbiItem({ abi: roundManagerAbi, name: "RoundFinalized" }),
       args: { roundId: BigInt(process.env.ENS_SCORE_TEST_ROUND_ID as string) },
       fromBlock: BigInt(process.env.ENS_SCORE_TEST_FROM_BLOCK as string),
       toBlock: "latest",
