@@ -85,8 +85,11 @@ describe("critic publishes evidence", () => {
 
     const html = renderToString(createElement(ServiceDetailView, { state: { status: "ready", service, evidence } }));
     expect(html).toContain("Evidence");
-    expect(html).toContain(`${evidence.suite.length} cases`);
-    expect(html).toContain(`Score ${evidence.score}`);
+    expect(html).toContain(`${evidence.suite.length} public cases`);
+    expect(html).toContain(`${evidence.probes.length} private probes`);
+    expect(html).toContain("Public suite");
+    expect(html).toContain("Private probes");
+    expect(html).toContain(`Review score ${evidence.score}`);
     expect(html).toContain("p95");
   });
 });
