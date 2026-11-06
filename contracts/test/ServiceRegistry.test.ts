@@ -111,8 +111,17 @@ describe("ServiceRegistry", () => {
       (item: { type: string; stateMutability?: string }) =>
         item.type === "function" && item.stateMutability !== "view" && item.stateMutability !== "pure",
     );
-    assert.deepEqual(writes.map((item: { name: string }) => item.name).sort(), ["listService", "topUp"]);
-    assert(writes.every((item: { stateMutability: string }) => item.stateMutability === "payable"));
+    // setRoundManager is the deployer's one-shot wiring and moves no money.
+    assert.deepEqual(writes.map((item: { name: string }) => item.name).sort(), [
+      "listService",
+      "setRoundManager",
+      "topUp",
+    ]);
+    assert(
+      writes
+        .filter((item: { name: string }) => item.name !== "setRoundManager")
+        .every((item: { stateMutability: string }) => item.stateMutability === "payable"),
+    );
     assert(!artifact.abi.some((item: { type: string }) => item.type === "receive" || item.type === "fallback"));
 
     // Unknown selectors (e.g. withdraw()) and plain transfers revert.
