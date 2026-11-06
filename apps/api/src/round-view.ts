@@ -1,4 +1,4 @@
-import { RoundViewSchema, type RoundView } from '@skeptic/shared';
+import { type RoundView, RoundViewSchema } from "@skeptic/shared";
 
 export type RoundSnapshot = {
   id: number;
@@ -13,11 +13,15 @@ export type RoundSnapshot = {
 };
 
 export function toRoundView(round: RoundSnapshot, nowSeconds = Math.floor(Date.now() / 1000)): RoundView {
-  const phase = round.void ? 'void'
-    : round.finalized ? 'finalized'
-      : nowSeconds < round.commitEnd ? 'commit'
-        : nowSeconds < round.revealEnd ? 'reveal'
-          : 'finalizable';
+  const phase = round.void
+    ? "void"
+    : round.finalized
+      ? "finalized"
+      : nowSeconds < round.commitEnd
+        ? "commit"
+        : nowSeconds < round.revealEnd
+          ? "reveal"
+          : "finalizable";
   return RoundViewSchema.parse({
     id: round.id,
     serviceId: round.serviceId,
@@ -30,11 +34,13 @@ export function toRoundView(round: RoundSnapshot, nowSeconds = Math.floor(Date.n
 }
 
 export function getPublishedServiceScore(rounds: RoundView[], serviceId: number): number | null {
-  return rounds
-    .filter(round => round.serviceId === serviceId && round.phase === 'finalized' && round.median !== null)
-    .sort((a, b) => b.id - a.id)[0]?.median ?? null;
+  return (
+    rounds
+      .filter((round) => round.serviceId === serviceId && round.phase === "finalized" && round.median !== null)
+      .sort((a, b) => b.id - a.id)[0]?.median ?? null
+  );
 }
 
 export function getServiceRoundTimeline(rounds: RoundView[], serviceId: number): RoundView[] {
-  return rounds.filter(round => round.serviceId === serviceId).sort((a, b) => a.id - b.id);
+  return rounds.filter((round) => round.serviceId === serviceId).sort((a, b) => a.id - b.id);
 }
