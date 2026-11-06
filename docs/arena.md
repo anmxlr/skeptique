@@ -56,3 +56,6 @@ Run hash `0xc9c24fcaf42538b72fe44ec1fcda79de4b0a2e90f007b49f5b06db827621b644`.
 - **Model choices vary from run to run.** Re-run the task pack rather than trusting one run.
 
 See `apps/arena/README.md` to run it yourself.
+
+## AI use
+Built with Claude Code (Claude Opus 5.5 as lead, with parallel subagents for the web page, the tests and batch mode, and an independent code review against the Karpathy guidelines; the review findings were applied). At runtime the two buyer agents and the free-text task parser use Claude Haiku 5.5. No model grades answers.
