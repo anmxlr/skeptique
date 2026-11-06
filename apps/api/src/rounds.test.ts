@@ -1,8 +1,29 @@
 import Fastify from "fastify";
+import type { PublicClient } from "viem";
 import { describe, expect, it } from "vitest";
-import { registerRoundRoutes } from "./rounds";
+import { createRoundSource, registerRoundRoutes } from "./rounds";
 
 describe("round API route", () => {
+  it("pins chain reads to one block and never publishes verdicts or median for a void round", async () => {
+    const client = {
+      getBlock: async () => ({ number: 42n, timestamp: 250n }),
+      readContract: async (request: { blockNumber: bigint; functionName: string }) => {
+        expect(request.blockNumber).toBe(42n);
+        expect(request.functionName).toBe("getRound");
+        return { serviceId: 1n, commitEnd: 100n, revealEnd: 200n, median: 0, nReveals: 1, finalized: true };
+      },
+      getContractEvents: async (request: { toBlock: bigint; strict: boolean; eventName: string }) => {
+        expect(request.toBlock).toBe(42n);
+        expect(request.strict).toBe(true);
+        return request.eventName === "RoundFinalized"
+          ? [{ args: { isVoid: true } }]
+          : [{ args: { critic: "0x0000000000000000000000000000000000000001", score: 72 } }];
+      },
+    } as unknown as Pick<PublicClient, "getBlock" | "readContract" | "getContractEvents">;
+    const view = await createRoundSource({ client, address: "0x0000000000000000000000000000000000000002" }).get(1);
+    expect(view).toMatchObject({ phase: "void", median: null, reveals: [{ score: 72, honest: null }] });
+  });
+
   it("serves validated round state and handles invalid or missing IDs", async () => {
     const app = Fastify();
     const view = {

@@ -6,6 +6,7 @@ import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from 
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
+import { type RoundViewSource, registerRoundRoutes } from "./rounds";
 import { registerWorldRoutes, type WorldDeps } from "./world";
 
 export interface AppDeps {
@@ -21,6 +22,7 @@ export interface AppDeps {
   critics?: CriticSource;
   /** World ID onboarding for critics; the /world routes exist only when this is given. */
   world?: WorldDeps;
+  rounds?: RoundViewSource;
   /** Where published evidence is kept, by hash; defaults to memory. */
   evidence?: EvidenceStore;
 }
@@ -28,8 +30,14 @@ export interface AppDeps {
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
 
+export { createRoundSource, type RoundViewSource } from "./rounds";
+
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   const app = Fastify(options);
+  // Public reads are consumed by the separately hosted web app.
+  app.addHook("onSend", async (request, reply) => {
+    if (request.method === "GET") reply.header("Access-Control-Allow-Origin", "*");
+  });
 
   app.get("/health", async (_req, reply) => {
     try {
@@ -48,6 +56,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   }
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
+  if (deps.rounds) registerRoundRoutes(app, deps.rounds);
   registerEvidenceRoutes(app, deps.evidence ?? new MemoryEvidenceStore());
   registerBuyerRunRoutes(app);
   if (deps.world) registerWorldRoutes(app, deps.world, deps.publicClient);
