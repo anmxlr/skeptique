@@ -47,6 +47,7 @@ function worldFromEnv(env: NodeJS.ProcessEnv): WorldConfig | undefined {
 }
 
 const deployment = await loadDeployment();
+const ensParentName = process.env.ENS_PARENT_NAME?.trim() || deployment.ensParentName;
 const publicClient = createPublicClient({ transport: http(rpcUrl) });
 if ((await publicClient.getChainId()) !== deployment.chainId)
   throw new Error("RPC chain does not match deployment manifest");
@@ -71,7 +72,7 @@ const app = buildApp(
   {
     publicClient,
     contracts: deployment.contracts,
-    deployment,
+    deployment: { ...deployment, ensParentName },
     listings,
     critics: createCriticSource({ client: publicClient, address: CriticRegistry, roundManager: RoundManager }),
     rounds: createRoundSource({ client: publicClient, address: RoundManager }),

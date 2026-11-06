@@ -12,6 +12,7 @@ export const DeploymentSchema = z.object({
   version: z.literal(1),
   network: z.literal("hedera-testnet"),
   chainId: z.literal(296),
+  ensParentName: z.string().min(1).optional(),
   deployedAt: z.iso.datetime(),
   deploymentBlock: atomic,
   contracts: z.object({ ServiceRegistry: address, CriticRegistry: address, RoundManager: address }),

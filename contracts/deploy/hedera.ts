@@ -19,18 +19,23 @@ export async function readMechanismArtifact(name: MechanismName): Promise<{ abi:
 
 const abiDirectory = fileURLToPath(new URL("../../packages/shared/abi/generated/", import.meta.url));
 export async function exportMechanismAbis(artifacts?: Array<{ abi: Abi; bytecode: Hex }>) {
-  const compiled = artifacts ?? await Promise.all(names.map(readMechanismArtifact));
+  const compiled = artifacts ?? (await Promise.all(names.map(readMechanismArtifact)));
   await mkdir(abiDirectory, { recursive: true });
-  await Promise.all(names.map((name, index) => {
-    const artifact = compiled[index];
-    if (!artifact) throw new Error(`Missing ${name} artifact`);
-    return writeFile(`${abiDirectory}${name}.json`, `${JSON.stringify(artifact.abi, null, 2)}\n`);
-  }));
+  await Promise.all(
+    names.map((name, index) => {
+      const artifact = compiled[index];
+      if (!artifact) throw new Error(`Missing ${name} artifact`);
+      return writeFile(`${abiDirectory}${name}.json`, `${JSON.stringify(artifact.abi, null, 2)}\n`);
+    }),
+  );
 }
 
 export function privateKey(env: NodeJS.ProcessEnv, name: string): Hex {
   const key = env[name]?.replace(/^0x/, "");
   if (!key || !/^[0-9a-fA-F]{64}$/.test(key)) throw new Error(`${name} must contain an ECDSA private key`);
+  const scalar = BigInt(`0x${key}`);
+  if (scalar === 0n || scalar >= 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n)
+    throw new Error(`${name} must contain a valid secp256k1 private key`);
   return `0x${key}`;
 }
 
@@ -106,6 +111,7 @@ export async function deployHedera(env: NodeJS.ProcessEnv = process.env): Promis
     version: 1,
     network: "hedera-testnet",
     chainId: 296,
+    ensParentName: env.ENS_PARENT_NAME?.trim() || undefined,
     deployedAt: new Date().toISOString(),
     deploymentBlock: deploymentBlock?.toString(),
     contracts: { ServiceRegistry, CriticRegistry, RoundManager },
