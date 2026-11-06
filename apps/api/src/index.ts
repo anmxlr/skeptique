@@ -53,8 +53,20 @@ if (process.env.ENS_NAMES_PATH?.trim()) {
   serviceNames = names as Record<string, string>;
 }
 const { ServiceRegistry, CriticRegistry, RoundManager } = deployment.contracts;
-const listings = createRegistrySource({ client: publicClient, address: ServiceRegistry, serviceNames, ensParent: ensParentName });
-const ranked = createFinalizedRankingSource({ listing: listings, client: publicClient, address: RoundManager });
+const fromBlock = BigInt(deployment.deploymentBlock);
+const listings = createRegistrySource({
+  client: publicClient,
+  address: ServiceRegistry,
+  serviceNames,
+  ensParent: ensParentName,
+  fromBlock,
+});
+const ranked = createFinalizedRankingSource({
+  listing: listings,
+  client: publicClient,
+  address: RoundManager,
+  fromBlock,
+});
 const evidenceStore = new MemoryEvidenceStore();
 const app = buildApp(
   {
@@ -62,10 +74,20 @@ const app = buildApp(
     contracts: deployment.contracts,
     deployment: { ...deployment, ensParentName },
     listings,
-    critics: createCriticSource({ client: publicClient, address: CriticRegistry, roundManager: RoundManager }),
-    rounds: createRoundSource({ client: publicClient, address: RoundManager }),
+    critics: createCriticSource({
+      client: publicClient,
+      address: CriticRegistry,
+      roundManager: RoundManager,
+      fromBlock,
+    }),
+    rounds: createRoundSource({ client: publicClient, address: RoundManager, fromBlock }),
     evidence: evidenceStore,
-    serviceReviews: createServiceReviewSource({ client: publicClient, address: RoundManager, store: evidenceStore }),
+    serviceReviews: createServiceReviewSource({
+      client: publicClient,
+      address: RoundManager,
+      store: evidenceStore,
+      fromBlock,
+    }),
     marketplace: {
       source: ranked,
       isCritic: (address) =>

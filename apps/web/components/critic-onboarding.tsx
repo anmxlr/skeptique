@@ -4,8 +4,8 @@ import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
 import { contractValue } from "@skeptique/shared/deployment";
 import { useState } from "react";
 import { createPublicClient, createWalletClient, custom, type EIP1193Provider } from "viem";
-import { type OnboardOutcome, type OnboardStep, onboardCritic, type RpContext, type Voucher } from "../lib/onboard";
 import { apiClient } from "../lib/api";
+import { type OnboardOutcome, type OnboardStep, onboardCritic, type RpContext, type Voucher } from "../lib/onboard";
 
 export type OnboardingState =
   | { status: "idle" }
@@ -160,7 +160,8 @@ async function runOnboarding(onChange: (state: OnboardingState) => void, signal:
         value,
         chain: null,
       });
-      if ((await client.waitForTransactionReceipt({ hash })).status !== "success") throw new Error("Critic registration reverted.");
+      if ((await client.waitForTransactionReceipt({ hash })).status !== "success")
+        throw new Error("Critic registration reverted.");
       return hash;
     },
   });

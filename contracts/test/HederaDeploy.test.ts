@@ -14,8 +14,11 @@ describe("Hedera deployment configuration", () => {
 
   it("rejects invalid key scalars without including their values in the error", () => {
     for (const value of ["00".repeat(32), "ff".repeat(32), "invalid-secret-value"]) {
-      assert.throws(() => privateKey({ KEY: value }, "KEY"), error =>
-        error instanceof Error && error.message.includes("KEY must contain") && !error.message.includes(value));
+      assert.throws(
+        () => privateKey({ KEY: value }, "KEY"),
+        (error) =>
+          error instanceof Error && error.message.includes("KEY must contain") && !error.message.includes(value),
+      );
     }
     assert.equal(privateKey({ KEY: "01".repeat(32) }, "KEY"), `0x${"01".repeat(32)}`);
   });

@@ -141,13 +141,28 @@ describe("seller lists from the web form", () => {
 
   it("binds a configured service name to its immutable ENS node and rejects a mismatched wallet chain", async () => {
     let sent = 0;
-    await expect(listService({ provider: wallet(stack.rpcUrl, () => sent++), registry, form, expectedChainId: 296 }))
-      .rejects.toThrow("Switch your wallet");
+    await expect(
+      listService({ provider: wallet(stack.rpcUrl, () => sent++), registry, form, expectedChainId: 296 }),
+    ).rejects.toThrow("Switch your wallet");
     expect(sent).toBe(0);
-    const listed = await listService({ provider: wallet(stack.rpcUrl), registry, form, expectedChainId: 31337,
-      ensParent: "example.eth" });
-    const data = await rpc<`0x${string}`>(stack.rpcUrl, "eth_call", [{ to: registry,
-      data: encodeFunctionData({ abi: serviceRegistryAbi, functionName: "getService", args: [BigInt(listed.serviceId)] }) }, "latest"]);
+    const listed = await listService({
+      provider: wallet(stack.rpcUrl),
+      registry,
+      form,
+      expectedChainId: 31337,
+      ensParent: "example.eth",
+    });
+    const data = await rpc<`0x${string}`>(stack.rpcUrl, "eth_call", [
+      {
+        to: registry,
+        data: encodeFunctionData({
+          abi: serviceRegistryAbi,
+          functionName: "getService",
+          args: [BigInt(listed.serviceId)],
+        }),
+      },
+      "latest",
+    ]);
     const service = decodeFunctionResult({ abi: serviceRegistryAbi, functionName: "getService", data });
     expect(service.ensNode).toBe(namehash("unit-convert.svc.example.eth"));
     expect(service.bounty).toBe(BigInt(DEFAULT_ROUND_CONFIG.MIN_LISTING_FEE) * 100000000n);

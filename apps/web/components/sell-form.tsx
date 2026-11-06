@@ -41,9 +41,15 @@ export function SellForm() {
     setBusy(true);
     try {
       const deployment = await apiClient().getDeployment();
-      if (!deployment.ensParentName) throw new ListingError("invalid", "Service naming is not configured yet. Try again later.");
-      const { serviceId } = await listService({ provider, registry: deployment.contracts.ServiceRegistry, form,
-        expectedChainId: deployment.chainId, ensParent: deployment.ensParentName });
+      if (!deployment.ensParentName)
+        throw new ListingError("invalid", "Service naming is not configured yet. Try again later.");
+      const { serviceId } = await listService({
+        provider,
+        registry: deployment.contracts.ServiceRegistry,
+        form,
+        expectedChainId: deployment.chainId,
+        ensParent: deployment.ensParentName,
+      });
       window.location.assign(`/services/${serviceId}`);
     } catch (cause) {
       setError(cause instanceof ListingError ? cause.message : "The listing failed.");

@@ -2,7 +2,15 @@ import { suiteHash, type TestSuite, TestSuiteSchema } from "@skeptique/shared";
 import { serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import { contractValue } from "@skeptique/shared/deployment";
 import { serviceEnsName, serviceSlug } from "@skeptique/shared/ens";
-import { createPublicClient, createWalletClient, custom, type EIP1193Provider, namehash, parseEventLogs, zeroHash } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  custom,
+  type EIP1193Provider,
+  namehash,
+  parseEventLogs,
+  zeroHash,
+} from "viem";
 import { formatHbar } from "../components/marketplace";
 
 export interface ListingForm {
@@ -91,7 +99,14 @@ export interface ListServiceInput {
 }
 
 /** Checks, then submits the listing from the seller's wallet. Nothing is sent unless every check passes. */
-export async function listService({ provider, registry, form, fetchImpl, expectedChainId, ensParent }: ListServiceInput) {
+export async function listService({
+  provider,
+  registry,
+  form,
+  fetchImpl,
+  expectedChainId,
+  ensParent,
+}: ListServiceInput) {
   const transport = custom(provider as EIP1193Provider);
   const reader = createPublicClient({ transport });
   const chainId = await reader.getChainId();
@@ -129,8 +144,11 @@ export async function listService({ provider, registry, form, fetchImpl, expecte
   }
   let ensNode: `0x${string}` = zeroHash;
   if (ensParent) {
-    try { ensNode = namehash(serviceEnsName(serviceSlug(suite.serviceName), ensParent)); }
-    catch { throw new ListingError("invalid", "Service naming is not configured correctly."); }
+    try {
+      ensNode = namehash(serviceEnsName(serviceSlug(suite.serviceName), ensParent));
+    } catch {
+      throw new ListingError("invalid", "Service naming is not configured correctly.");
+    }
   }
 
   const wallet = createWalletClient({ transport });
