@@ -6,6 +6,7 @@ import {
   buildApp,
   createCriticSource,
   createRegistrySource,
+  createRoundSource,
   createServiceReviewSource,
   MemoryEvidenceStore,
 } from "@skeptique/api";
@@ -74,7 +75,11 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       ? createRegistrySource({ client: publicClient, address: contracts.ServiceRegistry })
       : undefined;
     const critics = contracts.CriticRegistry
-      ? createCriticSource({ client: publicClient, address: contracts.CriticRegistry })
+      ? createCriticSource({
+          client: publicClient,
+          address: contracts.CriticRegistry,
+          roundManager: contracts.RoundManager,
+        })
       : undefined;
     const evidenceStore = options.api?.evidenceStore ?? new MemoryEvidenceStore();
     const serviceReviews =
@@ -82,7 +87,19 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
       (contracts.RoundManager
         ? createServiceReviewSource({ client: publicClient, address: contracts.RoundManager, store: evidenceStore })
         : undefined);
-    const api = buildApp({ ...options.api, publicClient, contracts, listings, critics, evidenceStore, serviceReviews });
+    const rounds = contracts.RoundManager
+      ? createRoundSource({ client: publicClient, address: contracts.RoundManager })
+      : undefined;
+    const api = buildApp({
+      ...options.api,
+      publicClient,
+      contracts,
+      listings,
+      critics,
+      rounds,
+      evidenceStore,
+      serviceReviews,
+    });
     stoppers.push(() => api.close());
     await api.listen({ port: 0, host: "127.0.0.1" });
     const apiUrl = `http://127.0.0.1:${(api.server.address() as AddressInfo).port}`;

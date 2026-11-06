@@ -1,4 +1,4 @@
-import type { BuyerRun, Evidence, ServiceView } from "@skeptique/shared";
+import type { BuyerRun, Evidence, RoundView, ServiceView } from "@skeptique/shared";
 
 /** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
 export interface CriticView {
@@ -6,6 +6,9 @@ export interface CriticView {
   nullifier: string;
   /** Current stake in tinybars. */
   stake: string;
+  verdict?: "honest" | "slashed" | "outlier" | "unreviewed";
+  lastRoundId?: number;
+  slashedAmount?: string;
 }
 
 export interface ApiRoutes {
@@ -28,6 +31,13 @@ export class ApiError extends Error {
 
 export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch) {
   return {
+    async getRound(id: number): Promise<RoundView> {
+      if (!Number.isSafeInteger(id) || id < 1) throw new Error("Invalid round ID");
+      const path = `/rounds/${id}`;
+      const res = await fetchImpl(new URL(path, baseUrl));
+      if (!res.ok) throw new ApiError(res.status, path);
+      return res.json() as Promise<RoundView>;
+    },
     async get<P extends keyof ApiRoutes>(path: P): Promise<ApiRoutes[P]> {
       const res = await fetchImpl(new URL(path, baseUrl));
       if (!res.ok) throw new ApiError(res.status, path);

@@ -6,6 +6,7 @@ import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from 
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
+import { type RoundViewSource, registerRoundRoutes } from "./rounds";
 import { registerServiceReviewRoutes, type ServiceReviewSource } from "./service-reviews";
 import { registerWorldRoutes, type WorldConfig } from "./world";
 
@@ -24,14 +25,20 @@ export interface AppDeps {
   world?: WorldConfig;
   evidenceStore?: EvidenceStore;
   serviceReviews?: ServiceReviewSource;
+  rounds?: RoundViewSource;
 }
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
+export { createRoundSource, type RoundViewSource } from "./rounds";
 export { createWorldVerifier, type WorldConfig } from "./world";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   const app = Fastify(options);
+  // Public read models are shared with the separately hosted web app; write routes retain their own policy.
+  app.addHook("onSend", async (request, reply) => {
+    if (request.method === "GET") reply.header("Access-Control-Allow-Origin", "*");
+  });
 
   app.get("/health", async (_req, reply) => {
     try {
@@ -50,6 +57,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   }
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
+  if (deps.rounds) registerRoundRoutes(app, deps.rounds);
   if (deps.world) {
     const critics = deps.critics;
     const isNullifierRegistered =

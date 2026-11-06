@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { type ServiceStarter, startStack } from "@skeptique/harness";
 import { afterAll, describe, expect, it } from "vitest";
-import { createServiceReviewSource, MemoryEvidenceStore } from "../apps/api/src/app";
+
 import { runServiceReview } from "../apps/critic/src/review";
 import { serviceByName } from "../apps/services/catalog";
 import { startService } from "../apps/services/common/server";
@@ -60,36 +60,17 @@ describe("suite-gamer exposed", () => {
   let stop: (() => Promise<void>) | undefined;
   afterAll(async () => stop?.());
   it("anchors public and held-out evidence to real finalized medians with a gap above 25 points", async () => {
-    const store = new MemoryEvidenceStore();
-    let source: ReturnType<typeof createServiceReviewSource>;
     const stack = await startStack({
       services: { "unit-convert": serve("unit-convert"), "suite-gamer": serve("suite-gamer") },
-      api: { evidenceStore: store, serviceReviews: { list: (id) => source.list(id) } },
     });
     stop = stack.stop;
     const client = createPublicClient({ transport: http(stack.rpcUrl) });
     const accounts = await rpc<`0x${string}`[]>(stack.rpcUrl, "eth_accounts");
     const owner = createWalletClient({ account: accounts[0], transport: http(stack.rpcUrl) });
     const artifact = require("../contracts/artifacts/contracts/RoundManager.sol/RoundManager.json");
-    const deployment = await owner.deployContract({
-      abi: artifact.abi,
-      bytecode: artifact.bytecode,
-      args: [120n, 120n, 3, 7, stack.contracts.CriticRegistry, 10, 2000],
-      chain: null,
-    });
-    const address = (await client.waitForTransactionReceipt({ hash: deployment })).contractAddress!;
-    source = createServiceReviewSource({ client, address, store });
-    const criticArtifact = require("../contracts/artifacts/contracts/CriticRegistry.sol/CriticRegistry.json");
+    const address = stack.contracts.RoundManager;
+    if (!address) throw new Error("Harness did not deploy RoundManager");
     const wait = async (hash: `0x${string}`) => client.waitForTransactionReceipt({ hash });
-    await wait(
-      await owner.writeContract({
-        address: stack.contracts.CriticRegistry,
-        abi: criticArtifact.abi,
-        functionName: "setRoundManager",
-        args: [address],
-        chain: null,
-      }),
-    );
     await listDemoServices({
       rpcUrl: stack.rpcUrl,
       registry: stack.contracts.ServiceRegistry,

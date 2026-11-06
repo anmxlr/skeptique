@@ -3,6 +3,7 @@ import hre from "hardhat";
 import { describe, it } from "mocha";
 import { encodeAbiParameters, getAddress, keccak256, parseAbiParameters } from "viem";
 import { criticRegisteredEvent, criticRegistryAbi } from "../../packages/shared/abi/CriticRegistry";
+import { roundManagerAbi } from "../../packages/shared/abi/RoundManager";
 import { EventSchemas, eventFixtures } from "../../packages/shared/src/index";
 
 const S_MIN = 5n * 10n ** 8n;
@@ -56,6 +57,70 @@ async function deploy() {
 }
 
 describe("CriticRegistry", () => {
+  it("slash collateral stays locked through settlement and its retained pool conserves funds", async () => {
+    const { attestor, critic, other, registry, voucher, now, publicClient } = await deploy();
+    const manager = await hre.viem.deployContract("RoundManager", [30n, 30n, 1, 7, registry.address, 10, 2000]);
+    await registry.write.setRoundManager([manager.address]);
+    const expiry = (await now()) + 3600n;
+    for (const [index, account] of [critic, other].entries()) {
+      const id = index === 0 ? nullifier : otherNullifier;
+      await registry.write.registerCritic([id, expiry, await voucher(attestor, id, account.account.address, expiry)], {
+        value: S_MIN,
+        account: account.account,
+      });
+    }
+    const zero = `0x${"00".repeat(32)}` as const;
+    await manager.write.openRound([1n]);
+    await manager.write.openRound([2n]);
+    for (const [account, score] of [
+      [critic, 20],
+      [other, 72],
+    ] as const) {
+      const commitment = await manager.read.commitmentFor([score, zero, zero, account.account.address]);
+      await manager.write.commit([1n, commitment], { account: account.account });
+    }
+    await reverted(manager.write.commit([2n, zero], { account: critic.account }), "StakeLocked");
+    await reverted(
+      registry.write.lockStake([critic.account.address, 2n], { account: critic.account }),
+      "NotRoundManager",
+    );
+    await reverted(
+      registry.write.releaseStake([critic.account.address, 1n], { account: critic.account }),
+      "NotRoundManager",
+    );
+    await reverted(
+      registry.write.slashStake([critic.account.address, 1n, 1n, "outlier"], { account: critic.account }),
+      "NotRoundManager",
+    );
+    await registry.write.requestWithdraw([], { account: critic.account });
+    const round = await publicClient.readContract({
+      address: manager.address,
+      abi: roundManagerAbi,
+      functionName: "getRound",
+      args: [1n],
+    });
+    await hre.network.provider.send("evm_setNextBlockTimestamp", [Number(round.commitEnd)]);
+    for (const [account, score] of [
+      [critic, 20],
+      [other, 72],
+    ] as const)
+      await manager.write.reveal([1n, score, zero, zero, 0n], { account: account.account });
+    await hre.network.provider.send("evm_increaseTime", [Number(WITHDRAW_COOLDOWN)]);
+    await hre.network.provider.send("evm_mine");
+    await reverted(registry.write.withdraw([], { account: critic.account }), "StakeLocked");
+    await manager.write.finalize([1n]);
+    // Equal weight ties low, so the score 72 is the outlier in this two-critic regression.
+    assert.equal(await registry.read.activeRound([critic.account.address]), 0n);
+    assert.equal(await registry.read.activeRound([other.account.address]), 0n);
+    assert.equal(await registry.read.slashedFunds([1n]), S_MIN / 5n);
+    assert.equal(await registry.read.stakeOf([other.account.address]), (S_MIN * 4n) / 5n);
+    assert.equal(await publicClient.getBalance({ address: registry.address }), S_MIN * 2n);
+    await reverted(manager.write.finalize([1n]), "AlreadyFinalized");
+    await registry.write.withdraw([], { account: critic.account });
+    assert.equal(await publicClient.getBalance({ address: registry.address }), S_MIN);
+    assert.equal(await registry.read.slashedFunds([1n]), S_MIN / 5n);
+  });
+
   it("registers a critic with a valid voucher and stake, and emits a CriticRegistered that matches the shared schema", async () => {
     const { attestor, critic, publicClient, registry, voucher, now } = await deploy();
     const expiry = (await now()) + 3600n;
