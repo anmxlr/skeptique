@@ -2,9 +2,11 @@ import Fastify, { type FastifyServerOptions } from "fastify";
 import type { PublicClient } from "viem";
 import { registerBuyerRunRoutes } from "./buyer-runs";
 import { type CriticSource, registerCriticRoutes } from "./critics";
+import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from "./evidence";
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
+import { registerServiceReviewRoutes, type ServiceReviewSource } from "./service-reviews";
 import { registerWorldRoutes, type WorldConfig } from "./world";
 
 export interface AppDeps {
@@ -20,6 +22,8 @@ export interface AppDeps {
   critics?: CriticSource;
   /** World ID critic onboarding; serves `/world/rp-context` and `/world/verify`. */
   world?: WorldConfig;
+  evidenceStore?: EvidenceStore;
+  serviceReviews?: ServiceReviewSource;
 }
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
@@ -56,6 +60,11 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
     registerWorldRoutes(app, { ...deps.world, isNullifierRegistered }, () => deps.publicClient.getChainId());
   }
   registerBuyerRunRoutes(app);
+  registerEvidenceRoutes(app, deps.evidenceStore ?? new MemoryEvidenceStore());
+  if (deps.serviceReviews) registerServiceReviewRoutes(app, deps.serviceReviews);
 
   return app;
 }
+
+export { MemoryEvidenceStore } from "./evidence";
+export { createServiceReviewSource } from "./service-reviews";

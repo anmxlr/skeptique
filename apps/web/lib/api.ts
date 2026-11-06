@@ -1,4 +1,4 @@
-import type { BuyerRun, ServiceView } from "@skeptique/shared";
+import type { BuyerRun, Evidence, ServiceView } from "@skeptique/shared";
 
 /** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
 export interface CriticView {
@@ -9,6 +9,7 @@ export interface CriticView {
 }
 
 export interface ApiRoutes {
+  [path: `/services/${string}/reviews`]: { evidenceHash: string; evidence: Evidence }[];
   "/health": { ok: true; chainId: number } | { ok: false };
   "/buyer/runs": BuyerRun[];
   "/critics": CriticView[];
