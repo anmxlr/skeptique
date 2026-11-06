@@ -12,5 +12,14 @@ const TINYBARS_PER_HBAR = 10n ** 8n;
 export async function deployLocal(hre: HardhatRuntimeEnvironment): Promise<Record<string, Address>> {
   const minListingFee = BigInt(DEFAULT_ROUND_CONFIG.MIN_LISTING_FEE) * TINYBARS_PER_HBAR;
   const serviceRegistry = await hre.viem.deployContract("ServiceRegistry", [minListingFee]);
-  return { ServiceRegistry: serviceRegistry.address };
+  // The local attestor is Hardhat's dev account #9; the seed signs vouchers with its key (ATTESTOR_PRIVATE_KEY).
+  const attestor = (await hre.viem.getWalletClients())[9].account.address;
+  const minStake = BigInt(DEFAULT_ROUND_CONFIG.S_MIN) * TINYBARS_PER_HBAR;
+  const criticRegistry = await hre.viem.deployContract("CriticRegistry", [
+    attestor,
+    minStake,
+    serviceRegistry.address,
+    BigInt(DEFAULT_ROUND_CONFIG.WITHDRAW_COOLDOWN),
+  ]);
+  return { ServiceRegistry: serviceRegistry.address, CriticRegistry: criticRegistry.address };
 }

@@ -1,6 +1,7 @@
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { PublicClient } from "viem";
 import { registerBuyerRunRoutes } from "./buyer-runs";
+import { type CriticSource, registerCriticRoutes } from "./critics";
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
 import { type IsCritic, PopularityCounter, registerPopularityRoutes, withPopularity } from "./popularity";
@@ -14,8 +15,11 @@ export interface AppDeps {
   marketplace?: { source: MarketplaceSource; isCritic: IsCritic };
   /** ServiceRegistry listings indexed from the chain; serves the service list when no marketplace is given. */
   listings?: ListingSource;
+  /** CriticRegistry registrations indexed from the chain; serves the critics routes. */
+  critics?: CriticSource;
 }
 
+export { type CriticSource, type CriticView, createCriticSource } from "./critics";
 export { createRegistrySource, type ListingSource } from "./listings";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
@@ -37,6 +41,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
     registerMarketplaceRoutes(app, deps.listings);
   }
   if (deps.listings) registerSuiteRoute(app, deps.listings);
+  if (deps.critics) registerCriticRoutes(app, deps.critics);
   registerBuyerRunRoutes(app);
 
   return app;
