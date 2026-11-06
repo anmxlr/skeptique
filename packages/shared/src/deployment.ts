@@ -7,7 +7,7 @@ const address = z
   .transform((value) => value as `0x${string}`);
 const hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
 const atomic = z.string().regex(/^(0|[1-9]\d*)$/);
-const positiveAtomic = atomic.refine((value) => BigInt(value) > 0n);
+const positiveAtomic = z.string().regex(/^[1-9]\d*$/);
 export const DeploymentSchema = z.object({
   version: z.literal(1),
   network: z.literal("hedera-testnet"),

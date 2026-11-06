@@ -17,6 +17,17 @@ export async function readMechanismArtifact(name: MechanismName): Promise<{ abi:
   );
 }
 
+const abiDirectory = fileURLToPath(new URL("../../packages/shared/abi/generated/", import.meta.url));
+export async function exportMechanismAbis(artifacts?: Array<{ abi: Abi; bytecode: Hex }>) {
+  const compiled = artifacts ?? await Promise.all(names.map(readMechanismArtifact));
+  await mkdir(abiDirectory, { recursive: true });
+  await Promise.all(names.map((name, index) => {
+    const artifact = compiled[index];
+    if (!artifact) throw new Error(`Missing ${name} artifact`);
+    return writeFile(`${abiDirectory}${name}.json`, `${JSON.stringify(artifact.abi, null, 2)}\n`);
+  }));
+}
+
 export function privateKey(env: NodeJS.ProcessEnv, name: string): Hex {
   const key = env[name]?.replace(/^0x/, "");
   if (!key || !/^[0-9a-fA-F]{64}$/.test(key)) throw new Error(`${name} must contain an ECDSA private key`);
@@ -49,7 +60,6 @@ export async function deployHedera(env: NodeJS.ProcessEnv = process.env): Promis
   const config = deploymentConfig(env.HEDERA_DEMO_WINDOWS === "true");
   const artifacts = await Promise.all(names.map(readMechanismArtifact));
   const output = resolveDeploymentPath(env.DEPLOYMENT_PATH);
-  const abiDirectory = fileURLToPath(new URL("../../packages/shared/abi/generated/", import.meta.url));
   await mkdir(dirname(output), { recursive: true });
   await mkdir(abiDirectory, { recursive: true });
   await Promise.all([access(dirname(output), constants.W_OK), access(abiDirectory, constants.W_OK)]);
@@ -102,13 +112,9 @@ export async function deployHedera(env: NodeJS.ProcessEnv = process.env): Promis
     transactions,
     config,
   });
-  await Promise.all(
-    names.map((name, index) =>
-      writeFile(`${abiDirectory}${name}.json`, JSON.stringify(artifacts[index]!.abi, null, 2) + "\n"),
-    ),
-  );
+  await exportMechanismAbis(artifacts);
   const temporary = `${output}.tmp-${process.pid}`;
-  await writeFile(temporary, JSON.stringify(deployment, null, 2) + "\n");
+  await writeFile(temporary, `${JSON.stringify(deployment, null, 2)}\n`);
   await rename(temporary, output);
   console.log(`Deployment manifest: ${output}`);
   for (const [name, address] of Object.entries(deployment.contracts)) console.log(`${name}: ${address}`);
