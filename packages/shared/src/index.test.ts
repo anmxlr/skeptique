@@ -43,6 +43,19 @@ describe('shared schemas', () => {
 });
 
 describe('hashes', () => {
+  it('rejects non-JSON suite values instead of silently dropping them from the hash', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    const invalidInputs = [undefined, { hidden: undefined }, [undefined], new Array(1), NaN, Infinity, 1n, () => 1, new Date(), circular];
+    for (const input of invalidInputs) {
+      const invalidSuite = { ...suite, cases: [{ ...suite.cases[0], input }] };
+      expect(TestSuiteSchema.safeParse(invalidSuite).success).toBe(false);
+      expect(() => suiteHash(invalidSuite)).toThrow();
+    }
+    expect(TestCaseSchema.safeParse({ ...suite.cases[0], expect: { kind: 'exact', value: undefined } }).success).toBe(false);
+    expect(TestCaseSchema.safeParse({ ...suite.cases[0], expect: { kind: 'schema', schema: { default: undefined } } }).success).toBe(false);
+  });
+
   it('hashes canonical suite JSON independent of object-key order', () => {
     const reordered: TestSuite = {
       cases: [{ weight: 2, expect: { value: 200, kind: 'exact' }, input: { value: 2, to: 'cm', from: 'm' }, id: 'c1' }],

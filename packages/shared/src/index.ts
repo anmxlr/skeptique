@@ -9,12 +9,29 @@ const uintString = z.string().regex(/^(0|[1-9]\d*)$/);
 const uint = z.number().int().nonnegative();
 const score = z.number().int().min(0).max(100);
 
+function isJsonValue(value: unknown, ancestors = new Set<object>()): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object') return false;
+  if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return false;
+  if (ancestors.has(value)) return false;
+  ancestors.add(value);
+  for (const child of Array.isArray(value) ? value : Object.values(value)) {
+    if (!isJsonValue(child, ancestors)) return false;
+  }
+  ancestors.delete(value);
+  return true;
+}
+
+// Hash only transportable JSON: canonicalization otherwise drops undefined fields.
+const jsonValue = z.unknown().refine(value => isJsonValue(value), 'Must be a JSON value');
+
 export const TestCaseSchema = z.object({
   id: z.string().min(1),
-  input: z.unknown(),
+  input: jsonValue,
   expect: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('exact'), value: z.unknown() }).strict(),
-    z.object({ kind: z.literal('schema'), schema: z.record(z.string(), z.unknown()) }).strict(),
+    z.object({ kind: z.literal('exact'), value: jsonValue }).strict(),
+    z.object({ kind: z.literal('schema'), schema: z.record(z.string(), jsonValue) }).strict(),
     z.object({ kind: z.literal('regex'), pattern: z.string() }).strict(),
     z.object({ kind: z.literal('judge'), rubric: z.string().min(1) }).strict(),
   ]),
