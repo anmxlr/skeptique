@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import type { Server } from "node:http";
-import { EvidenceSchema, type RankingInput, rankServices } from "@skeptic/shared";
+import { EvidenceSchema, type RankingInput, rankServices } from "@skeptique/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryEvidenceStore, registerEvidenceRoutes } from "../../apps/api/src/evidence";

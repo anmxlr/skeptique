@@ -1,8 +1,8 @@
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
-import { type AppDeps, buildApp } from "@skeptic/api";
-import { type Address, deployLocal } from "@skeptic/contracts/deploy";
+import { type AppDeps, buildApp } from "@skeptique/api";
+import { type Address, deployLocal } from "@skeptique/contracts/deploy";
 import type { HardhatRuntimeEnvironment, JsonRpcServer } from "hardhat/types";
 import { createPublicClient, http } from "viem";
 
@@ -25,7 +25,7 @@ export interface Stack {
 }
 
 const require = createRequire(import.meta.url);
-const contractsDir = dirname(require.resolve("@skeptic/contracts/package.json"));
+const contractsDir = dirname(require.resolve("@skeptique/contracts/package.json"));
 
 function loadHardhat(): HardhatRuntimeEnvironment {
   const contractsRequire = createRequire(join(contractsDir, "package.json"));

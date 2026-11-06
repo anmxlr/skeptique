@@ -59,6 +59,6 @@ describe("local payAndCall", () => {
       body: JSON.stringify({ value: 2 }),
       headers: { "content-type": "application/json" },
     });
-    expect(new Headers(fetchImpl.mock.calls[0]![1]!.headers).has("x-skeptic-call-role")).toBe(false);
+    expect(new Headers(fetchImpl.mock.calls[0]![1]!.headers).has("x-skeptique-call-role")).toBe(false);
   });
 });

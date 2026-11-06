@@ -1,5 +1,5 @@
-import { type BuyerRun, type ServiceView, ServiceViewSchema } from "@skeptic/shared";
-import type { PayAndCall } from "@skeptic/x402-client";
+import { type BuyerRun, type ServiceView, ServiceViewSchema } from "@skeptique/shared";
+import type { PayAndCall } from "@skeptique/x402-client";
 
 export type Strategy = BuyerRun["strategy"];
 
@@ -8,17 +8,18 @@ export class NoCandidateError extends Error {}
 const rated = (service: ServiceView) => service.median !== null;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-/** Candidates in the category, best first: by rank (skeptic, rated only) or by paid calls (popularity). */
+/** Candidates in the category, best first: by rank (skeptique, rated only) or by paid calls (popularity). */
 function rankCandidates(services: readonly ServiceView[], category: string, strategy: Strategy): ServiceView[] {
   const inCategory = services.filter((service) => service.category === category);
-  const pool = strategy === "skeptic" ? inCategory.filter(rated) : inCategory;
-  const key = (service: ServiceView) => (strategy === "skeptic" ? service.rank : service.popularityCalls);
+  const pool = strategy === "skeptique" ? inCategory.filter(rated) : inCategory;
+  const key = (service: ServiceView) => (strategy === "skeptique" ? service.rank : service.popularityCalls);
   return [...pool].sort((a, b) => key(b) - key(a) || a.id - b.id);
 }
 
 export function pickService(services: readonly ServiceView[], category: string, strategy: Strategy): ServiceView {
   const [best] = rankCandidates(services, category, strategy);
-  if (!best) throw new NoCandidateError(`No ${strategy === "skeptic" ? "rated " : ""}service in category ${category}`);
+  if (!best)
+    throw new NoCandidateError(`No ${strategy === "skeptique" ? "rated " : ""}service in category ${category}`);
   return best;
 }
 

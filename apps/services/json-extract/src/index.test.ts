@@ -1,4 +1,4 @@
-import { suiteHash, TestSuiteSchema } from "@skeptic/shared";
+import { suiteHash, TestSuiteSchema } from "@skeptique/shared";
 import Ajv from "ajv";
 import { describe, expect, it } from "vitest";
 import {

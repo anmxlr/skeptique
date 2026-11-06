@@ -1,4 +1,4 @@
-import { type BuyerRun, BuyerRunSchema } from "@skeptic/shared";
+import { type BuyerRun, BuyerRunSchema } from "@skeptique/shared";
 import type { FastifyInstance } from "fastify";
 
 /** Latest buyer-agent run per strategy, shown side by side on the Buyer page. */
@@ -15,6 +15,6 @@ export function registerBuyerRunRoutes(app: FastifyInstance): void {
   // Public read-only data fetched by the web app from another origin.
   app.get("/buyer/runs", async (_request, reply) => {
     reply.header("access-control-allow-origin", "*");
-    return (["skeptic", "popularity"] as const).flatMap((strategy) => latest.get(strategy) ?? []);
+    return (["skeptique", "popularity"] as const).flatMap((strategy) => latest.get(strategy) ?? []);
   });
 }

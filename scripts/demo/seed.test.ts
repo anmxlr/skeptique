@@ -32,7 +32,7 @@ describe("demo seed", () => {
   });
 
   it("allows concurrent deterministic seeds without colliding temporary files", async () => {
-    directory = await mkdtemp(join(tmpdir(), "skeptic-seed-concurrent-"));
+    directory = await mkdtemp(join(tmpdir(), "skeptique-seed-concurrent-"));
     const path = join(directory, "demo-state.json");
     const states = await Promise.all(Array.from({ length: 8 }, () => seedDemoState(path)));
     expect(states.every((state) => JSON.stringify(state) === JSON.stringify(states[0]))).toBe(true);
@@ -40,7 +40,7 @@ describe("demo seed", () => {
   });
 
   it("writes byte-identical state when seeded twice", async () => {
-    directory = await mkdtemp(join(tmpdir(), "skeptic-seed-test-"));
+    directory = await mkdtemp(join(tmpdir(), "skeptique-seed-test-"));
     const path = join(directory, "demo-state.json");
     const first = await seedDemoState(path);
     const firstContents = await readFile(path, "utf8");

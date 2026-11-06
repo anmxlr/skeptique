@@ -1,4 +1,4 @@
-import { type RankingInput, rankMarketplaceServices } from "@skeptic/shared";
+import { type RankingInput, rankMarketplaceServices } from "@skeptique/shared";
 import type { FastifyInstance } from "fastify";
 
 export interface MarketplaceSource {

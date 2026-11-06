@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Usage: node board/status.mjs [--json] [--check]
-// Reads .scratch/skeptic-v1/issues/NN-<slug>.md tickets and board/done/NN.md receipts. No dependencies.
+// Reads .scratch/skeptique-v1/issues/NN-<slug>.md tickets and board/done/NN.md receipts. No dependencies.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const ticketsDir = join(root, '..', '.scratch', 'skeptic-v1', 'issues');
+const ticketsDir = join(root, '..', '.scratch', 'skeptique-v1', 'issues');
 const doneDir = join(root, 'done');
 
 const field = (text, name) => (text.match(new RegExp(`^\\*\\*${name}:\\*\\* ?(.*)$`, 'm')) || [])[1]?.trim() ?? '';

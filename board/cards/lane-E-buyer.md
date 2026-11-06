@@ -4,7 +4,7 @@
 - deps: T-01
 - size: M
 - read: spec/03-interfaces.md (API), spec/02-mechanism.md §5
-- do: `apps/api` Fastify + SQLite: ingest contract events, serve all routes in the spec, `/events` SSE, evidence store, popularity counter that excludes `x-skeptic-role: critic` calls. Work from event fixtures; chain adapter behind an interface.
+- do: `apps/api` Fastify + SQLite: ingest contract events, serve all routes in the spec, `/events` SSE, evidence store, popularity counter that excludes `x-skeptique-role: critic` calls. Work from event fixtures; chain adapter behind an interface.
 - done when: API tests against fixtures pass for every route and schema.
 
 ## E-2 · Ranking function

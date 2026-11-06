@@ -5,4 +5,4 @@
 - `05-demo-script.md`: target length 4:00 (was 4:30). Reason: ETHGlobal asks for 2-4 minute videos and finalists demo in 4 minutes; Hedera's 5:00 cap still holds.
 
 ## 2026-11-06: references remapped to the new tickets (no behaviour change)
-- Spec files now name tickets in `.scratch/skeptic-v1/issues/` instead of the old lane cards: S-01 → 02, S-02 → 03, S-03 → 05, T-01 → 06, E-2 → 19, A-4 → 17 and 22. `04-compliance-checklist.md` owners remapped the same way; the Agent Kit extra is marked cut.
+- Spec files now name tickets in `.scratch/skeptique-v1/issues/` instead of the old lane cards: S-01 → 02, S-02 → 03, S-03 → 05, T-01 → 06, E-2 → 19, A-4 → 17 and 22. `04-compliance-checklist.md` owners remapped the same way; the Agent Kit extra is marked cut.

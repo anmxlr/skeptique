@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/buyer",
+  "name": "@skeptique/buyer",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,10 +16,10 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "tsx": "^4.23.15",
-    "@skeptic/harness": "workspace:*"
+    "@skeptique/harness": "workspace:*"
   },
   "dependencies": {
-    "@skeptic/shared": "workspace:*",
-    "@skeptic/x402-client": "workspace:*"
+    "@skeptique/shared": "workspace:*",
+    "@skeptique/x402-client": "workspace:*"
   }
 }

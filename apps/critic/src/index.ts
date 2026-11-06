@@ -1,1 +1,1 @@
-export const packageName = "@skeptic/critic";
+export const packageName = "@skeptique/critic";

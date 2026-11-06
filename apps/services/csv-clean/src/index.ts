@@ -1,4 +1,4 @@
-import { suiteHash, type TestSuite } from "@skeptic/shared";
+import { suiteHash, type TestSuite } from "@skeptique/shared";
 
 export function cleanCsv(input: { csv: string }): string {
   if (!input || typeof input.csv !== "string") throw new Error("Expected csv string");
