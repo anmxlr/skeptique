@@ -1,6 +1,8 @@
 import { createRequire } from "node:module";
-import { type Stack, startStack } from "@skeptique/harness";
+import { type ServiceStarter, type Stack, startStack } from "@skeptique/harness";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { serviceByName } from "../apps/services/catalog";
+import { startService } from "../apps/services/common/server";
 import { MarketplaceView } from "../apps/web/components/marketplace";
 import type { deployLocal } from "../contracts/deploy/local";
 import { listDemoServices } from "../scripts/demo/list-services";
@@ -15,10 +17,25 @@ const attestorKey = "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff
 const salt = `0x${"11".repeat(32)}` as const;
 const evidence = `0x${"22".repeat(32)}` as const;
 
+const serve =
+  (name: string): ServiceStarter =>
+  async () => {
+    const definition = serviceByName(name);
+    if (!definition) throw new Error(`Unknown demo service ${name}`);
+    const { server, url } = await startService(definition, 0);
+    return { url, close: () => new Promise<void>((resolve) => server.close(() => resolve())) };
+  };
+
 describe("marketplace ranks services", () => {
   let stack: Stack;
   beforeAll(async () => {
-    stack = await startStack();
+    stack = await startStack({
+      services: {
+        "unit-convert": serve("unit-convert"),
+        "csv-clean": serve("csv-clean"),
+        "flaky-fx": serve("flaky-fx"),
+      },
+    });
   }, 60_000);
   afterAll(async () => {
     await stack?.stop();
@@ -33,9 +50,9 @@ describe("marketplace ranks services", () => {
       registry: stack.contracts.ServiceRegistry,
       seller: wallets[1].account.address,
       origins: {
-        "unit-convert": "http://127.0.0.1:9101",
-        "csv-clean": "http://127.0.0.1:9102",
-        "flaky-fx": "http://127.0.0.1:9103",
+        "unit-convert": stack.services["unit-convert"],
+        "csv-clean": stack.services["csv-clean"],
+        "flaky-fx": stack.services["flaky-fx"],
       },
     });
     expect(listed).toHaveLength(3);

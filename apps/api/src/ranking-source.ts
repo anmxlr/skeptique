@@ -1,10 +1,9 @@
 import { EventSchemas } from "@skeptique/shared";
-import { type PublicClient, parseAbiItem } from "viem";
+import { roundManagerAbi } from "@skeptique/shared/abi/RoundManager";
+import { getAbiItem, type PublicClient } from "viem";
 import type { ListingSource } from "./listings";
 
-const finalizedEvent = parseAbiItem(
-  "event RoundFinalized(uint256 indexed roundId, uint256 indexed serviceId, uint8 median, uint8 nReveals, bool isVoid)",
-);
+const finalizedEvent = getAbiItem({ abi: roundManagerAbi, name: "RoundFinalized" });
 
 /** Supplies review history to the existing ranking formula; reads one pinned range for all listed services. */
 export function createFinalizedRankingSource(options: {
