@@ -93,19 +93,43 @@ describe('adversarial probe evaluation', () => {
   });
 
   it('records service latency without adding the judge latency', async () => {
-    vi.useFakeTimers();
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
     try {
-      const evaluation = runProbeEvaluation({
+      const evaluation = await runProbeEvaluation({
         suite: unitConvertSuite, serviceDescription: 'converter', seed: 1, timeoutMs: 1000,
-        serviceCall: async () => { await new Promise(resolve => setTimeout(resolve, 5)); return 'result'; },
+        serviceCall: async () => { now = 5; return 'result'; },
         model: {
           generateProbes: async () => [{ ...recordedProbeCases[0], expect: { kind: 'judge', rubric: 'Check conversion' } }],
-          judge: async () => { await new Promise(resolve => setTimeout(resolve, 100)); return true; },
+          judge: async () => { now = 105; return true; },
         },
       });
-      await vi.advanceTimersByTimeAsync(105);
-      expect((await evaluation).results[0]!.latencyMs).toBe(5);
-    } finally { vi.useRealTimers(); }
+      expect(evaluation.results[0]!.latencyMs).toBe(5);
+    } finally { clock.mockRestore(); }
+  });
+
+  it('terminates a blocking expectation and stops further paid probe calls', async () => {
+    const serviceCall = vi.fn(async () => `${'a'.repeat(1000)}!`);
+    await expect(runProbeEvaluation({
+      suite: unitConvertSuite, serviceDescription: 'converter', seed: 1, timeoutMs: 20,
+      serviceCall, model: { generateProbes: async () => [{ ...recordedProbeCases[0], expect: { kind: 'regex', pattern: '(a+)+$' } }, recordedProbeCases[1]], judge: async () => true },
+    })).rejects.toThrow('timed out');
+    expect(serviceCall).toHaveBeenCalledTimes(1);
+  });
+
+  it('enforces a total review budget and stops on payment-policy denial', async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const serviceCall = vi.fn(async (input: unknown) => { now += 600; return handleUnitConvert(input); });
+    const model: ProbeModel = { generateProbes: async () => recordedProbeCases, judge: async () => true };
+    try {
+      await expect(runProbeEvaluation({ suite: unitConvertSuite, serviceDescription: 'converter', seed: 1, model, serviceCall, budgetMs: 1000 })).rejects.toThrow('budget exceeded');
+      expect(serviceCall).toHaveBeenCalledTimes(2);
+    } finally { clock.mockRestore(); }
+    const denial = Object.assign(new Error('Payment denied'), { code: 'PAYMENT_POLICY_DENIED' });
+    const deniedCall = vi.fn(async () => { throw denial; });
+    await expect(runProbeEvaluation({ suite: unitConvertSuite, serviceDescription: 'converter', seed: 1, model, serviceCall: deniedCall })).rejects.toThrow('Payment denied');
+    expect(deniedCall).toHaveBeenCalledTimes(1);
   });
 
   it('keeps weighted rates finite for large valid weights', async () => {

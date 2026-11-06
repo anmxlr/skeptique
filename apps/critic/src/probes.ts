@@ -1,5 +1,5 @@
-import Ajv from 'ajv';
-import { TestCaseSchema, type Evidence, type TestCase, type TestSuite, type ProbeResult } from 'shared';
+import { EvidenceSchema, ProbeResultSchema, TestCaseSchema, TestSuiteSchema, type Evidence, type TestSuite, type ProbeResult } from 'shared';
+import { createBoundedExpectations } from './bounded-expectations';
 
 const MAX_PROBES = 20;
 
@@ -16,25 +16,6 @@ function stableJson(value: unknown): string {
     return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`).join(',')}}`;
   }
   return JSON.stringify(value);
-}
-
-function compileExpectation(testCase: TestCase, ajv: Ajv): ((output: unknown) => boolean) | null {
-  switch (testCase.expect.kind) {
-    case 'exact': {
-      const expected = stableJson(testCase.expect.value);
-      return output => stableJson(output) === expected;
-    }
-    case 'schema': {
-      const validate = ajv.compile(testCase.expect.schema);
-      if ('$async' in validate && validate.$async === true) throw new Error('Async schemas are not supported for probe expectations');
-      return output => validate(output) === true;
-    }
-    case 'regex': {
-      const pattern = new RegExp(testCase.expect.pattern);
-      return output => typeof output === 'string' && pattern.test(output);
-    }
-    case 'judge': return null;
-  }
 }
 
 function checkedTimeout(timeoutMs = 15_000): number {
@@ -77,12 +58,21 @@ export async function runProbeEvaluation(input: {
   model: ProbeModel;
   seed: number;
   timeoutMs?: number;
+  budgetMs?: number;
 }): Promise<ProbeEvaluation> {
   const timeoutMs = checkedTimeout(input.timeoutMs);
-  const generated = await withDeadline(signal => input.model.generateProbes({ serviceDescription: input.serviceDescription, suite: input.suite, seed: input.seed, temperature: 0 }, signal), timeoutMs);
+  const suite = TestSuiteSchema.parse(input.suite);
+  const deadlineAt = input.budgetMs === undefined ? Infinity : performance.now() + checkedTimeout(input.budgetMs);
+  const remainingBudget = () => {
+    const ms = Math.ceil(deadlineAt - performance.now());
+    if (ms <= 0) throw new Error('Probe review budget exceeded');
+    return ms;
+  };
+  const remaining = () => Math.min(timeoutMs, remainingBudget());
+  const generated = await withDeadline(signal => input.model.generateProbes({ serviceDescription: input.serviceDescription, suite, seed: input.seed, temperature: 0 }, signal), remaining());
   if (!Array.isArray(generated) || generated.length === 0 || generated.length > MAX_PROBES) throw new Error(`Probe model must return 1 to ${MAX_PROBES} cases`);
   const cases = generated.map(value => TestCaseSchema.parse(value));
-  const publicInputs = new Set(input.suite.cases.map(testCase => stableJson(testCase.input)));
+  const publicInputs = new Set(suite.cases.map(testCase => stableJson(testCase.input)));
   const seen = new Set<string>();
   const ids = new Set<string>();
   for (const testCase of cases) {
@@ -93,27 +83,32 @@ export async function runProbeEvaluation(input: {
     if (seen.has(key)) throw new Error(`Duplicate generated probe input: ${testCase.id}`);
     seen.add(key);
   }
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  const validators = cases.map(testCase => compileExpectation(testCase, ajv));
+  const validators = await createBoundedExpectations(cases, timeoutMs, Math.min(15_000, remainingBudget()));
 
   const results: ProbeResult[] = [];
-  for (const [index, testCase] of cases.entries()) {
-    const start = performance.now();
-    let output: unknown;
-    try {
-      output = await withDeadline(signal => input.serviceCall(testCase.input, signal), timeoutMs);
-    } catch (cause) {
-      const error = cause instanceof Error ? cause.message : 'Unknown probe error';
-      results.push({ caseId: testCase.id, case: testCase, passed: false, weight: testCase.weight, latencyMs: performance.now() - start, error });
-      continue;
+  try {
+    for (const [index, testCase] of cases.entries()) {
+      const start = performance.now();
+      let output: unknown;
+      const callBudget = remaining();
+      try {
+        output = await withDeadline(signal => input.serviceCall(testCase.input, signal), callBudget);
+      } catch (cause) {
+        if (cause instanceof Error && 'code' in cause && cause.code === 'PAYMENT_POLICY_DENIED') throw cause;
+        const error = cause instanceof Error ? cause.message : 'Unknown probe error';
+        results.push({ caseId: testCase.id, case: testCase, passed: false, weight: testCase.weight, latencyMs: performance.now() - start, error });
+        remaining();
+        continue;
+      }
+      const latencyMs = performance.now() - start;
+      const expectation = testCase.expect;
+      const passed = expectation.kind === 'judge'
+        ? await withDeadline(signal => input.model.judge({ rubric: expectation.rubric, input: testCase.input, output }, signal), remaining())
+        : await withDeadline(() => validators.evaluate(index, output), remaining());
+      if (typeof passed !== 'boolean') throw new Error('Probe judge returned a non-boolean result');
+      results.push(ProbeResultSchema.parse({ caseId: testCase.id, case: testCase, passed, weight: testCase.weight, latencyMs, ...(output === undefined ? {} : { output }) }));
     }
-    const latencyMs = performance.now() - start;
-    const expectation = testCase.expect;
-    const passed = expectation.kind === 'judge'
-      ? await withDeadline(signal => input.model.judge({ rubric: expectation.rubric, input: testCase.input, output }, signal), timeoutMs)
-      : validators[index]!(output);
-    results.push({ caseId: testCase.id, case: testCase, passed, weight: testCase.weight, latencyMs, output });
-  }
+  } finally { await validators.close(); }
   return { passRate: weightedPassRate(results), results };
 }
 
@@ -123,7 +118,10 @@ export function combinedScore(suitePass: number, probePass: number): number {
 }
 
 export function attachProbeEvidence(evidence: Evidence, evaluation: ProbeEvaluation): Evidence {
-  return { ...evidence, probes: evaluation.results, score: combinedScore(weightedPassRate(evidence.suite), evaluation.passRate) };
+  const latencies = [...evidence.suite, ...evaluation.results].map(result => result.latencyMs).sort((a, b) => a - b);
+  return EvidenceSchema.parse({ ...evidence, probes: evaluation.results,
+    latencyMs: { p50: latencies[Math.ceil(latencies.length * 0.5) - 1] ?? 0, p95: latencies[Math.ceil(latencies.length * 0.95) - 1] ?? 0 },
+    score: combinedScore(weightedPassRate(evidence.suite), evaluation.passRate) });
 }
 
 export function createOpenAICompatibleProbeModel(config: { apiKey: string; baseUrl?: string; model: string; fetchImpl?: typeof fetch; timeoutMs?: number }): ProbeModel {
