@@ -1,0 +1,59 @@
+flowchart TB
+  subgraph people[Agents and services]
+    direction LR
+    seller[Seller]
+    critic[Critic agent<br/>suite runner + private probes]
+    buyer[Buyer agent]
+    service[Service endpoint<br/>published suite + x402 API]
+  end
+
+  subgraph world[World]
+    pass[World ID Agent Pass]
+  end
+
+  subgraph payments[External payment service]
+    facilitator[x402 facilitator]
+  end
+
+  subgraph app[Application services]
+    direction LR
+    api[API + indexer]
+    evidence[Evidence store<br/>off-chain JSON]
+    relayer[ENS score relayer<br/>score-writer role]
+  end
+
+  subgraph hedera[Hedera testnet]
+    direction LR
+    contracts[ServiceRegistry<br/>CriticRegistry<br/>RoundManager]
+    settlement[Ledger payment settlement]
+    hcs[HCS audit topic]
+  end
+
+  subgraph ens[ENSv2 on Sepolia]
+    registry[Permissioned subname registry]
+    resolver[Permissioned resolver<br/>agent + service records]
+  end
+
+  seller -->|list service + fund bounty| contracts
+  seller -->|editable profile records| resolver
+  critic -->|verify human| pass
+  pass -.->|result validated by backend| api
+  api -.->|registration voucher + evidence hash| critic
+  critic -->|test request + payment proof| service
+  service -->|402 challenge / result| critic
+  service -.->|verify / settle payment proof| facilitator
+  facilitator -.->|payment transaction| settlement
+  settlement -->|service proceeds| seller
+  critic -->|suite + probe evidence| api
+  api --> evidence
+  critic -->|register + stake<br/>commit / reveal + evidence hash| contracts
+  contracts -.->|events + final score| api
+  api -->|finalized round event| relayer
+  relayer -.->|round + spend audit messages| hcs
+  relayer -.->|write score + Hedera tx reference| resolver
+  registry --> resolver
+  buyer -->|resolve service identity and score| resolver
+  buyer -->|select + request + payment proof| service
+
+  classDef pending stroke-dasharray: 5 5;
+  class pass,facilitator,settlement,hcs,contracts,relayer,registry,resolver pending;
