@@ -76,7 +76,8 @@ export async function startStack(options: StackOptions = {}): Promise<Stack> {
     const rounds = contracts.RoundManager
       ? createRoundSource({ client: publicClient, address: contracts.RoundManager })
       : undefined;
-    const api = buildApp({ ...options.api, publicClient, contracts, listings, critics, rounds });
+    const events = contracts.RoundManager ? { client: publicClient, address: contracts.RoundManager } : undefined;
+    const api = buildApp({ ...options.api, publicClient, contracts, listings, critics, rounds, events });
     stoppers.push(() => api.close());
     await api.listen({ port: 0, host: "127.0.0.1" });
     const apiUrl = `http://127.0.0.1:${(api.server.address() as AddressInfo).port}`;

@@ -2,6 +2,7 @@ import Fastify, { type FastifyServerOptions } from "fastify";
 import type { PublicClient } from "viem";
 import { registerBuyerRunRoutes } from "./buyer-runs";
 import { type CriticSource, registerCriticRoutes } from "./critics";
+import { type ChainEventDeps, registerEventRoutes } from "./events";
 import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from "./evidence";
 import { type ListingSource, registerSuiteRoute } from "./listings";
 import { type MarketplaceSource, registerMarketplaceRoutes } from "./marketplace";
@@ -23,6 +24,8 @@ export interface AppDeps {
   /** World ID onboarding for critics; the /world routes exist only when this is given. */
   world?: WorldDeps;
   rounds?: RoundViewSource;
+  /** RoundManager events streamed to pages on `GET /events`. */
+  events?: ChainEventDeps;
   /** Where published evidence is kept, by hash; defaults to memory. */
   evidence?: EvidenceStore;
 }
@@ -57,6 +60,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   if (deps.listings) registerSuiteRoute(app, deps.listings);
   if (deps.critics) registerCriticRoutes(app, deps.critics);
   if (deps.rounds) registerRoundRoutes(app, deps.rounds);
+  if (deps.events) registerEventRoutes(app, deps.events);
   registerEvidenceRoutes(app, deps.evidence ?? new MemoryEvidenceStore());
   registerBuyerRunRoutes(app);
   if (deps.world) registerWorldRoutes(app, deps.world, deps.publicClient);
