@@ -8,7 +8,7 @@ import {
 } from "@skeptique/shared";
 import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import type { FastifyInstance } from "fastify";
-import type { PublicClient } from "viem";
+import { namehash, type PublicClient } from "viem";
 
 /** A listed service as the marketplace serves it: ServiceView plus the listing's specHash and bounty. */
 export type ListedService = RankingInput & { specHash: string; bounty: string };
@@ -29,6 +29,9 @@ type Listing = ReturnType<typeof serviceListedEvent>;
 export function createRegistrySource(options: {
   client: Pick<PublicClient, "getContractEvents" | "readContract">;
   address: `0x${string}`;
+  fromBlock?: bigint;
+  /** Explicit service ID -> ENS name mapping; namehash must match the registered service's node. */
+  serviceNames?: Record<string, string>;
   /** ENS_PARENT_NAME: services are named `<slug>.svc.<parent>`. Empty when ENS is not configured. */
   ensParent?: string;
   fetch?: (url: string | URL | Request) => Promise<Response>;
@@ -42,7 +45,7 @@ export function createRegistrySource(options: {
       address: options.address,
       abi: serviceRegistryAbi,
       eventName: "ServiceListed",
-      fromBlock: 0n,
+      fromBlock: options.fromBlock ?? 0n,
     });
     return logs.map((log) => serviceListedEvent(log.args));
   };
@@ -74,12 +77,15 @@ export function createRegistrySource(options: {
       for (const listing of await listings()) {
         const suite = await lookup(listing);
         if (!suite.ok) continue;
-        const { bounty } = await options.client.readContract({
+        const { bounty, ensNode } = await options.client.readContract({
           address: options.address,
           abi: serviceRegistryAbi,
           functionName: "getService",
           args: [BigInt(listing.serviceId)],
         });
+        const configuredName =
+          options.serviceNames?.[String(listing.serviceId)] ??
+          (options.ensParent ? serviceEnsName(serviceSlug(suite.suite.serviceName), options.ensParent) : undefined);
         services.push({
           id: listing.serviceId,
           name: suite.suite.serviceName,
@@ -87,7 +93,8 @@ export function createRegistrySource(options: {
           endpoint: listing.endpoint,
           pricePerCall: listing.pricePerCall,
           seller: listing.seller,
-          ensName: options.ensParent ? serviceEnsName(serviceSlug(suite.suite.serviceName), options.ensParent) : "",
+          ensName:
+            configuredName && namehash(configuredName).toLowerCase() === ensNode?.toLowerCase() ? configuredName : "",
           median: null,
           nReveals: 0,
           nRounds: 0,

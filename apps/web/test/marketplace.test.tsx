@@ -53,4 +53,24 @@ describe("marketplace view", () => {
     expect(formatHbar("2050000000")).toBe("20.5 HBAR");
     expect(formatHbar("1")).toBe("0.00000001 HBAR");
   });
+
+  it("shows confidence and adjusted rank for a reviewed service", () => {
+    const html = renderToString(
+      <MarketplaceView
+        state={{ status: "ready", services: [{ ...service, median: 80, confidence: 0.6, rank: 74, nRounds: 1 }] }}
+      />,
+    );
+    expect(html).toContain('aria-label="Review confidence for length-convert"');
+    expect(html).toContain('value="0.6"');
+    expect(html).toContain("60%");
+    expect(html).toContain("74.0");
+    expect(html).toContain('href="/services/1"');
+  });
+
+  it("marks probation as unranked rather than a zero-quality review", () => {
+    const html = renderToString(<MarketplaceView state={{ status: "ready", services: [service] }} />);
+    expect(html).toContain("Probation");
+    expect(html).toContain("Not ranked yet");
+    expect(html).not.toContain("Review confidence for");
+  });
 });

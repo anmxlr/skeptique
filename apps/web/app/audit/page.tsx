@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DeploymentDetails } from "../../components/deployment";
 
 export const metadata: Metadata = { title: "Audit" };
 
@@ -7,6 +8,7 @@ export default function AuditPage() {
     <>
       <h1>Audit</h1>
       <p>The HCS audit log of finalised rounds, slashes and agent spend.</p>
+      <DeploymentDetails />
     </>
   );
 }

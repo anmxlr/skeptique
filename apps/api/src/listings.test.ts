@@ -1,5 +1,5 @@
 import { suiteHash, type TestSuite } from "@skeptique/shared";
-import type { PublicClient } from "viem";
+import { namehash, type PublicClient } from "viem";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "./app";
 import { createRegistrySource } from "./listings";
@@ -15,7 +15,7 @@ const suite: TestSuite = {
 };
 const ensNode = `0x${"00".repeat(32)}`;
 
-function chain(specHash: string) {
+function chain(specHash: string, registeredEnsNode = ensNode) {
   const client = {
     getContractEvents: async () => [
       {
@@ -25,11 +25,11 @@ function chain(specHash: string) {
           specHash,
           endpoint: "http://svc.local/call",
           pricePerCall: 3n,
-          ensNode,
+          ensNode: registeredEnsNode,
         },
       },
     ],
-    readContract: async () => ({ bounty: 2_000_000_000n }),
+    readContract: async () => ({ bounty: 2_000_000_000n, ensNode: registeredEnsNode }),
   };
   return client as unknown as Pick<PublicClient, "getContractEvents" | "readContract">;
 }
@@ -39,12 +39,12 @@ const serveSuite = (served: unknown) => async (url: string | URL | Request) => {
   return new Response(JSON.stringify(served), { headers: { "content-type": "application/json" } });
 };
 
-function app(specHash: string, served: unknown = suite, ensParent?: string) {
+function app(specHash: string, served: unknown = suite, ensParent?: string, registeredEnsNode = ensNode) {
   return buildApp({
     publicClient: { getChainId: async () => 31337 },
     contracts: { ServiceRegistry: REGISTRY },
     listings: createRegistrySource({
-      client: chain(specHash),
+      client: chain(specHash, registeredEnsNode),
       address: REGISTRY,
       ensParent,
       fetch: serveSuite(served),
@@ -59,6 +59,19 @@ afterEach(async () => {
 });
 
 describe("indexed service listings", () => {
+  it("exposes an explicit ENS mapping only when its hash matches the actual registered service node", async () => {
+    const name = "converter.svc.example.eth";
+    const source = (node: string) =>
+      createRegistrySource({
+        client: chain(suiteHash(suite), node),
+        address: REGISTRY,
+        fetch: serveSuite(suite),
+        serviceNames: { "1": name },
+      });
+    expect((await source(namehash(name)).list())[0]?.ensName).toBe(name);
+    expect((await source(ensNode).list())[0]?.ensName).toBe("");
+  });
+
   it("serves a new listing in probation with its price, bounty and suite-derived name", async () => {
     current = app(suiteHash(suite));
     const list = await current.inject({ method: "GET", url: "/services" });
@@ -85,9 +98,10 @@ describe("indexed service listings", () => {
   });
 
   it("names a listing under svc of the configured ENS parent", async () => {
-    current = app(suiteHash(suite), suite, "skeptique.eth");
+    const expectedName = "length-convert.svc.skeptique.eth";
+    current = app(suiteHash(suite), suite, "skeptique.eth", namehash(expectedName));
     const list = await current.inject({ method: "GET", url: "/services" });
-    expect(list.json()[0]).toMatchObject({ ensName: "length-convert.svc.skeptique.eth" });
+    expect(list.json()[0]).toMatchObject({ ensName: expectedName });
   });
 
   it("serves one service's detail and 404s an unknown id", async () => {

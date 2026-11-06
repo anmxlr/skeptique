@@ -8,15 +8,16 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
+    "scores": "tsx src/run-scores.ts",
     "test": "vitest run",
     "ens:setup": "tsx src/ens/setup-cli.ts",
     "start": "tsx src/cli.ts"
   },
   "devDependencies": {
+    "tsx": "^4.23.15",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "tsx": "^4.23.15"
+    "vitest": "catalog:"
   },
   "dependencies": {
     "@skeptique/shared": "workspace:*",
