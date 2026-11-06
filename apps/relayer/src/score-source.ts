@@ -143,5 +143,10 @@ export async function relayScoresFromChain(options: {
       slashes: slashes.get(address) ?? 0,
     });
   }
-  return { sourceBlock: toBlock.toString(), finalized, critics: registered.size - skipped.filter((item) => item.kind === "critic").length, skipped };
+  return {
+    sourceBlock: toBlock.toString(),
+    finalized,
+    critics: registered.size - skipped.filter((item) => item.kind === "critic").length,
+    skipped,
+  };
 }

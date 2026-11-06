@@ -12,9 +12,6 @@ export function paymentModeFromEnv(env: Record<string, string | undefined> = pro
   return { mode: "local", signer: null };
 }
 
-export function payAndCallFor(
-  mode: PaymentMode["mode"],
-  priceFor: (url: string) => Promise<string>,
-): PayAndCall {
+export function payAndCallFor(mode: PaymentMode["mode"], priceFor: (url: string) => Promise<string>): PayAndCall {
   return mode === "hedera" ? createHederaPayAndCall() : createLocalPayAndCall({ priceFor });
 }

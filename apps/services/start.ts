@@ -1,5 +1,5 @@
-import { paywallFromEnv, startService } from "./common/server";
 import { serviceByName } from "./catalog";
+import { paywallFromEnv, startService } from "./common/server";
 
 // Serves one demo service: `tsx ../start.ts <name>`. HOST defaults to 0.0.0.0, PORT is required by hosts.
 const name = process.argv[2] ?? "";
