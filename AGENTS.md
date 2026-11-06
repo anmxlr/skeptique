@@ -1,9 +1,9 @@
-# AGENTS.md: rules for every agent working on skeptic
+# AGENTS.md: rules for every agent working on skeptique
 
-skeptic = an incentive layer that pays staked, human-backed critic agents to test and honestly rate agent-sold services, so buyer agents can pick good ones. Hackathon build (ETHGlobal Mumbai, from scratch, ~30h). Product context: `prd.md`.
+skeptique = an incentive layer that pays staked, human-backed critic agents to test and honestly rate agent-sold services, so buyer agents can pick good ones. Hackathon build (ETHGlobal Mumbai, from scratch, ~30h). Product context: `prd.md`.
 
 ## Work one ticket, nothing else
-1. You were given one ticket number (e.g. `08`). Find it in `.scratch/skeptic-v1/issues/NN-*.md`. (The old `board/cards/` lane cards are history only; ignore them.)
+1. You were given one ticket number (e.g. `08`). Find it in `.scratch/skeptique-v1/issues/NN-*.md`. (The old `board/cards/` lane cards are history only; ignore them.)
 2. Read ONLY: this file, the ticket, and the spec sections its `Read:` line lists. Do not read the rest of the repo "for context".
 3. Work in a git worktree on branch `card/<NN>`. Commit small and often (conventional messages, e.g. `feat(contracts): commit-reveal`). Never squash, never force-push. ETHGlobal disqualifies repos with big single-commit dumps.
 4. Write the failing test named in the ticket's "Done when" first, then make it pass. Finish when every "Done when" command passes. Then write `board/done/<NN>.md` (what changed, command output tail, any spec deviation, AI-use note) and stop. Do not edit `board/README.md`, `board/status.mjs` or other tickets.

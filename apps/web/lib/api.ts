@@ -1,6 +1,6 @@
-import type { BuyerRun } from "@skeptic/shared";
+import type { BuyerRun } from "@skeptique/shared";
 
-/** Response body of each API route (spec/03). Later tickets add routes with types from @skeptic/shared. */
+/** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
 export interface ApiRoutes {
   "/health": { ok: true; chainId: number } | { ok: false };
   "/buyer/runs": BuyerRun[];

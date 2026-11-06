@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { Worker } from "node:worker_threads";
-import type { TestCase } from "@skeptic/shared";
+import type { TestCase } from "@skeptique/shared";
 
 // Keep seller-provided regexes and schemas off the main event loop: an ordinary
 // Promise timeout cannot interrupt their synchronous execution.

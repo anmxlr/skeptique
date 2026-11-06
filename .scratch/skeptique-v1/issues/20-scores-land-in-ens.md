@@ -8,7 +8,7 @@
 
 **What to build:** Each finalised score becomes public in ENS, written only by the role-limited relayer.
 
-- On round finalisation the relayer writes `skeptic.score`, `skeptic.confidence`, `skeptic.round` and `skeptic.hedera.tx` on the service subname, using ENSIP-26 key names where spec/notes/ens.md says to.
+- On round finalisation the relayer writes `skeptique.score`, `skeptique.confidence`, `skeptique.round` and `skeptique.hedera.tx` on the service subname, using ENSIP-26 key names where spec/notes/ens.md says to.
 - When a critic registers, the relayer creates its critic subname and keeps its stake, honest-round and slash records current.
 - Writes are idempotent and safe to restart.
 - The marketplace and service page read the score through the resolver, and show the resolver query they used, so nothing on screen is hard-coded.

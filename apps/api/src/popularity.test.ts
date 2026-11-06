@@ -1,4 +1,4 @@
-import type { RankingInput } from "@skeptic/shared";
+import type { RankingInput } from "@skeptique/shared";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "./app";
 

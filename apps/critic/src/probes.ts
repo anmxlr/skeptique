@@ -6,7 +6,7 @@ import {
   TestCaseSchema,
   type TestSuite,
   TestSuiteSchema,
-} from "@skeptic/shared";
+} from "@skeptique/shared";
 import { createBoundedExpectations } from "./bounded-expectations";
 
 const MAX_PROBES = 20;

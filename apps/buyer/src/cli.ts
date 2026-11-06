@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
-import { ServiceViewSchema } from "@skeptic/shared";
-import { createLocalPayAndCall } from "@skeptic/x402-client";
+import { ServiceViewSchema } from "@skeptique/shared";
+import { createLocalPayAndCall } from "@skeptique/x402-client";
 import { publishBuyerRun, runBuyer, type Strategy } from "./index";
 
-// Runs the skeptic and popularity buyers on one task and posts both runs for the Buyer page.
+// Runs the skeptique and popularity buyers on one task and posts both runs for the Buyer page.
 // Payments use the x402 client's local mode until ticket 15 adds Hedera mode.
 const { values } = parseArgs({
   options: { api: { type: "string" }, category: { type: "string" }, task: { type: "string" } },
@@ -21,7 +21,7 @@ const payAndCall = createLocalPayAndCall({
   },
 });
 
-for (const strategy of ["skeptic", "popularity"] as Strategy[]) {
+for (const strategy of ["skeptique", "popularity"] as Strategy[]) {
   const run = await runBuyer({
     apiUrl,
     category: values.category,

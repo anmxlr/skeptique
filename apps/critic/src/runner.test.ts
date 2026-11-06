@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { suiteHash, type TestSuite } from "@skeptic/shared";
+import { suiteHash, type TestSuite } from "@skeptique/shared";
 import canonicalize from "canonicalize";
 import { describe, expect, it, vi } from "vitest";
 import { fetchAndRunCriticSuite, publishCriticEvidence, runCriticSuite } from "./runner";

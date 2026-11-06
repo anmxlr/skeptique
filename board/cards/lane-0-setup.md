@@ -5,7 +5,7 @@
 - size: M
 - who: human
 - read: spec/01-architecture.md
-- do: create 6 Hedera testnet ECDSA accounts (deployer, attestor, relayer, seller, buyer, critics pool) and fund via faucet; get Sepolia ETH; reserve `skeptic.eth` (or a name the ENS spike says works) on Sepolia ENSv2; register an app in the World Agent Pass portal (auth.world.org/portal); get an LLM API key; create the public GitHub repo `skeptic` (MIT); fill `.env` from `.env.example`. Start a timer for the World integration debrief at first touch.
+- do: create 6 Hedera testnet ECDSA accounts (deployer, attestor, relayer, seller, buyer, critics pool) and fund via faucet; get Sepolia ETH; reserve `skeptique.eth` (or a name the ENS spike says works) on Sepolia ENSv2; register an app in the World Agent Pass portal (auth.world.org/portal); get an LLM API key; create the public GitHub repo `skeptique` (MIT); fill `.env` from `.env.example`. Start a timer for the World integration debrief at first touch.
 - done when: `.env` has every key in `.env.example`, `pnpm env:check` (from T-00) is green.
 
 ## S-01 · Spike: Hedera x402
@@ -19,7 +19,7 @@
 - deps: none
 - size: M
 - read: prd.md section 4.1 (ENS)
-- do: read docs.ens.domains/ensv2 (overview, permissioned-registry, permissioned-resolver, enhanced-access-control, contract-developers tutorial) and ENSIP-25/26. Write `spec/notes/ens.md`: Sepolia contract addresses, how to create a parent name and subname registry, how to deploy a Permissioned Resolver, the exact role names and how to grant "only this account may write records matching skeptic.*" and "seller may write only url/description", how to set and read a text record, agent text-record key names. Prove it with a script that writes and reads one record.
+- do: read docs.ens.domains/ensv2 (overview, permissioned-registry, permissioned-resolver, enhanced-access-control, contract-developers tutorial) and ENSIP-25/26. Write `spec/notes/ens.md`: Sepolia contract addresses, how to create a parent name and subname registry, how to deploy a Permissioned Resolver, the exact role names and how to grant "only this account may write records matching skeptique.*" and "seller may write only url/description", how to set and read a text record, agent text-record key names. Prove it with a script that writes and reads one record.
 - done when: note exists and the script prints the record read back from a Sepolia resolver.
 
 ## S-03 · Spike: World ID Agent Pass

@@ -6,7 +6,7 @@ import { ThemeToggle } from "../components/theme-toggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "skeptic", template: "%s · skeptic" },
+  title: { default: "skeptique", template: "%s · skeptique" },
   description: "Staked, human-backed critics rate agent services so buyer agents can pick good ones.",
 };
 
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </a>
         <header className="site-header">
           <Link href="/" className="brand">
-            skeptic
+            skeptique
           </Link>
           <SiteNav />
           <ThemeToggle />

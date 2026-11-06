@@ -1,4 +1,4 @@
-import { suiteHash, type TestSuite } from "@skeptic/shared";
+import { suiteHash, type TestSuite } from "@skeptique/shared";
 
 const answers: Array<{ input: Record<string, unknown>; output: unknown }> = [
   { input: { value: 2, from: "m", to: "cm" }, output: { result: 200, unit: "cm" } },

@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/harness",
+  "name": "@skeptique/harness",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@skeptic/api": "workspace:*",
-    "@skeptic/contracts": "workspace:*",
+    "@skeptique/api": "workspace:*",
+    "@skeptique/contracts": "workspace:*",
     "viem": "^2.57.16"
   },
   "devDependencies": {

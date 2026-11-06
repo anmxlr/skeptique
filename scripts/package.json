@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/scripts",
+  "name": "@skeptique/scripts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,13 +14,13 @@
     "tsx": "^4.23.15"
   },
   "dependencies": {
-    "@skeptic/shared": "workspace:*",
-    "@skeptic/api": "workspace:*",
-    "@skeptic/critic": "workspace:*",
-    "@skeptic/services": "workspace:*",
-    "@skeptic/x402-client": "workspace:*",
-    "@skeptic/service-unit-convert": "workspace:*",
-    "@skeptic/service-suite-gamer": "workspace:*",
+    "@skeptique/shared": "workspace:*",
+    "@skeptique/api": "workspace:*",
+    "@skeptique/critic": "workspace:*",
+    "@skeptique/services": "workspace:*",
+    "@skeptique/x402-client": "workspace:*",
+    "@skeptique/service-unit-convert": "workspace:*",
+    "@skeptique/service-suite-gamer": "workspace:*",
     "fastify": "^5.12.8"
   }
 }

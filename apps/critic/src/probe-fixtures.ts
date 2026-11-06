@@ -1,4 +1,4 @@
-import type { TestCase } from "@skeptic/shared";
+import type { TestCase } from "@skeptique/shared";
 
 export const recordedProbeCases: TestCase[] = [
   {

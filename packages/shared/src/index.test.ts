@@ -50,7 +50,7 @@ describe("shared schemas", () => {
         endpoint: "http://localhost:3000",
         pricePerCall: "1",
         seller: "0x0000000000000000000000000000000000000001",
-        ensName: "a.svc.skeptic.eth",
+        ensName: "a.svc.skeptique.eth",
         median: null,
         confidence: 0,
         rank: 0,

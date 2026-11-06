@@ -1,11 +1,11 @@
 "use client";
 
-import type { BuyerRun } from "@skeptic/shared";
+import type { BuyerRun } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { apiClient } from "../lib/api";
 
 const BUYERS: { strategy: BuyerRun["strategy"]; title: string; ranksBy: string }[] = [
-  { strategy: "skeptic", title: "Skeptic buyer", ranksBy: "Ranks by critic score" },
+  { strategy: "skeptique", title: "Skeptique buyer", ranksBy: "Ranks by critic score" },
   { strategy: "popularity", title: "Popularity buyer", ranksBy: "Ranks by paid calls" },
 ];
 

@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/contracts",
+  "name": "@skeptique/contracts",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -24,10 +24,10 @@
     "ajv": "^8.20.0",
     "canonicalize": "^2.1.0",
     "zod": "^3.25.76",
-    "@skeptic/shared": "workspace:*",
-    "@skeptic/critic": "workspace:*",
-    "@skeptic/service-unit-convert": "workspace:*",
-    "@skeptic/service-suite-gamer": "workspace:*"
+    "@skeptique/shared": "workspace:*",
+    "@skeptique/critic": "workspace:*",
+    "@skeptique/service-unit-convert": "workspace:*",
+    "@skeptique/service-suite-gamer": "workspace:*"
   },
   "exports": {
     "./deploy": "./deploy/local.ts",

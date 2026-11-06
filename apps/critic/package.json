@@ -1,5 +1,5 @@
 {
-  "name": "@skeptic/critic",
+  "name": "@skeptique/critic",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,11 +14,11 @@
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "@skeptic/service-unit-convert": "workspace:*",
-    "@skeptic/service-suite-gamer": "workspace:*"
+    "@skeptique/service-unit-convert": "workspace:*",
+    "@skeptique/service-suite-gamer": "workspace:*"
   },
   "dependencies": {
-    "@skeptic/shared": "workspace:*",
+    "@skeptique/shared": "workspace:*",
     "canonicalize": "^2.1.0",
     "ajv": "^8.20.0"
   }

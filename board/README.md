@@ -1,6 +1,6 @@
-# skeptic board
+# skeptique board
 
-34 tickets, 12 dependency waves. Tickets are tracer-bullet vertical slices: each cuts through every layer it needs (contract, api, app, web, tests) and is verifiable on its own. They live in `.scratch/skeptic-v1/issues/NN-<slug>.md`, one file per ticket. A ticket is **done** when `board/done/NN.md` exists (its receipt). Nothing else tracks state, so parallel agents never conflict on a shared file.
+34 tickets, 12 dependency waves. Tickets are tracer-bullet vertical slices: each cuts through every layer it needs (contract, api, app, web, tests) and is verifiable on its own. They live in `.scratch/skeptique-v1/issues/NN-<slug>.md`, one file per ticket. A ticket is **done** when `board/done/NN.md` exists (its receipt). Nothing else tracks state, so parallel agents never conflict on a shared file.
 
 The old lane cards in `board/cards/` are kept for history only; the orchestrator no longer reads them.
 
@@ -12,7 +12,7 @@ node board/status.mjs --check  # fail on unknown blockers, bad sizes, cycles
 ## How to run it AFK (orchestrator loop)
 1. `node board/status.mjs` and take up to **4 ready agent tickets** that don't edit the same files. Known overlaps that must run one after another even when both are ready: 17, 22 and 25 all change the round contract's finalise logic; 12, 20 and 23 all add relayer handlers.
 2. For each: create a worktree `git worktree add ../wt-<NN> -b card/<NN>`, start a **fresh** agent session there with exactly this prompt:
-   > Read AGENTS.md. Your ticket is `<NN>` in .scratch/skeptic-v1/issues/. Follow AGENTS.md exactly. Stop when the ticket's "done when" passes and the receipt is written.
+   > Read AGENTS.md. Your ticket is `<NN>` in .scratch/skeptique-v1/issues/. Follow AGENTS.md exactly. Stop when the ticket's "done when" passes and the receipt is written.
 3. When a session reports done: check the receipt and that the "done when" command passes yourself, merge `card/<NN>` into `main` (regular merge, keep history), remove the worktree, rerun status, repeat.
 4. A `*-SPLIT.md` or blocker note means: edit the ticket, do not push the agent on.
 5. Human tickets (`Status: needs-human`) show as `HUMAN` in status; suggest `/wizard` for each. **Ticket 01 gates the World spike (05) and every live test; do it first.** Spikes 02 and 03 start immediately but pause at their live step until 01 is done.
