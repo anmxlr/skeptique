@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Size:** M
 **Tracks:** Hedera, ENS, World
-**Blocked by:** 13, 15, 16, 20, 21, 22, 26
+**Blocked by:** 13, 15, 16, 20, 21, 22, 26, 35, 36, 37
 **Read:** spec/05-demo-script.md, spec/04-compliance-checklist.md
 
 **What to build:** The whole demo story runs once on real networks, and the proof is written down:
