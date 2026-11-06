@@ -26,6 +26,7 @@ contract RoundManager {
     mapping(uint256 => uint256) private openRoundPlusOne;
 
     error InvalidConfiguration();
+    error InvalidService();
     error RoundAlreadyOpen();
     error NoOpenRound();
     error CommitPhaseActive();
@@ -55,6 +56,7 @@ contract RoundManager {
     }
 
     function openRound(uint256 serviceId) external returns (uint256 roundId) {
+        if (serviceId == 0) revert InvalidService();
         uint256 existing = openRoundPlusOne[serviceId];
         if (existing != 0 && !rounds[existing - 1].finalized) revert RoundAlreadyOpen();
         roundId = nextRoundId++;
