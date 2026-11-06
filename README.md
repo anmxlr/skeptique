@@ -40,6 +40,8 @@ The feature-by-feature implementation and evidence status are in [`docs/ens.md`]
 
 Agent Pass is intended to gate the meaningful action of registering a critic, limiting one critic identity per verified person. The backend must validate the result before issuing a registration voucher. A denied, expired, cancelled, or duplicate-human attempt must not register a critic. This is an authorization step, not a login decoration. The complete verified and denied journeys remain to be demonstrated against the official integration.
 
+The event's Agent Pass proofs use mocked, fake identities. They can demonstrate the verification and denial workflow, but they do not establish real-human uniqueness or production identity assurance. Those guarantees require genuine supported credentials and correct backend validation and nullifier binding.
+
 ## Payment and review flow
 
 The planned paid call is: critic or buyer selects a listed service; the client checks its price against the caller's spending policy; x402 obtains payment for the request; the service returns its result; and the Hedera transaction ID is recorded with the run evidence. For critic runs, evidence is stored off-chain and its hash is committed on-chain. HCS is intended to carry separate round and spending audit messages. Finalized review data is then mirrored to ENS by the relayer.
@@ -73,7 +75,7 @@ ERC-8004 provides shared agent identity and reputation/validation registries, wh
 ## Limits and trust assumptions
 
 - A stake-weighted median can be wrong. Skeptic does not defend against a majority of stake colluding or all critics sharing the same mistaken belief.
-- A seller may bribe real people. World verification limits one critic per human but does not prevent bribery.
+- World gating is intended to limit one critic per human with genuine supported credentials and correct nullifier binding. Event mock proofs do not provide that assurance, and real people can still be bribed.
 - Nondeterministic services can produce inconsistent results and punish honest critics.
 - Seller-to-critic test payments can inflate usage metrics. Critic calls must be excluded from popularity counts.
 - Commit-reveal reduces copying, but does not make reviewers independent or their evidence truthful.

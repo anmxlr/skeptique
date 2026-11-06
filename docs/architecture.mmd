@@ -2,13 +2,17 @@ flowchart TB
   subgraph people[Agents and services]
     direction LR
     seller[Seller]
-    critic[Critic agent]
+    critic[Critic agent<br/>suite runner + private probes]
     buyer[Buyer agent]
-    service[Service endpoint<br/>published suite + private probes]
+    service[Service endpoint<br/>published suite + x402 API]
   end
 
   subgraph world[World]
     pass[World ID Agent Pass]
+  end
+
+  subgraph payments[External payment service]
+    facilitator[x402 facilitator]
   end
 
   subgraph app[Application services]
@@ -21,7 +25,6 @@ flowchart TB
   subgraph hedera[Hedera testnet]
     direction LR
     contracts[ServiceRegistry<br/>CriticRegistry<br/>RoundManager]
-    facilitator[x402 facilitator]
     settlement[Ledger payment settlement]
     hcs[HCS audit topic]
   end
@@ -32,27 +35,25 @@ flowchart TB
   end
 
   seller -->|list service + fund bounty| contracts
-  seller -->|editable profile records| registry
+  seller -->|editable profile records| resolver
   critic -->|verify human| pass
-  pass -.->|backend validates; issues voucher| api
-  api -.->|registration voucher| contracts
-  critic -->|paid test request| service
+  pass -.->|result validated by backend| api
+  api -.->|registration voucher + evidence hash| critic
+  critic -->|test request + payment proof| service
   service -->|402 challenge / result| critic
-  critic -.->|x402 settlement| facilitator
+  service -.->|verify / settle payment proof| facilitator
   facilitator -.->|payment transaction| settlement
   settlement -->|service proceeds| seller
   critic -->|suite + probe evidence| api
   api --> evidence
-  api -.->|evidence hash| contracts
-  critic -->|commit then reveal score| contracts
+  critic -->|register + stake<br/>commit / reveal + evidence hash| contracts
   contracts -.->|events + final score| api
   api -->|finalized round event| relayer
   relayer -.->|round + spend audit messages| hcs
   relayer -.->|write score + Hedera tx reference| resolver
   registry --> resolver
   buyer -->|resolve service identity and score| resolver
-  buyer -->|select + paid request| service
-  buyer -.->|x402 settlement| facilitator
+  buyer -->|select + request + payment proof| service
 
   classDef pending stroke-dasharray: 5 5;
   class pass,facilitator,settlement,hcs,contracts,relayer,registry,resolver pending;
