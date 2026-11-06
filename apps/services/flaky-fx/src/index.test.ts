@@ -5,7 +5,7 @@ import { createFlakyFx, flakyFxSuite, flakyFxSpecHash } from './index';
 describe('flaky-fx service', () => {
   it('validates and hashes a 12-case mixed suite', () => {
     expect(flakyFxSuite.cases).toHaveLength(12);
-    expect(new Set(flakyFxSuite.cases.map(testCase => testCase.expect.kind))).toEqual(new Set(['exact', 'schema', 'regex', 'judge']));
+    expect(new Set(flakyFxSuite.cases.map(testCase => testCase.expect.kind))).toEqual(new Set(['exact', 'schema', 'judge']));
     expect(TestSuiteSchema.safeParse(flakyFxSuite).success).toBe(true);
     expect(flakyFxSpecHash).toBe(suiteHash(flakyFxSuite));
   });
@@ -35,5 +35,9 @@ describe('flaky-fx service', () => {
   it('rejects non-finite rates and invalid seeds instead of silently changing behavior', () => {
     for (const staleRate of [NaN, Infinity, -Infinity]) expect(() => createFlakyFx({ staleRate })).toThrow('staleRate');
     for (const seed of [NaN, Infinity, -1, 0.5, 2 ** 32]) expect(() => createFlakyFx({ seed })).toThrow('seed');
+  });
+
+  it('rejects unsupported currency pairs as invalid input', async () => {
+    await expect(createFlakyFx({ staleRate: 0 })({ from: 'CAD', to: 'EUR', amount: 1 })).rejects.toThrow('Unsupported currency pair CAD/EUR');
   });
 });
