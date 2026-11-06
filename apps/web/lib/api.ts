@@ -35,6 +35,17 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
   };
 }
 
+/** One service, as returned by GET /services/:id. */
+export type ServiceDetail = ApiRoutes["/services"][number];
+
+/** GET /services/:id; null when the API does not know the id. */
+export async function fetchService(id: number, baseUrl: string, fetchImpl: typeof fetch = fetch) {
+  const res = await fetchImpl(new URL(`/services/${id}`, baseUrl));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiError(res.status, `/services/${id}`);
+  return (await res.json()) as ServiceDetail;
+}
+
 export type ApiClient = ReturnType<typeof createApiClient>;
 
 /** Client for the API configured by NEXT_PUBLIC_API_URL. */

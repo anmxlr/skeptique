@@ -29,7 +29,11 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
 }
 
 function send(response: import("node:http").ServerResponse, statusCode: number, value: unknown): void {
-  response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8" });
+  response.writeHead(statusCode, {
+    "content-type": "application/json; charset=utf-8",
+    // The suite and health are public; the seller form reads the suite from the browser.
+    "access-control-allow-origin": "*",
+  });
   response.end(JSON.stringify(value));
 }
 
