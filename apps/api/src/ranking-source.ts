@@ -10,6 +10,7 @@ export function createFinalizedRankingSource(options: {
   listing: ListingSource;
   client: Pick<PublicClient, "getBlockNumber" | "getLogs" | "getBlock">;
   address: `0x${string}`;
+  fromBlock?: bigint;
 }): ListingSource {
   return {
     suite: (id) => options.listing.suite(id),
@@ -21,7 +22,7 @@ export function createFinalizedRankingSource(options: {
       const logs = await options.client.getLogs({
         address: options.address,
         event: finalizedEvent,
-        fromBlock: 0n,
+        fromBlock: options.fromBlock ?? 0n,
         toBlock: head,
         strict: true,
       });

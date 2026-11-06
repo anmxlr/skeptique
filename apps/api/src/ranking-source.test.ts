@@ -21,7 +21,7 @@ const service = {
   bounty: "2000000000",
 };
 
-function setup(logs: unknown[]) {
+function setup(logs: unknown[], fromBlock?: bigint) {
   const listing: ListingSource = {
     list: async () => [{ ...service }, { ...service, id: 2 }],
     suite: async () => undefined,
@@ -32,7 +32,12 @@ function setup(logs: unknown[]) {
   const client = { getBlockNumber, getLogs, getBlock } as unknown as Parameters<
     typeof createFinalizedRankingSource
   >[0]["client"];
-  return { source: createFinalizedRankingSource({ listing, client, address }), getBlockNumber, getLogs, getBlock };
+  return {
+    source: createFinalizedRankingSource({ listing, client, address, fromBlock }),
+    getBlockNumber,
+    getLogs,
+    getBlock,
+  };
 }
 
 const finalized = (roundId: bigint, blockNumber: bigint, isVoid = false) => ({
@@ -43,6 +48,11 @@ const finalized = (roundId: bigint, blockNumber: bigint, isVoid = false) => ({
 });
 
 describe("finalized ranking source", () => {
+  it("starts live queries at the configured deployment block", async () => {
+    const { source, getLogs } = setup([], 42n);
+    await source.list();
+    expect(getLogs.mock.calls[0]?.[0]).toMatchObject({ fromBlock: 42n, toBlock: 100n });
+  });
   it("uses canonical latest round time and preserves probation until finalization", async () => {
     const { source, getLogs, getBlockNumber, getBlock } = setup([
       finalized(2n, 20n),

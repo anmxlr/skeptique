@@ -29,6 +29,7 @@ type Listing = ReturnType<typeof serviceListedEvent>;
 export function createRegistrySource(options: {
   client: Pick<PublicClient, "getContractEvents" | "readContract">;
   address: `0x${string}`;
+  fromBlock?: bigint;
   /** Explicit service ID -> ENS name mapping; namehash must match the registered service's node. */
   serviceNames?: Record<string, string>;
   /** ENS_PARENT_NAME: services are named `<slug>.svc.<parent>`. Empty when ENS is not configured. */
@@ -44,7 +45,7 @@ export function createRegistrySource(options: {
       address: options.address,
       abi: serviceRegistryAbi,
       eventName: "ServiceListed",
-      fromBlock: 0n,
+      fromBlock: options.fromBlock ?? 0n,
     });
     return logs.map((log) => serviceListedEvent(log.args));
   };
@@ -82,7 +83,8 @@ export function createRegistrySource(options: {
           functionName: "getService",
           args: [BigInt(listing.serviceId)],
         });
-        const configuredName = options.serviceNames?.[String(listing.serviceId)] ??
+        const configuredName =
+          options.serviceNames?.[String(listing.serviceId)] ??
           (options.ensParent ? serviceEnsName(serviceSlug(suite.suite.serviceName), options.ensParent) : undefined);
         services.push({
           id: listing.serviceId,

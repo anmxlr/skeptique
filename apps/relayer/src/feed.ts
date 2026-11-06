@@ -7,6 +7,7 @@ import type { ListingFeed } from "./relayer";
 export function createRegistryFeed(options: {
   client: Pick<PublicClient, "getContractEvents">;
   address: `0x${string}`;
+  fromBlock?: bigint;
   fetch?: (url: URL) => Promise<Response>;
 }): ListingFeed {
   const fetchSuite = options.fetch ?? fetch;
@@ -16,7 +17,7 @@ export function createRegistryFeed(options: {
         address: options.address,
         abi: serviceRegistryAbi,
         eventName: "ServiceListed",
-        fromBlock: 0n,
+        fromBlock: options.fromBlock ?? 0n,
       });
       const named = [];
       for (const log of logs) {

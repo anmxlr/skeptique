@@ -11,6 +11,7 @@ export interface RoundViewSource {
 export function createRoundSource(options: {
   client: Pick<PublicClient, "getBlock" | "readContract" | "getContractEvents">;
   address: `0x${string}`;
+  fromBlock?: bigint;
 }): RoundViewSource {
   return {
     async get(roundId) {
@@ -29,7 +30,7 @@ export function createRoundSource(options: {
           abi: roundManagerAbi,
           eventName: "CriticRevealed",
           args: { roundId: BigInt(roundId) },
-          fromBlock: 0n,
+          fromBlock: options.fromBlock ?? 0n,
           toBlock: block.number,
           strict: true,
         }),
@@ -38,7 +39,7 @@ export function createRoundSource(options: {
           abi: roundManagerAbi,
           eventName: "RoundFinalized",
           args: { roundId: BigInt(roundId) },
-          fromBlock: 0n,
+          fromBlock: options.fromBlock ?? 0n,
           toBlock: block.number,
           strict: true,
         }),

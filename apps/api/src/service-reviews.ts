@@ -18,6 +18,7 @@ export interface ServiceReviewSource {
 export function createServiceReviewSource(options: {
   client: Pick<PublicClient, "getContractEvents">;
   address: Address;
+  fromBlock?: bigint;
   store: EvidenceStore;
 }): ServiceReviewSource {
   return {
@@ -27,7 +28,7 @@ export function createServiceReviewSource(options: {
         abi: events,
         eventName: "RoundFinalized",
         args: { serviceId: BigInt(serviceId) },
-        fromBlock: 0n,
+        fromBlock: options.fromBlock ?? 0n,
       });
       const round = rounds
         .filter((log) => log.args.isVoid === false)
@@ -40,7 +41,7 @@ export function createServiceReviewSource(options: {
         abi: events,
         eventName: "CriticRevealed",
         args: { roundId: round.args.roundId },
-        fromBlock: 0n,
+        fromBlock: options.fromBlock ?? 0n,
       });
       const reviews: ServiceReview[] = [];
       for (const reveal of reveals) {
