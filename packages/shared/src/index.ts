@@ -254,3 +254,5 @@ export const eventFixtures = {
   RewardAccrued: { roundId: 1, critic: addr, amount: "1" },
 } as const;
 export { ensKeyPrefix, SELLER_KEYS, scoreKeys, serviceEnsName, serviceSlug } from "./ens";
+
+export { hashscanTxUrl } from "./hashscan";
