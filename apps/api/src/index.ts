@@ -4,8 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
 import { loadDeployment } from "@skeptique/shared/deployment-file";
-import { signRequest } from "@worldcoin/idkit-server";
-import { createPublicClient, type Hex, http } from "viem";
+import { createPublicClient, http } from "viem";
 import {
   buildApp,
   createCriticSource,
@@ -13,10 +12,9 @@ import {
   createRegistrySource,
   createRoundSource,
   createServiceReviewSource,
-  createWorldVerifier,
   MemoryEvidenceStore,
-  type WorldConfig,
 } from "./app";
+import type { WorldEnvironment } from "./world";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 if (existsSync(resolve(root, ".env"))) process.loadEnvFile(resolve(root, ".env"));
@@ -26,25 +24,15 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("API_PO
 const rpcUrl = process.env.HEDERA_RPC_URL;
 if (!rpcUrl) throw new Error("HEDERA_RPC_URL must be set");
 
-function worldFromEnv(env: NodeJS.ProcessEnv): WorldConfig | undefined {
-  const {
-    WORLD_APP_ID: appId,
-    WORLD_RP_ID: rpId,
-    WORLD_SIGNING_KEY: signingKey,
-    ATTESTOR_PRIVATE_KEY: attestorKey,
-  } = env;
-  const environment = env.WORLD_ENVIRONMENT;
-  if (!appId || !rpId || !signingKey || !attestorKey || !environment) return undefined;
-  return {
-    appId,
-    rpId,
-    action: "register-critic",
-    environment,
-    signRequest: (action) => signRequest({ signingKeyHex: signingKey, action }),
-    verifyProof: createWorldVerifier({ rpId, environment }),
-    attestorKey: attestorKey as Hex,
-  };
-}
+const worldKeys = ["WORLD_RP_ID", "WORLD_SIGNING_KEY", "WORLD_ENVIRONMENT", "ATTESTOR_PRIVATE_KEY"] as const;
+const world = worldKeys.every((key) => process.env[key])
+  ? {
+      rpId: process.env.WORLD_RP_ID as string,
+      signingKey: process.env.WORLD_SIGNING_KEY as string,
+      environment: process.env.WORLD_ENVIRONMENT as WorldEnvironment,
+      attestorKey: process.env.ATTESTOR_PRIVATE_KEY as `0x${string}`,
+    }
+  : undefined;
 
 const deployment = await loadDeployment();
 const ensParentName = process.env.ENS_PARENT_NAME?.trim() || deployment.ensParentName;
@@ -65,7 +53,7 @@ if (process.env.ENS_NAMES_PATH?.trim()) {
   serviceNames = names as Record<string, string>;
 }
 const { ServiceRegistry, CriticRegistry, RoundManager } = deployment.contracts;
-const listings = createRegistrySource({ client: publicClient, address: ServiceRegistry, serviceNames });
+const listings = createRegistrySource({ client: publicClient, address: ServiceRegistry, serviceNames, ensParent: ensParentName });
 const ranked = createFinalizedRankingSource({ listing: listings, client: publicClient, address: RoundManager });
 const evidenceStore = new MemoryEvidenceStore();
 const app = buildApp(
@@ -76,7 +64,7 @@ const app = buildApp(
     listings,
     critics: createCriticSource({ client: publicClient, address: CriticRegistry, roundManager: RoundManager }),
     rounds: createRoundSource({ client: publicClient, address: RoundManager }),
-    evidenceStore,
+    evidence: evidenceStore,
     serviceReviews: createServiceReviewSource({ client: publicClient, address: RoundManager, store: evidenceStore }),
     marketplace: {
       source: ranked,
@@ -88,7 +76,7 @@ const app = buildApp(
           args: [address as `0x${string}`],
         }),
     },
-    world: worldFromEnv(process.env),
+    world,
   },
   { logger: true },
 );

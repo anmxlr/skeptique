@@ -35,7 +35,7 @@ Score writes are a single atomic `multicall`. Each key is checked against the re
 
 ## Namespace setup
 
-Provision every service using the existing `spikes/ens-sepolia/ens.mjs`: one PermissionedResolver per service, relayer score-key roles, seller metadata-only roles, and name ownership with `roleBitmap=0`. Its namehash must be supplied when listing the service on Hedera.
+Reuse ticket 12's `ens:setup` namespace command and listing relayer (`start`) to provision services: one PermissionedResolver per service, relayer score-key roles, seller metadata-only roles, and name ownership with `roleBitmap=0`. Their deployed ABI/constants and naming helpers are shared with this score relayer. The service namehash must be supplied when listing the service on Hedera.
 
 An operator separately calls exported `provisionCriticNamespace({transport, operator, relayer, parentName, criticRegistry})` once. It deploys a deterministic shared critic resolver if absent, grants the relayer exactly the three critic text keys, and grants the critic registry's registrar role. Use its returned resolver in the config and the parent expiry as `ensCriticExpiry`. It never grants resolver administrator roles to the runtime signer. Do not supply `ENS_OPERATOR_PRIVATE_KEY` to the runtime process. The runtime creates missing critic names with the critic as owner and `roleBitmap=0`, and refuses owner/resolver conflicts. The source contracts and namespace must already exist; this code does not fabricate deployments.
 

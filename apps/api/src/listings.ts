@@ -1,4 +1,11 @@
-import { type RankingInput, suiteHash, type TestSuite, TestSuiteSchema } from "@skeptique/shared";
+import {
+  type RankingInput,
+  serviceEnsName,
+  serviceSlug,
+  suiteHash,
+  type TestSuite,
+  TestSuiteSchema,
+} from "@skeptique/shared";
 import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import type { FastifyInstance } from "fastify";
 import { namehash, type PublicClient } from "viem";
@@ -24,6 +31,8 @@ export function createRegistrySource(options: {
   address: `0x${string}`;
   /** Explicit service ID -> ENS name mapping; namehash must match the registered service's node. */
   serviceNames?: Record<string, string>;
+  /** ENS_PARENT_NAME: services are named `<slug>.svc.<parent>`. Empty when ENS is not configured. */
+  ensParent?: string;
   fetch?: (url: string | URL | Request) => Promise<Response>;
 }): ListingSource {
   const fetchSuite = options.fetch ?? fetch;
@@ -73,7 +82,8 @@ export function createRegistrySource(options: {
           functionName: "getService",
           args: [BigInt(listing.serviceId)],
         });
-        const configuredName = options.serviceNames?.[String(listing.serviceId)];
+        const configuredName = options.serviceNames?.[String(listing.serviceId)] ??
+          (options.ensParent ? serviceEnsName(serviceSlug(suite.suite.serviceName), options.ensParent) : undefined);
         services.push({
           id: listing.serviceId,
           name: suite.suite.serviceName,

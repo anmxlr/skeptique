@@ -4,30 +4,18 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
-  encodeAbiParameters,
   encodeFunctionData,
   keccak256,
   namehash,
   parseAbi,
   type Transport,
   toBytes,
-  toHex,
 } from "viem";
 import { sepolia } from "viem/chains";
-import { packetToBytes } from "viem/ens";
+import { dnsName, ENS_ADDRESSES, factoryAbi, proxySalt } from "./ens/sepolia";
 import { ensRegistryAbi, ensResolverAbi } from "./ens-target";
 
-const factoryAbi = parseAbi([
-  "function predictProxyAddress(address deployer, uint256 salt) view returns (address)",
-  "function deployProxy(address implementation, uint256 salt, bytes data) returns (address)",
-]);
-const adminResolverAbi = [
-  ...ensResolverAbi,
-  ...parseAbi([
-    "function initialize((address account, uint256 roleBitmap)[] grants, bytes[] calls)",
-    "function grantSetterRoles(bytes setter, address account) returns (bool)",
-  ]),
-];
+const adminResolverAbi = ensResolverAbi;
 const adminRegistryAbi = [
   ...ensRegistryAbi,
   ...parseAbi(["function grantRootRoles(uint256 roleBitmap, address account) returns (bool)"]),
@@ -43,17 +31,10 @@ export async function provisionCriticNamespace(options: {
 }) {
   const pub = createPublicClient({ chain: sepolia, transport: options.transport });
   const wallet = createWalletClient({ chain: sepolia, transport: options.transport, account: options.operator });
-  const factory = "0xda70306c98e97ece36f997a21368e53298572991";
-  const implementation = "0x115eb53f0c60696633855f90b138178fb40b2b2c";
+  const factory = ENS_ADDRESSES.factory;
+  const implementation = ENS_ADDRESSES.resolverImpl;
   const name = `critic.${options.parentName}`;
-  const salt = BigInt(
-    keccak256(
-      encodeAbiParameters(
-        [{ type: "bytes32" }, { type: "bytes32" }, { type: "uint256" }],
-        [keccak256(toBytes("SkeptiqueCriticResolver")), namehash(name), 0n],
-      ),
-    ),
-  );
+  const salt = proxySalt("SkeptiqueCriticResolver", namehash(name));
   const resolver = await pub.readContract({
     address: factory,
     abi: factoryAbi,
@@ -97,7 +78,7 @@ export async function provisionCriticNamespace(options: {
     const setter = encodeFunctionData({
       abi: ensResolverAbi,
       functionName: "setText",
-      args: [toHex(packetToBytes(name)), key, ""],
+      args: [dnsName(name), key, ""],
     });
     calls.push(
       encodeFunctionData({ abi: adminResolverAbi, functionName: "grantSetterRoles", args: [setter, options.relayer] }),

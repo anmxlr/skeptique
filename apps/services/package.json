@@ -11,17 +11,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@skeptique/shared": "workspace:*",
-    "@skeptique/service-unit-convert": "workspace:*",
     "@skeptique/service-csv-clean": "workspace:*",
     "@skeptique/service-flaky-fx": "workspace:*",
     "@skeptique/service-json-extract": "workspace:*",
-    "@skeptique/service-suite-gamer": "workspace:*"
+    "@skeptique/service-suite-gamer": "workspace:*",
+    "@skeptique/service-unit-convert": "workspace:*",
+    "@skeptique/shared": "workspace:*",
+    "@x402/core": "2.30.0",
+    "@x402/hedera": "2.30.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "ajv": "^8.20.0",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "ajv": "^8.20.0"
+    "vitest": "catalog:"
   }
 }
