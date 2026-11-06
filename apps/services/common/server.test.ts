@@ -3,6 +3,7 @@ import { createFlakyFx, flakyFxSuite } from '../flaky-fx/src/index';
 import { cleanCsv, csvCleanSuite } from '../csv-clean/src/index';
 import { handleUnitConvert, unitConvertSuite } from '../unit-convert/src/index';
 import { createJsonExtract, jsonExtractExpected, jsonExtractSuite } from '../json-extract/src/index';
+import { createSuiteGamer, suiteGamerSuite } from '../suite-gamer/src/index';
 import { defineService, startService, type DemoService } from './server';
 
 const servers: Array<import('node:http').Server> = [];
@@ -17,6 +18,7 @@ describe('service HTTP contract', () => {
       defineService('csv-clean', csvCleanSuite, input => cleanCsv(input as { csv: string })),
       defineService('json-extract', jsonExtractSuite, createJsonExtract({ extract: async (_text, fields) => Object.fromEntries(fields.map(field => [field, jsonExtractExpected.name[field] ?? 'fixture'])) })),
       defineService('flaky-fx', flakyFxSuite, createFlakyFx({ seed: 42, staleRate: 0 })),
+      defineService('suite-gamer', suiteGamerSuite, createSuiteGamer()),
     ];
     for (const service of services) {
       const running = await startService(service);
