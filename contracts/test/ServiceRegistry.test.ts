@@ -124,10 +124,7 @@ describe("ServiceRegistry", () => {
         .filter((item: { name: string }) => item.name !== "setRoundManager" && item.name !== "releaseBounty")
         .every((item: { stateMutability: string }) => item.stateMutability === "payable"),
     );
-    await reverted(
-      registry.write.releaseBounty([1n, MIN_FEE], { account: seller.account }),
-      "NotRoundManager",
-    );
+    await reverted(registry.write.releaseBounty([1n, MIN_FEE], { account: seller.account }), "NotRoundManager");
     assert(!artifact.abi.some((item: { type: string }) => item.type === "receive" || item.type === "fallback"));
 
     // Unknown selectors (e.g. withdraw()) and plain transfers revert.
