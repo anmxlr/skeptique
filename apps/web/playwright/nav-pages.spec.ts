@@ -18,6 +18,9 @@ for (const viewport of VIEWPORTS) {
         const nav = page.getByRole("navigation", { name: "Main" });
         for (const item of NAV_ITEMS) await expect(nav.getByRole("link", { name: item.label })).toBeVisible();
         await expect(nav.getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
+        const banner = page.getByRole("complementary", { name: "Demo mode" });
+        await expect(banner).toContainText("consensus you see is staged");
+        await expect(banner.getByRole("link", { name: "See the honest limits" })).toHaveAttribute("href", "/limits");
 
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
         expect(overflow).toBeLessThanOrEqual(0);

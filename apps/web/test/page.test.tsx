@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import AuditPage from "../app/audit/page";
 import BuyerPage from "../app/buyer/page";
 import CriticsPage from "../app/critics/page";
+import LimitsPage from "../app/limits/page";
 import MarketplacePage from "../app/page";
 import SellPage from "../app/sell/page";
 import { NAV_ITEMS } from "../lib/nav";
@@ -14,6 +15,7 @@ const pages: Record<string, ComponentType> = {
   "/sell": SellPage,
   "/buyer": BuyerPage,
   "/audit": AuditPage,
+  "/limits": LimitsPage,
 };
 
 it.each(NAV_ITEMS)("renders the $label page with its heading", ({ href, label }) => {

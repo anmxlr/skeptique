@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { type ApiRoutes, apiClient } from "../lib/api";
 import { formatHbar } from "./marketplace";
+import { Skeleton } from "./states";
 
 type Critic = ApiRoutes["/critics"][number];
 
@@ -12,8 +13,13 @@ export type CriticsState =
   | { status: "ready"; critics: readonly Critic[] };
 
 export function CriticsView({ state }: { state: CriticsState }) {
-  if (state.status === "loading") return <p role="status">Loading critics…</p>;
-  if (state.status === "error") return <p role="alert">Could not load critics: {state.message}</p>;
+  if (state.status === "loading") return <Skeleton label="Loading critics" count={2} />;
+  if (state.status === "error")
+    return (
+      <p role="alert" className="notice-error">
+        Could not load critics: {state.message}
+      </p>
+    );
   if (state.critics.length === 0) return <p>No critics registered yet.</p>;
   return (
     <ul className="market-grid">

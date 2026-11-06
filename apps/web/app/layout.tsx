@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { DemoBanner } from "../components/demo-banner";
 import { SiteNav } from "../components/site-nav";
 import { ThemeToggle } from "../components/theme-toggle";
 import "./globals.css";
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <SiteNav />
           <ThemeToggle />
         </header>
-        <main id="main" className="page">
+        <DemoBanner />
+        {/* tabIndex lets the skip link move keyboard focus here, so the next Tab starts inside the content. */}
+        <main id="main" className="page" tabIndex={-1}>
           {children}
         </main>
       </body>
