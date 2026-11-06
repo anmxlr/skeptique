@@ -25,6 +25,8 @@ export interface AppDeps {
   critics?: CriticSource;
   /** World ID onboarding for critics. */
   world?: WorldDeps;
+  /** Exact browser origin allowed to POST World verification requests. */
+  webOrigin?: string;
   /** Compatibility alias; evidence takes precedence when both are supplied. */
   evidenceStore?: EvidenceStore;
   serviceReviews?: ServiceReviewSource;
@@ -39,11 +41,48 @@ export { createFinalizedRankingSource } from "./ranking-source";
 export { createRoundSource, type RoundViewSource } from "./rounds";
 
 export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
+  if (deps.webOrigin !== undefined) {
+    let configured: URL;
+    try {
+      configured = new URL(deps.webOrigin);
+    } catch {
+      throw new Error("webOrigin must be an exact http(s) URL origin");
+    }
+    if (!["http:", "https:"].includes(configured.protocol) || configured.origin !== deps.webOrigin)
+      throw new Error("webOrigin must be an exact http(s) URL origin");
+  }
   const app = Fastify(options);
+  const worldPaths = new Set(["/world/rp-context", "/world/verify"]);
+  const worldCors = (url: string) => Boolean(deps.world && deps.webOrigin && worldPaths.has(url.split("?")[0]));
   // Public reads are consumed by the separately hosted web app.
   app.addHook("onSend", async (request, reply) => {
     if (request.method === "GET") reply.header("Access-Control-Allow-Origin", "*");
+    if (worldCors(request.url) && ["POST", "OPTIONS"].includes(request.method)) {
+      reply.header("Vary", "Origin");
+      if (request.headers.origin === deps.webOrigin && (request.method === "POST" || reply.statusCode === 204))
+        reply.header("Access-Control-Allow-Origin", deps.webOrigin);
+    }
   });
+
+  if (deps.world && deps.webOrigin) {
+    for (const path of worldPaths)
+      app.options(path, async (request, reply) => {
+        const headers = request.headers["access-control-request-headers"];
+        const requested =
+          typeof headers === "string" ? headers.split(",").map((header) => header.trim().toLowerCase()) : [];
+        if (
+          request.headers.origin !== deps.webOrigin ||
+          request.headers["access-control-request-method"] !== "POST" ||
+          requested.some((header) => header !== "content-type")
+        )
+          return reply.code(403).send({ error: "World browser origin or preflight is not allowed" });
+        return reply
+          .header("Access-Control-Allow-Methods", "POST, OPTIONS")
+          .header("Access-Control-Allow-Headers", "Content-Type")
+          .code(204)
+          .send();
+      });
+  }
 
   app.get("/health", async (_req, reply) => {
     try {
