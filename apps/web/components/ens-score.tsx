@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 export type EnsScoreState =
   | { status: "loading" }
   | { status: "unavailable" }
+  | { status: "unconfigured" }
   | { status: "error" }
   | { status: "ready"; snapshot: EnsScoreSnapshot };
 
@@ -18,6 +19,7 @@ export type EnsScoreState =
 export function EnsScoreView({ state }: { state: EnsScoreState }) {
   if (state.status === "loading") return <p role="status">Reading ENS score…</p>;
   if (state.status === "unavailable") return <p>ENS score unavailable</p>;
+  if (state.status === "unconfigured") return <p>ENS reputation is not configured</p>;
   if (state.status === "error") return <p role="alert">Could not read ENS score</p>;
   const { snapshot } = state;
   return (
@@ -48,15 +50,17 @@ export function EnsScoreView({ state }: { state: EnsScoreState }) {
 export function EnsScore({
   name,
   reader,
-  parentName = process.env.NEXT_PUBLIC_ENS_PARENT_NAME ?? "skeptique.eth",
+  parentName = process.env.NEXT_PUBLIC_ENS_PARENT_NAME,
 }: {
   name: string;
   reader?: EnsScoreReader;
   parentName?: string;
 }) {
-  // Associate state with its name so navigation cannot briefly show the prior service's score.
-  const [result, setResult] = useState<{ name: string; state: EnsScoreState }>({ name, state: { status: "loading" } });
+  // Bind state to both namespace and name so navigation cannot show a prior service's score.
+  const key = `${parentName}/${name}`;
+  const [result, setResult] = useState<{ key: string; state: EnsScoreState }>({ key, state: { status: "loading" } });
   useEffect(() => {
+    if (!parentName) return;
     let active = true;
     Promise.resolve()
       .then(() => {
@@ -65,15 +69,19 @@ export function EnsScore({
       })
       .then(
         (snapshot) => {
-          if (active) setResult({ name, state: snapshot ? { status: "ready", snapshot } : { status: "unavailable" } });
+          if (active) setResult({ key, state: snapshot ? { status: "ready", snapshot } : { status: "unavailable" } });
         },
         () => {
-          if (active) setResult({ name, state: { status: "error" } });
+          if (active) setResult({ key, state: { status: "error" } });
         },
       );
     return () => {
       active = false;
     };
-  }, [name, parentName, reader]);
-  return <EnsScoreView state={result.name === name ? result.state : { status: "loading" }} />;
+  }, [name, parentName, reader, key]);
+  return (
+    <EnsScoreView
+      state={!parentName ? { status: "unconfigured" } : result.key === key ? result.state : { status: "loading" }}
+    />
+  );
 }
