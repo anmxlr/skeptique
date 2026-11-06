@@ -16,7 +16,7 @@ type RunArgs = {
   budgetMs?: number;
   model?: string;
   judge?: (input: { rubric: string; input: unknown; output: unknown }, signal?: AbortSignal) => Promise<boolean>;
-  payAndCall: (args: { url: string; body: unknown; maxPrice: string; signer: unknown; signal?: AbortSignal }) => Promise<CallResult>;
+  payAndCall: (args: { url: string; body: unknown; maxPrice: string; signer: unknown; signal?: AbortSignal; criticCall?: boolean }) => Promise<CallResult>;
 };
 
 function deadlineMs(value = 15_000): number {
@@ -70,34 +70,38 @@ export async function runCriticSuite(args: RunArgs): Promise<{ evidence: Evidenc
   const x402Txs: string[] = [];
   let errors = 0;
 
-  try { for (const [index, testCase] of suite.cases.entries()) {
-    const start = performance.now();
-    let response: unknown;
-    let txId: string | null;
-    const callBudget = remaining();
-    try {
-      ({ response, txId } = await withDeadline(signal => args.payAndCall({
-        url: args.endpoint,
-        body: { input: testCase.input, criticCall: true },
-        maxPrice: args.maxPrice,
-        signer: args.signer,
-        signal,
-      }), callBudget));
-    } catch (error) {
-      errors++;
-      results.push({ caseId: testCase.id, passed: false, weight: testCase.weight, latencyMs: performance.now() - start, error: error instanceof Error ? error.message : 'Unknown error' });
-      remaining();
-      continue;
+  try {
+    for (const [index, testCase] of suite.cases.entries()) {
+      const start = performance.now();
+      let response: unknown;
+      let txId: string | null;
+      const callBudget = remaining();
+      try {
+        ({ response, txId } = await withDeadline(signal => args.payAndCall({
+          url: args.endpoint,
+          body: testCase.input,
+          criticCall: true,
+          maxPrice: args.maxPrice,
+          signer: args.signer,
+          signal,
+        }), callBudget));
+      } catch (error) {
+        if (error instanceof Error && 'code' in error && error.code === 'PAYMENT_POLICY_DENIED') throw error;
+        errors++;
+        results.push({ caseId: testCase.id, passed: false, weight: testCase.weight, latencyMs: performance.now() - start, error: error instanceof Error ? error.message : 'Unknown error' });
+        remaining();
+        continue;
+      }
+      const latencyMs = performance.now() - start;
+      if (txId) x402Txs.push(txId);
+      const expectation = testCase.expect;
+      const passed = expectation.kind === 'judge'
+        ? await withDeadline(signal => args.judge!({ rubric: expectation.rubric, input: testCase.input, output: response }, signal), remaining())
+        : await withDeadline(() => evaluators.evaluate(index, response), remaining());
+      if (typeof passed !== 'boolean') throw new Error('Judge returned a non-boolean result');
+      results.push({ caseId: testCase.id, passed, weight: testCase.weight, latencyMs, ...(response === undefined ? {} : { output: response }) });
     }
-    const latencyMs = performance.now() - start;
-    if (txId) x402Txs.push(txId);
-    const expectation = testCase.expect;
-    const passed = expectation.kind === 'judge'
-      ? await withDeadline(signal => args.judge!({ rubric: expectation.rubric, input: testCase.input, output: response }, signal), remaining())
-      : await withDeadline(() => evaluators.evaluate(index, response), remaining());
-    if (typeof passed !== 'boolean') throw new Error('Judge returned a non-boolean result');
-    results.push({ caseId: testCase.id, passed, weight: testCase.weight, latencyMs, ...(response === undefined ? {} : { output: response }) });
-  } } finally { await evaluators.close(); }
+  } finally { await evaluators.close(); }
 
   const maxWeight = results.reduce((max, result) => Math.max(max, result.weight), 0);
   const totalWeight = results.reduce((sum, result) => sum + result.weight / maxWeight, 0);
