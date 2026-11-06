@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ROUND_CONFIG,
+  CaseResultSchema,
   EventSchemas,
   EvidenceSchema,
   RoundConfigSchema,
@@ -40,9 +41,36 @@ describe('shared schemas', () => {
     }
     expect(EventSchemas.CriticRevealed.safeParse({ ...eventFixtures.CriticRevealed, score: 101 }).success).toBe(false);
   });
+
+  it('preserves JSON service output in evidence while allowing an omitted response', () => {
+    const result = { caseId: 'c1', passed: true, weight: 1, latencyMs: 1, output: { answer: [42, null, true] } };
+    const evidence = EvidenceSchema.parse({ roundId: 1, critic: '0x0000000000000000000000000000000000000001', suite: [result], probes: [{ ...result, case: suite.cases[0] }], latencyMs: { p50: 1, p95: 1 }, x402Txs: [], claimedCost: '0', score: 100, model: 'none' });
+    const roundtrip = EvidenceSchema.parse(JSON.parse(JSON.stringify(evidence)));
+    expect(roundtrip.suite[0]).toHaveProperty('output', result.output);
+    expect(roundtrip.probes[0]).toHaveProperty('output', result.output);
+    const { output: _output, ...withoutOutput } = result;
+    expect(CaseResultSchema.parse(withoutOutput)).not.toHaveProperty('output');
+    expect(CaseResultSchema.parse({ ...result, output: null })).toHaveProperty('output', null);
+    for (const output of [undefined, NaN, Infinity, { nested: undefined }]) {
+      expect(CaseResultSchema.safeParse({ ...result, output }).success).toBe(false);
+    }
+  });
 });
 
 describe('hashes', () => {
+  it('rejects non-JSON suite values instead of silently dropping them from the hash', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    const invalidInputs = [undefined, { hidden: undefined }, [undefined], new Array(1), NaN, Infinity, 1n, () => 1, new Date(), circular];
+    for (const input of invalidInputs) {
+      const invalidSuite = { ...suite, cases: [{ ...suite.cases[0], input }] };
+      expect(TestSuiteSchema.safeParse(invalidSuite).success).toBe(false);
+      expect(() => suiteHash(invalidSuite)).toThrow();
+    }
+    expect(TestCaseSchema.safeParse({ ...suite.cases[0], expect: { kind: 'exact', value: undefined } }).success).toBe(false);
+    expect(TestCaseSchema.safeParse({ ...suite.cases[0], expect: { kind: 'schema', schema: { default: undefined } } }).success).toBe(false);
+  });
+
   it('hashes canonical suite JSON independent of object-key order', () => {
     const reordered: TestSuite = {
       cases: [{ weight: 2, expect: { value: 200, kind: 'exact' }, input: { value: 2, to: 'cm', from: 'm' }, id: 'c1' }],

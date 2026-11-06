@@ -3,18 +3,37 @@ import canonicalize from 'canonicalize';
 import { encodeAbiParameters, keccak256, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
+export { weightedMedian, slashAmount, type WeightedScore } from './consensus';
+
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 const bytes32 = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
 const uintString = z.string().regex(/^(0|[1-9]\d*)$/);
 const uint = z.number().int().nonnegative();
 const score = z.number().int().min(0).max(100);
 
+function isJsonValue(value: unknown, ancestors = new Set<object>()): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object') return false;
+  if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return false;
+  if (ancestors.has(value)) return false;
+  ancestors.add(value);
+  for (const child of Array.isArray(value) ? value : Object.values(value)) {
+    if (!isJsonValue(child, ancestors)) return false;
+  }
+  ancestors.delete(value);
+  return true;
+}
+
+// Hash only transportable JSON: canonicalization otherwise drops undefined fields.
+const jsonValue = z.unknown().refine(value => isJsonValue(value), 'Must be a JSON value');
+
 export const TestCaseSchema = z.object({
   id: z.string().min(1),
-  input: z.unknown(),
+  input: jsonValue,
   expect: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('exact'), value: z.unknown() }).strict(),
-    z.object({ kind: z.literal('schema'), schema: z.record(z.string(), z.unknown()) }).strict(),
+    z.object({ kind: z.literal('exact'), value: jsonValue }).strict(),
+    z.object({ kind: z.literal('schema'), schema: z.record(z.string(), jsonValue) }).strict(),
     z.object({ kind: z.literal('regex'), pattern: z.string() }).strict(),
     z.object({ kind: z.literal('judge'), rubric: z.string().min(1) }).strict(),
   ]),
@@ -47,10 +66,15 @@ export const CaseResultSchema = z.object({
   weight: z.number().positive().finite(),
   latencyMs: z.number().nonnegative().finite(),
   error: z.string().optional(),
+  output: jsonValue.optional(),
+}).superRefine((result, context) => {
+  if (Object.hasOwn(result, 'output') && result.output === undefined) {
+    context.addIssue({ code: 'custom', path: ['output'], message: 'Omit output when no JSON response is available' });
+  }
 });
 export type CaseResult = z.infer<typeof CaseResultSchema>;
 
-export const ProbeResultSchema = CaseResultSchema.extend({ case: TestCaseSchema });
+export const ProbeResultSchema = CaseResultSchema.safeExtend({ case: TestCaseSchema });
 export type ProbeResult = z.infer<typeof ProbeResultSchema>;
 
 export const EvidenceSchema = z.object({
