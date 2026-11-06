@@ -1,9 +1,17 @@
 import type { BuyerRun, ServiceView } from "@skeptique/shared";
 
 /** Response body of each API route (spec/03). Later tickets add routes with types from @skeptique/shared. */
+export interface CriticView {
+  address: string;
+  nullifier: string;
+  /** Current stake in tinybars. */
+  stake: string;
+}
+
 export interface ApiRoutes {
   "/health": { ok: true; chainId: number } | { ok: false };
   "/buyer/runs": BuyerRun[];
+  "/critics": CriticView[];
   /** Ranked services; registry-indexed listings also carry their specHash and bounty (tinybars). */
   "/services": (ServiceView & { specHash?: string; bounty?: string })[];
 }

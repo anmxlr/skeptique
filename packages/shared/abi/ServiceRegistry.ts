@@ -8,6 +8,7 @@ export const serviceRegistryAbi = parseAbi([
   "function getService(uint256 serviceId) view returns ((address seller, bytes32 specHash, string endpoint, uint256 pricePerCall, bytes32 ensNode, uint256 bounty))",
   "function minListingFee() view returns (uint256)",
   "function serviceCount() view returns (uint256)",
+  "function isSeller(address account) view returns (bool)",
   "event ServiceListed(uint256 indexed serviceId, address indexed seller, bytes32 specHash, string endpoint, uint256 pricePerCall, bytes32 ensNode)",
   "event BountyToppedUp(uint256 indexed serviceId, uint256 amount)",
   "error FeeTooLow(uint256 sent, uint256 minimum)",
