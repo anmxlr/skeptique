@@ -12,7 +12,7 @@ export interface StackOptions {
   /** Demo services to start, keyed by name. Each starter listens on its own free port. */
   services?: Record<string, ServiceStarter>;
   /** Extra API dependencies, e.g. the marketplace source a test wants served. */
-  api?: Pick<AppDeps, "marketplace">;
+  api?: Pick<AppDeps, "marketplace" | "world">;
 }
 
 export interface Stack {
