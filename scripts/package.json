@@ -10,6 +10,17 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "tsx": "^4.23.15"
+  },
+  "dependencies": {
+    "@skeptic/shared": "workspace:*",
+    "@skeptic/api": "workspace:*",
+    "@skeptic/critic": "workspace:*",
+    "@skeptic/services": "workspace:*",
+    "@skeptic/x402-client": "workspace:*",
+    "@skeptic/service-unit-convert": "workspace:*",
+    "@skeptic/service-suite-gamer": "workspace:*",
+    "fastify": "^5.12.8"
   }
 }
