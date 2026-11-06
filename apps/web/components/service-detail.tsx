@@ -1,6 +1,6 @@
 "use client";
 
-import type { Evidence } from "@skeptique/shared";
+import { type Evidence, hashscanTxUrl } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { fetchEvidence, fetchService, type ServiceDetail } from "../lib/api";
 import { EnsName } from "./ens-name";
@@ -52,6 +52,19 @@ function EvidenceSection({ evidence }: { evidence: Evidence }) {
         <dd>{`${evidence.suite.length} cases`}</dd>
         <dt>Latency</dt>
         <dd>{`p50 ${Math.round(evidence.latencyMs.p50)} ms, p95 ${Math.round(evidence.latencyMs.p95)} ms`}</dd>
+        <dt>Payments</dt>
+        <dd>
+          {evidence.x402Txs.length === 0 ? (
+            "No on-chain payments"
+          ) : (
+            <ul>
+              {evidence.x402Txs.map((txId) => {
+                const href = hashscanTxUrl(txId);
+                return <li key={txId}>{href ? <a href={href}>{txId}</a> : <code>{txId}</code>}</li>;
+              })}
+            </ul>
+          )}
+        </dd>
       </dl>
     </section>
   );
