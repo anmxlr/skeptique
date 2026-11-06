@@ -181,7 +181,8 @@ export function WorldVerify() {
         onWaiting: (connectorURI, simulatorURL) => setState({ status: "waiting", connectorURI, simulatorURL }),
       });
       setState(next);
-    } catch {
+    } catch (error) {
+      console.error("World ID verification could not start", error);
       setState({ status: "denied", reason: "unavailable" });
     }
   };
