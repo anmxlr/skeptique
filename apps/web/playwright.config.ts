@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const port = 3107;
+/** Never a real host (.test is reserved); playwright/quality.spec.ts answers it with fixtures via page.route. */
+export const MOCK_API_URL = "http://api.skeptique.test";
 
 export default defineConfig({
   testDir: "playwright",
@@ -11,6 +13,7 @@ export default defineConfig({
   webServer: {
     command: `pnpm exec next dev --port ${port} --hostname 127.0.0.1`,
     url: `http://127.0.0.1:${port}`,
+    env: { NEXT_PUBLIC_API_URL: MOCK_API_URL },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

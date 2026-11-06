@@ -1,0 +1,108 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, type Page, test } from "@playwright/test";
+import { MOCK_API_URL } from "../playwright.config";
+
+// Fixture API responses (test data only), served for the pages' fetches so every page renders real loaded states.
+const service = (id: number, name: string, median: number | null) => ({
+  id,
+  name,
+  category: "conversion",
+  endpoint: `http://127.0.0.1:400${id}/call`,
+  pricePerCall: "100000",
+  seller: "0x0000000000000000000000000000000000000022",
+  ensName: "",
+  median,
+  confidence: median === null ? 0 : 0.6,
+  rank: median === null ? 0 : median - 6,
+  nRounds: median === null ? 0 : 1,
+  lastRoundAt: median === null ? null : "2026-11-06T10:00:00.000Z",
+  popularityCalls: id * 3,
+  specHash: `0x${"ab".repeat(32)}`,
+  bounty: "500000000",
+});
+const SERVICES = [service(1, "unit-convert", 100), service(2, "suite-gamer", 40), service(3, "brand-new", null)];
+const CRITICS = [
+  { address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", nullifier: `0x${"0c".repeat(32)}`, stake: "1000000000" },
+];
+const RUNS = [
+  {
+    strategy: "skeptique",
+    category: "conversion",
+    task: { value: 3, from: "m", to: "cm" },
+    pick: SERVICES[0],
+    explanation: "Picked unit-convert: rank 94.0.",
+    response: { result: 300, unit: "cm" },
+    txId: "0.0.9185802@1793949293.996636002",
+    paid: true,
+    at: "2026-11-06T10:00:00.000Z",
+  },
+];
+
+async function mockApi(page: Page) {
+  await page.route(`${MOCK_API_URL}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const body =
+      path === "/services"
+        ? SERVICES
+        : path.startsWith("/services/")
+          ? SERVICES.find((s) => s.id === Number(path.split("/")[2]))
+          : path === "/critics"
+            ? CRITICS
+            : path === "/buyer/runs"
+              ? RUNS
+              : undefined;
+    await route.fulfill(
+      body === undefined
+        ? { status: 404, json: { error: "Not found" }, headers: { "access-control-allow-origin": "*" } }
+        : { status: 200, json: body, headers: { "access-control-allow-origin": "*" } },
+    );
+  });
+}
+
+const PAGES = [
+  { path: "/", heading: "Marketplace" },
+  { path: "/services/1", heading: "unit-convert" },
+  { path: "/critics", heading: "Critics" },
+  { path: "/sell", heading: "Sell" },
+  { path: "/buyer", heading: "Buyer" },
+  { path: "/audit", heading: "Audit" },
+  { path: "/limits", heading: "Limits" },
+];
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test.describe(`walkthrough in ${colorScheme} theme`, () => {
+    test.use({ colorScheme });
+
+    for (const { path, heading } of PAGES) {
+      test(`${path} has no accessibility violations or console errors`, async ({ page }) => {
+        const errors: string[] = [];
+        page.on("console", (message) => {
+          if (message.type() === "error") errors.push(message.text());
+        });
+        page.on("pageerror", (error) => errors.push(error.message));
+        await mockApi(page);
+
+        await page.goto(path);
+        await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+        await page.waitForLoadState("networkidle");
+
+        const { violations } = await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+          .analyze();
+        expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+        expect(errors).toEqual([]);
+      });
+    }
+  });
+}
+
+test("keyboard: the skip link comes first and moves focus to the main content", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("link", { name: "Skip to content" });
+  await expect(skip).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#main$/);
+  await expect(page.locator("main")).toBeFocused();
+});
