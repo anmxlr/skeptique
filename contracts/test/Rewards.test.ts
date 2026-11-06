@@ -57,7 +57,9 @@ async function deploy(stakes: bigint[], fee = LISTING_FEE) {
     const sig = await attestor!.signMessage(ethers.getBytes(digest));
     await registry.connect(critic).registerCritic(nullifier, expiry, sig, { value: stakes[index]! });
   }
-  await services.connect(seller).listService(ethers.ZeroHash, "https://svc.example", 1, ethers.ZeroHash, { value: fee });
+  await services
+    .connect(seller)
+    .listService(ethers.ZeroHash, "https://svc.example", 1, ethers.ZeroHash, { value: fee });
   const roundId = (await manager.nextRoundId()) - 1n;
   const advance = async (seconds: number) => {
     await network.provider.send("evm_increaseTime", [seconds]);
@@ -174,7 +176,7 @@ describe("invariant: spec/02 §7 reward properties", () => {
         ),
         fc.bigInt({ min: LISTING_FEE, max: 40n * HBAR }),
         async (moves, fee) => {
-          if (moves.filter((move) => move.reveal).length < K_MIN) moves.forEach((move) => (move.reveal = true));
+          if (moves.filter((move) => move.reveal).length < K_MIN) for (const move of moves) move.reveal = true;
           const stakes = moves.map((move) => move.stake);
           const { seller, critics, services, registry, manager, roundId, play, held, balance } = await deploy(
             stakes,

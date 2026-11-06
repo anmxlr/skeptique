@@ -74,7 +74,8 @@ export function createCriticSource(options: {
       : [[], [], [], []];
     const countByCritic = (items: readonly { args: { critic: string } }[]) => {
       const counts = new Map<string, number>();
-      for (const { args } of items) counts.set(args.critic.toLowerCase(), (counts.get(args.critic.toLowerCase()) ?? 0) + 1);
+      for (const { args } of items)
+        counts.set(args.critic.toLowerCase(), (counts.get(args.critic.toLowerCase()) ?? 0) + 1);
       return counts;
     };
     const honestRoundsByCritic = countByCritic(accrued);

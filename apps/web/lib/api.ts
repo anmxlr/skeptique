@@ -10,6 +10,10 @@ export interface CriticView {
   verdict?: "honest" | "slashed" | "outlier" | "unreviewed";
   lastRoundId?: number;
   slashedAmount?: string;
+  honestRounds?: number;
+  slashes?: number;
+  /** Accrued, unclaimed rewards in tinybars. */
+  pendingRewards?: string;
 }
 
 export interface ApiRoutes {
