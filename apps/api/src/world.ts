@@ -16,6 +16,8 @@ export type WorldDenial =
   | "duplicate_human";
 
 export interface WorldConfig {
+  /** Public app_... id the browser passes to IDKit. */
+  appId: string;
   rpId: string;
   /** IDKit action for the protected act; one per act so the nullifier means "this human, as a critic". */
   action: string;
@@ -121,7 +123,16 @@ export function registerWorldRoutes(app: FastifyInstance, config: WorldConfig, c
   app.post("/world/rp-context", async () => {
     const { sig, nonce, createdAt, expiresAt } = config.signRequest(config.action);
     issued.set(nonce, now() + (expiresAt - createdAt) * 1000);
-    return { rp_id: config.rpId, nonce, created_at: createdAt, expires_at: expiresAt, signature: sig };
+    return {
+      app_id: config.appId,
+      action: config.action,
+      environment: config.environment,
+      rp_id: config.rpId,
+      nonce,
+      created_at: createdAt,
+      expires_at: expiresAt,
+      signature: sig,
+    };
   });
 
   app.post("/world/verify", async (request, reply) => {

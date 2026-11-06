@@ -37,6 +37,7 @@ function setup(overrides: Partial<WorldConfig> = {}) {
   let clock = Date.parse("2026-11-06T10:00:00Z");
   const verified: unknown[] = [];
   const world: WorldConfig = {
+    appId: "app_test",
     rpId: "rp_test",
     action: ACTION,
     environment: "staging",
@@ -66,7 +67,13 @@ describe("world verify", () => {
   it("hands out a server-signed rp_context and never the signing key", async () => {
     const { app, rpContext } = setup();
     const context = await rpContext();
-    expect(context).toMatchObject({ rp_id: "rp_test", nonce: expect.stringMatching(/^0x[0-9a-f]{64}$/) });
+    expect(context).toMatchObject({
+      app_id: "app_test",
+      action: ACTION,
+      environment: "staging",
+      rp_id: "rp_test",
+      nonce: expect.stringMatching(/^0x[0-9a-f]{64}$/),
+    });
     expect(context.signature).toMatch(/^0x[0-9a-f]{130}$/);
     expect(context.expires_at - context.created_at).toBe(300);
     expect(JSON.stringify(context)).not.toContain(ATTESTOR_KEY.slice(2));

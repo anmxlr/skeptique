@@ -50,6 +50,7 @@ describe("world onboarding", () => {
     stack = await startStack({
       api: {
         world: {
+          appId: "app_local",
           rpId: "rp_local",
           action: ACTION,
           environment: "staging",

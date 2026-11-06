@@ -8,10 +8,16 @@ const rpcUrl = process.env.HEDERA_RPC_URL;
 if (!rpcUrl) throw new Error("HEDERA_RPC_URL must be set");
 
 function worldFromEnv(env: NodeJS.ProcessEnv): WorldConfig | undefined {
-  const { WORLD_RP_ID: rpId, WORLD_SIGNING_KEY: signingKey, ATTESTOR_PRIVATE_KEY: attestorKey } = env;
+  const {
+    WORLD_APP_ID: appId,
+    WORLD_RP_ID: rpId,
+    WORLD_SIGNING_KEY: signingKey,
+    ATTESTOR_PRIVATE_KEY: attestorKey,
+  } = env;
   const environment = env.WORLD_ENVIRONMENT;
-  if (!rpId || !signingKey || !attestorKey || !environment) return undefined;
+  if (!appId || !rpId || !signingKey || !attestorKey || !environment) return undefined;
   return {
+    appId,
     rpId,
     action: "register-critic",
     environment,
