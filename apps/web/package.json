@@ -10,6 +10,7 @@
     "test": "vitest run && playwright test"
   },
   "devDependencies": {
+    "viem": "^2.57.16",
     "@playwright/test": "^1.65.0",
     "@types/node": "catalog:",
     "@types/react": "^19.3.0",

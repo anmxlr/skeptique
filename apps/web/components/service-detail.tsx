@@ -3,6 +3,7 @@
 import type { CaseResult, Evidence } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { type ApiRoutes, apiClient } from "../lib/api";
+import { EnsScore } from "./ens-score";
 
 type Service = ApiRoutes["/services"][number];
 export type Review = { evidenceHash: string; evidence: Evidence };
@@ -49,6 +50,7 @@ export function ServiceDetailView({ state }: { state: State }) {
     <div>
       <h1>{state.service.name}</h1>
       <p>{state.service.category}</p>
+      {state.service.ensName ? <EnsScore name={state.service.ensName} /> : <p>ENS score unavailable</p>}
       {state.reviews.length === 0 && <p>No finalized review evidence available.</p>}
       {state.reviews.map(({ evidenceHash, evidence }) => (
         <article key={evidenceHash} className="market-card">

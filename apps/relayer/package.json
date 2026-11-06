@@ -8,11 +8,17 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
+    "scores": "tsx src/run-scores.ts",
     "test": "vitest run"
   },
   "devDependencies": {
+    "tsx": "^4.23.15",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@skeptique/shared": "workspace:*",
+    "viem": "^2.57.16"
   }
 }
