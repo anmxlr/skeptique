@@ -9,12 +9,87 @@ Areas follow each ticket's sponsor track; Core is shared infrastructure.
 
 Scaffold written by Claude Code (Claude Opus 5.5) from AGENTS.md and the ticket. The human chose the ticket order and reviewed the output. Package versions were checked against the npm registry at build time.
 
+### 06: Frozen shared package
+
+Claude Code (Opus 5.5) ran the done-when command on a fresh `pnpm install --frozen-lockfile` (Windows, Node 22), matched the test names against the acceptance criteria and wrote this receipt. It wrote no package code.
+
 ### 07: Local stack harness and web shell
 
 Harness, API change and web shell written by Claude Code (Claude Opus 5.5) from the ticket, spec/01 and spec/05. The human reviewed and merges. The page layout was checked visually with Playwright screenshots in light/375px and dark/1280px.
 
+### 09: Seller lists from the web form
+
+Claude Code (Claude Sonnet 5.5) wrote the lib, components, pages and e2e test from the ticket and spec/03. The failing test was committed first. The human reviews and merges.
+
+### 11: Critic tests a service and publishes evidence
+
+Claude (Sonnet 5.5) wrote the e2e test, API wiring and web section. Existing critic and x402 code was read, not changed.
+
+### 13: Five demo services on the marketplace
+
+Written with Claude Code (Sonnet 5.5); outputs checked by running the commands above.
+
+## ENS
+
+### 03: Spike: ENSv2 on Sepolia
+
+Claude Code (Opus 5.5) did both phases:
+- **Phase A:** ran the research in a background agent and wrote `spec/notes/ens.md`.
+- **Keys and checks:** generated the operator key into `.env` (printing only the address) and checked name availability and balances.
+- **Phase B:**
+  - Pulled the pinned ENS ABIs and sources from `ensdomains/contracts-v2@07e55a05` to check signatures.
+  - Wrote and ran `spikes/ens-sepolia/ens.mjs` and diagnosed the stale-read failure.
+  - Updated the note and this receipt.
+
+The human chose ENSv2-only, the parent name and the separate operator key, and funded the operator with 0.1 Sepolia ETH.
+
+### 12: Listing creates a role-limited ENS subname
+
+Implemented by Claude (Sonnet 5.5), tests first; port of the ticket-03 spike script.
+
 ## Hedera
+
+### 02: Spike: Hedera x402 and HCS
+
+Claude Code (Opus 5.5) did the whole ticket. A background research subagent read only primary sources (docs.hedera.com, the x402-foundation repo, the npm registry and live facilitator `/supported` endpoints) and drafted the note. The main session spot-checked key claims against the live docs, then wrote and ran the spike scripts on testnet. It diagnosed the hollow-account failure from mirror-node data and the Hedera docs, and added the transcripts and spec/03 proposals.
+
+### 08: Walking skeleton 1: a listed service shows on the marketplace
+
+Claude Code (Claude Opus 5.5) wrote the contract, ABI module, API indexer and routes, marketplace view, seed listing and all tests from the ticket and spec/03 and spec/02 §3. Each test was committed failing before its implementation. The human reviews and merges.
+
+### 15: Critic test calls pay via Hedera x402
+
+Implemented with Claude (Claude Code); tests written first and committed failing, then implementation.
+
+### 17: Real collateral settlement and visible consensus verdicts
+
+Codex implemented and reviewed the ticket, using the karpathy-guidelines skill, existing specs, actual-chain tests and cited research. No credentials were committed. The only private key in the acceptance fixture is a documented public Hardhat development account used solely on the local chain.
 
 ### 24: Buyer agent picks by score and pays with no human approving
 
 Buyer agent, API routes, harness option, Buyer page and tests written by Claude Code (Claude Opus 5.5) from the ticket and spec/02 §5, spec/03 and spec/05. Tests were written first. The human reviews and merges. The page was checked visually with Playwright screenshots.
+
+## Hedera, ENS, World
+
+### 01: HUMAN: accounts, keys, funding, repo
+
+Claude Code (Opus 5.5) wrote the manual setup steps, looked up the World ID 4.0 credential model in the World docs, created `WORLD_FEEDBACK.md`, checked balances against the mirror node and Sepolia RPC, normalised the key prefixes and wrote this receipt. The human created the accounts, moved the funds and copied every secret.
+
+## World
+
+### 05: Spike: World ID Agent Pass
+
+Claude Code (Opus 5.5) did all of the following; the human had registered the RP and filled `.env` in ticket 01:
+- Ran the `/research` skill as a background agent restricted to first-party World sources, which drafted `spec/notes/world.md`.
+- Wrote the spike checks first, then the server, and ran the spike.
+- Completed the note with the per-human id decision and the spike results.
+- Updated `.env.example`.
+- Wrote the `WORLD_FEEDBACK.md` notes and this receipt.
+
+### 10: Critic registers with a stake
+
+Claude Code (Claude Sonnet 5.5) wrote the contract, ABI module, API source, web view, seed script and tests from the ticket and spec/03. Contract and e2e tests were committed failing before implementation. The human reviews and merges.
+
+### 16: World Agent Pass critic onboarding, with denied paths
+
+Implemented with Claude (Claude Code); failing API tests were committed first, then the routes.
