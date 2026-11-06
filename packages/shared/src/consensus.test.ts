@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { slashAmount, weightedMedian } from './consensus';
+import { slashAmount, weightedMedian } from './index';
 
 describe('weighted consensus math', () => {
   it('resolves an exact half-weight tie to the lower score', () => {

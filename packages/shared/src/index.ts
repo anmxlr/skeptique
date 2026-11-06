@@ -3,6 +3,8 @@ import canonicalize from 'canonicalize';
 import { encodeAbiParameters, keccak256, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
+export { weightedMedian, slashAmount, type WeightedScore } from './consensus';
+
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 const bytes32 = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
 const uintString = z.string().regex(/^(0|[1-9]\d*)$/);
