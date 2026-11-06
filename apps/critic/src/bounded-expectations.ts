@@ -40,8 +40,9 @@ export interface BoundedExpectations {
   close(): Promise<void>;
 }
 
-export async function createBoundedExpectations(cases: readonly TestCase[], timeoutMs: number): Promise<BoundedExpectations> {
+export async function createBoundedExpectations(cases: readonly TestCase[], timeoutMs: number, startupTimeoutMs = 15_000): Promise<BoundedExpectations> {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647) throw new Error('Invalid expectation timeoutMs');
+  if (!Number.isSafeInteger(startupTimeoutMs) || startupTimeoutMs <= 0 || startupTimeoutMs > 2_147_483_647) throw new Error('Invalid preflight timeoutMs');
   let resolveReady!: () => void;
   let rejectReady!: (error: Error) => void;
   const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
@@ -52,6 +53,7 @@ export async function createBoundedExpectations(cases: readonly TestCase[], time
   let termination: Promise<void> | undefined;
   const worker = new Worker(workerSource, {
     eval: true,
+    resourceLimits: { maxOldGenerationSizeMb: 64, maxYoungGenerationSizeMb: 16 },
     workerData: { expectations: cases.map(testCase => testCase.expect), ajvPath: createRequire(import.meta.url).resolve('ajv') },
   });
   const terminate = () => termination ??= worker.terminate().then(() => undefined);
@@ -86,7 +88,7 @@ export async function createBoundedExpectations(cases: readonly TestCase[], time
   });
   // Startup includes loading Ajv and compiling every expectation before spending;
   // its budget is separate from a deliberately short per-call evaluation timeout.
-  startupTimer = setTimeout(() => fail(new Error('Expectation preflight timed out')), 15_000);
+  startupTimer = setTimeout(() => fail(new Error('Expectation preflight timed out')), startupTimeoutMs);
   try {
     await ready;
   } catch (error) {
