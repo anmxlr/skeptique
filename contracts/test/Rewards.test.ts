@@ -148,7 +148,7 @@ describe("claim: rewards are pulled", () => {
     const pending: bigint = await manager.pendingRewards(critic.address);
     assert(pending > 0n);
     const before = await ethers.provider.getBalance(critic.address);
-    const receipt = await (await manager.connect(critic).claim()).wait();
+    const receipt: { gasUsed: bigint; gasPrice: bigint } = await (await manager.connect(critic).claim()).wait();
     const after = await ethers.provider.getBalance(critic.address);
     assert.equal(after - before + receipt.gasUsed * receipt.gasPrice, pending);
     assert.equal(await manager.pendingRewards(critic.address), 0n);
