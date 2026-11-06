@@ -83,7 +83,7 @@ describe("buyer picks by score", () => {
     await reportPaidCall(1, BUYERS[0] as string);
     for (let i = 0; i < 5; i++) await reportPaidCall(2, BUYERS[i % BUYERS.length] as string);
 
-    const popularity: RankingInput[] = await (await fetch(`${stack.apiUrl}/services`)).json();
+    const popularity = (await (await fetch(`${stack.apiUrl}/services`)).json()) as RankingInput[];
     expect(Object.fromEntries(popularity.map((s: RankingInput) => [s.name, s.popularityCalls]))).toEqual({
       "unit-convert": 1,
       "suite-gamer": 5,
@@ -108,7 +108,7 @@ describe("buyer picks by score", () => {
     expect(runs[1]).toMatchObject({ pick: { name: "suite-gamer" } });
     expect(runs[1]?.explanation).toMatch(/does not consider quality/);
 
-    const shown: BuyerRun[] = await (await fetch(`${stack.apiUrl}/buyer/runs`)).json();
+    const shown = (await (await fetch(`${stack.apiUrl}/buyer/runs`)).json()) as BuyerRun[];
     expect(shown.map((run: BuyerRun) => [run.strategy, run.pick.name])).toEqual([
       ["skeptic", "unit-convert"],
       ["popularity", "suite-gamer"],
