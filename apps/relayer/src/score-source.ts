@@ -38,6 +38,7 @@ export async function relayScoresFromChain(options: {
   const honestRounds = new Map<string, number>();
   const reveals = new Map<string, Set<Address>>();
   let finalized = 0;
+  const skipped: { kind: "service" | "critic"; id: string; reason: string }[] = [];
   for (let start = options.fromBlock; start <= toBlock; start += chunkSize) {
     let end = start + chunkSize - 1n;
     if (end > toBlock) end = toBlock;
@@ -74,18 +75,26 @@ export async function relayScoresFromChain(options: {
         reveals.delete(roundId);
         continue;
       }
-      const rawName = options.serviceNames[log.args.serviceId.toString()];
-      if (!rawName) throw new Error(`Missing provisioned ENS name for service ${log.args.serviceId}`);
-      const name = validateEnsSubname(rawName, options.parentName, "svc");
-      const service = await pub.readContract({
-        address: options.serviceRegistry,
-        abi: serviceRegistryAbi,
-        functionName: "getService",
-        args: [log.args.serviceId],
-        blockNumber: toBlock,
-      });
-      if (service.ensNode.toLowerCase() !== namehash(name).toLowerCase())
-        throw new Error(`ENS namehash mismatch for service ${log.args.serviceId}`);
+      const serviceId = log.args.serviceId.toString();
+      let name: string;
+      try {
+        const rawName = options.serviceNames[serviceId];
+        if (!rawName) throw new Error(`Missing provisioned ENS name for service ${serviceId}`);
+        name = validateEnsSubname(rawName, options.parentName, "svc");
+        const service = await pub.readContract({
+          address: options.serviceRegistry,
+          abi: serviceRegistryAbi,
+          functionName: "getService",
+          args: [log.args.serviceId],
+          blockNumber: toBlock,
+        });
+        if (service.ensNode.toLowerCase() !== namehash(name).toLowerCase())
+          throw new Error(`ENS namehash mismatch for service ${serviceId}`);
+      } catch (error) {
+        skipped.push({ kind: "service", id: serviceId, reason: (error as Error).message });
+        reveals.delete(roundId);
+        continue;
+      }
       await options.relayer.finalize({
         name,
         roundId,
@@ -115,7 +124,10 @@ export async function relayScoresFromChain(options: {
   );
   for (const address of registered) {
     const name = names[address];
-    if (!name) throw new Error(`Missing provisioned ENS name for critic ${address}`);
+    if (!name) {
+      skipped.push({ kind: "critic", id: address, reason: `Missing provisioned ENS name for critic ${address}` });
+      continue;
+    }
     const stake = await pub.readContract({
       address: options.criticRegistry,
       abi: criticRegistryAbi,
@@ -131,5 +143,5 @@ export async function relayScoresFromChain(options: {
       slashes: slashes.get(address) ?? 0,
     });
   }
-  return { sourceBlock: toBlock.toString(), finalized, critics: registered.size };
+  return { sourceBlock: toBlock.toString(), finalized, critics: registered.size - skipped.filter((item) => item.kind === "critic").length, skipped };
 }
