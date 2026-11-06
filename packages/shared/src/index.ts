@@ -153,6 +153,9 @@ export const commitmentVector = {
   expected: '0x0069e7b76594a9ca34a952412e27dbe6a57c31a993aa09431c1a7cccc0502afc',
 } as const;
 
+export { rankMarketplaceServices, rankService, rankServices } from './ranking';
+export type { RankedService, RankingInput } from './ranking';
+
 export const EventSchemas = {
   ServiceListed: z.object({ serviceId: uint, seller: address, specHash: bytes32, endpoint: z.string(), pricePerCall: uintString, ensNode: bytes32 }),
   BountyToppedUp: z.object({ serviceId: uint, amount: uintString }),

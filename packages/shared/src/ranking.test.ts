@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rankMarketplaceServices, rankService, rankServices, type RankingInput } from './ranking';
+import { rankMarketplaceServices, rankService, rankServices, type RankingInput } from './index';
 
 const NOW = Date.parse('2026-11-06T00:00:00.000Z');
 const address = '0x0000000000000000000000000000000000000001';
