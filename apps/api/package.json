@@ -19,9 +19,12 @@
     "vitest": "catalog:"
   },
   "dependencies": {
+    "@skeptique/shared": "workspace:*",
+    "@worldcoin/idkit-core": "4.6.0",
+    "@worldcoin/idkit-server": "1.2.0",
+    "canonicalize": "^2.1.0",
     "fastify": "^5.12.8",
     "viem": "^2.57.16",
-    "@skeptique/shared": "workspace:*",
-    "canonicalize": "^2.1.0"
+    "zod": "^4"
   }
 }
