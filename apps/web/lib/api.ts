@@ -32,15 +32,6 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = fetch
       if (!res.ok) throw new ApiError(res.status, path);
       return (await res.json()) as ApiRoutes[P];
     },
-    /** POST JSON; resolves with any status so callers can show the API's own reason for a refusal. */
-    async post(path: string, body?: unknown): Promise<{ status: number; body: unknown }> {
-      const res = await fetchImpl(new URL(path, baseUrl), {
-        method: "POST",
-        headers: body === undefined ? {} : { "content-type": "application/json" },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-      return { status: res.status, body: await res.json().catch(() => ({})) };
-    },
   };
 }
 
