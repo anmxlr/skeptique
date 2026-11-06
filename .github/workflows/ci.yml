@@ -31,3 +31,17 @@ jobs:
       - run: pnpm lint
       - run: pnpm -r build
       - run: pnpm -r test
+      - name: Local review flow
+        run: pnpm e2e
+        env:
+          DEV2_EVIDENCE_PATH: ${{ runner.temp }}/skeptique-flow.json
+      - name: Local round settlement
+        run: pnpm settle:local
+        env:
+          DEV2_EVIDENCE_PATH: ${{ runner.temp }}/skeptique-flow.json
+          DEV2_SETTLEMENT_PATH: ${{ runner.temp }}/skeptique-settlement.json
+      - name: Repeatable seed and fixture drills
+        run: |
+          pnpm seed
+          pnpm seed
+          pnpm drills
