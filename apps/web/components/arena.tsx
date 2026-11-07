@@ -27,7 +27,7 @@ import {
   moneySplit,
   type PartOutcome,
   type PartResult,
-  paidHonestVendor,
+  paidForCorrectAnswer,
   type Side,
   type SideOutcome,
   type SideResult,
@@ -248,7 +248,7 @@ export function KeysForm({
         type="password"
         value={draft.hederaPrivateKey}
         onChange={(e) => set({ hederaPrivateKey: e.target.value })}
-        autoComplete="off"
+        autoComplete="new-password"
         spellCheck={false}
       />
       {error("hederaPrivateKey")}
@@ -261,7 +261,7 @@ export function KeysForm({
         value={draft.anthropicApiKey ?? ""}
         onChange={(e) => set({ anthropicApiKey: e.target.value })}
         placeholder="Leave blank to use the server's Claude"
-        autoComplete="off"
+        autoComplete="new-password"
         spellCheck={false}
       />
       {error("anthropicApiKey")}
@@ -304,8 +304,7 @@ function KeysDialog({
     setDraft(EMPTY_DRAFT);
     setErrors({});
   };
-  function save(event: FormEvent) {
-    event.preventDefault();
+  function save() {
     const found = validateCredentials(draft);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
@@ -313,22 +312,29 @@ function KeysDialog({
     close();
   }
   return (
-    <dialog ref={ref} className="arena-dialog" aria-labelledby="arena-keys-title" onClose={close}>
-      <form onSubmit={save} noValidate>
-        <h2 id="arena-keys-title">Use your own keys</h2>
-        <KeysForm draft={draft} errors={errors} onChange={setDraft} />
-        <p className="arena-small arena-muted">
-          Keys are sent only to your local arena server for this run and never stored.
-        </p>
-        <div className="arena-dialog-actions">
-          <button type="button" className="arena-button arena-button-ghost" onClick={close}>
-            Cancel
-          </button>
-          <button type="submit" className="arena-button">
-            Use these keys
-          </button>
-        </div>
-      </form>
+    // No <form>: submitting password fields makes browsers offer to save the keys as a login.
+    <dialog
+      ref={ref}
+      className="arena-dialog"
+      aria-labelledby="arena-keys-title"
+      onClose={close}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target instanceof HTMLInputElement) save();
+      }}
+    >
+      <h2 id="arena-keys-title">Use your own keys</h2>
+      <KeysForm draft={draft} errors={errors} onChange={setDraft} />
+      <p className="arena-small arena-muted">
+        Keys are sent only to your local arena server for this run and never stored.
+      </p>
+      <div className="arena-dialog-actions">
+        <button type="button" className="arena-button arena-button-ghost" onClick={close}>
+          Cancel
+        </button>
+        <button type="button" className="arena-button" onClick={save}>
+          Use these keys
+        </button>
+      </div>
     </dialog>
   );
 }
@@ -610,35 +616,42 @@ export function VerdictStrip({ record, hash }: { record: ArenaRecord; hash: stri
       label: "Wasted tinybars",
       cell: (r) => <YesNo yes={moneySplit(r.paidTinybars, r.wastedTinybars).wasted === 0n} label={r.wastedTinybars} />,
     },
-    { label: "Honest vendor got paid?", cell: (r) => <YesNo yes={paidHonestVendor(r)} /> },
+    { label: "Paid for a correct answer?", cell: (r) => <YesNo yes={paidForCorrectAnswer(r)} /> },
   ];
   return (
     <section className="arena-panel arena-verdict" aria-labelledby="arena-verdict">
       <h2 id="arena-verdict">Verdict</h2>
-      <div className="arena-scroll">
-        <table className="arena-table arena-verdict-table">
-          <thead>
-            <tr>
-              <td />
-              {SIDES.map(({ side, title }) => (
-                <th key={side} scope="col">
-                  {title}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.label}>
-                <th scope="row">{row.label}</th>
-                {SIDES.map(({ side }) => (
-                  <td key={side}>{row.cell(record.sides[side])}</td>
+      {record.task?.kind === "unsupported" ? (
+        <p className="arena-yn arena-tone-none">
+          <Icon name="dash" />
+          Not supported: {record.task.reason}
+        </p>
+      ) : (
+        <div className="arena-scroll">
+          <table className="arena-table arena-verdict-table">
+            <thead>
+              <tr>
+                <td />
+                {SIDES.map(({ side, title }) => (
+                  <th key={side} scope="col">
+                    {title}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.label}>
+                  <th scope="row">{row.label}</th>
+                  {SIDES.map(({ side }) => (
+                    <td key={side}>{row.cell(record.sides[side])}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="arena-verdict-foot">
         <button type="button" className="arena-button" onClick={() => downloadRecord(record, hash)}>
           Download proof (JSON)

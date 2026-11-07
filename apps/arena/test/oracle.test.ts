@@ -96,3 +96,28 @@ describe("oracle", () => {
     expect(grade(task, await createFlakyFx({ staleRate: 1 })(task.input)).correct).toBe(false);
   });
 });
+
+describe("oracle money rounding", () => {
+  const task = (amount: number, from: "USD" | "INR", to: "USD" | "INR") =>
+    ({ category: "currency-conversion", input: { amount, from, to } }) as const;
+  it("grades currency to the cent, not by relative tolerance", () => {
+    expect(grade(task(400, "USD", "INR"), { to: "INR", converted: 33280 }).correct).toBe(true);
+    expect(grade(task(400, "USD", "INR"), { to: "INR", converted: 33280.01 }).correct).toBe(false);
+  });
+  it("rounds same-currency answers to cents like the services", () => {
+    expect(grade(task(12.345, "USD", "USD"), { to: "USD", converted: 12.35 }).correct).toBe(true);
+  });
+});
+
+describe("parser output", () => {
+  it("is an object schema (the model API rejects top-level unions)", async () => {
+    const { z } = await import("zod");
+    const { ParserOutputSchema } = await import("../src/tasks");
+    expect((z.toJSONSchema(ParserOutputSchema) as { type?: string }).type).toBe("object");
+  });
+  it("maps empty or unsupported output to an unsupported task", async () => {
+    const { toTask } = await import("../src/tasks");
+    expect(toTask({ kind: "tasks", parts: [], reason: "" }).kind).toBe("unsupported");
+    expect(toTask({ kind: "unsupported", parts: [], reason: "poem" })).toEqual({ kind: "unsupported", reason: "poem" });
+  });
+});

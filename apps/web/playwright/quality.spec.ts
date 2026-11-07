@@ -244,7 +244,16 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
   const FAKE_KEY = `0x${"ab".repeat(32)}`;
   const tasks = [
     { category: "conversion", input: { value: 3, from: "m", to: "cm" } },
-    { category: "currency-conversion", input: { amount: 100, from: "USD", to: "EUR" } },
+    { category: "currency-conversion", input: { amount: 120, from: "USD", to: "EUR" } },
+  ];
+  // Real service shapes: unit-convert answers {result, unit}; FX answers {from, to, amount, rate, converted}.
+  const answers = [
+    { right: { result: 300, unit: "cm" }, wrong: { result: 1, unit: "cm" }, expected: { result: 300, unit: "cm" } },
+    {
+      right: { from: "USD", to: "EUR", amount: 120, rate: 0.92, converted: 110.4 },
+      wrong: { from: "USD", to: "EUR", amount: 120, rate: 0.01, converted: 1.2 },
+      expected: { converted: 110.4, to: "EUR" },
+    },
   ];
   const part = (index: number, outcome: "correct" | "wrong" | "blocked") => ({
     part: index,
@@ -262,11 +271,16 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
         ? { allowed: false, checks: [{ rule: "evidence", pass: false, detail: "score 40 < 70" }] }
         : { allowed: true, checks: [{ rule: "budget", pass: true, detail: "ok" }] },
     payment: outcome === "blocked" ? null : { txId: TX, paid: true, tinybars: "1" },
-    response: outcome === "blocked" ? null : { result: outcome === "correct" ? 300 : 1, unit: "cm" },
+    response: outcome === "blocked" ? null : answers[index][outcome === "correct" ? "right" : "wrong"],
     verdict:
       outcome === "blocked"
         ? null
-        : { correct: outcome === "correct", expected: { result: 300, unit: "cm" }, actual: {}, note: "n" },
+        : {
+            correct: outcome === "correct",
+            expected: answers[index].expected,
+            actual: answers[index][outcome === "correct" ? "right" : "wrong"],
+            note: "n",
+          },
     outcome,
     error: null,
   });
@@ -346,6 +360,7 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
   await expect(page.getByRole("region", { name: "Verdict" })).toContainText("0xabc");
   await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("1/2");
   await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("score 40 < 70");
+  await expect(page.getByRole("region", { name: "Without Skeptique" })).toContainText("got 1.2 EUR · right: 110.4 EUR");
   expect(posted).toMatchObject({
     prompt: "Convert 3 metres to centimetres",
     mode: "may-refuse",

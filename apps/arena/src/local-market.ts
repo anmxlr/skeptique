@@ -79,7 +79,7 @@ const PROBE_POOLS: Record<string, TestCase[]> = {
     unitProbe("feet-metres", 5, "ft", "m"),
     unitProbe("litres-millilitres", 2, "L", "mL"),
     unitProbe("kelvin-celsius", 300, "K", "C"),
-    unitProbe("zero-length", 0, "mm", "km"),
+    unitProbe("millimetres-kilometres", 1500, "mm", "km"),
     unitProbe("pounds-kilograms", 10, "lb", "kg"),
     unitProbe("miles-feet", 3, "mi", "ft"),
   ],

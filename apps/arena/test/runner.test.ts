@@ -370,7 +370,7 @@ describe("option shuffle", () => {
         { seed },
       ).run();
       expect(record.seed).toBe(seed);
-      const expected = shuffleWithSeed(seed, [GOOD, GAMER]).map((s, k) => ({
+      const expected = shuffleWithSeed(seed, [GOOD, GAMER], "conversion:").map((s, k) => ({
         category: "conversion",
         option: k + 1,
         serviceId: s.id,

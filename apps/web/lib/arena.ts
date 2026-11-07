@@ -150,8 +150,20 @@ export function arenaReducer(state: ArenaState, event: ArenaEvent): ArenaState {
     }
     case "graded":
       return patch(event.side, { result: event.result, parts: event.result.parts });
-    case "run-finished":
-      return { ...state, status: "finished", record: event.record, hash: event.hash };
+    case "run-finished": {
+      // Unsupported tasks emit no `graded` events; the record still carries each side's result.
+      const fill = (s: Side): SideState => ({
+        ...state.sides[s],
+        result: state.sides[s].result ?? event.record.sides[s],
+      });
+      return {
+        ...state,
+        status: "finished",
+        record: event.record,
+        hash: event.hash,
+        sides: { baseline: fill("baseline"), skeptique: fill("skeptique") },
+      };
+    }
     case "run-failed":
       return { ...state, status: "failed", error: event.error };
   }
@@ -232,8 +244,9 @@ export function answerText(value: unknown): string {
   if (typeof value === "string") return value.length > 24 ? `${value.slice(0, 23)}…` : value;
   if (typeof value === "object") {
     const o = value as Record<string, unknown>;
-    const n = [o.result, o.value, o.amount].find((v) => typeof v === "number") as number | undefined;
-    const u = [o.unit, o.currency, o.to].find((v) => typeof v === "string") as string | undefined;
+    // FX answers are {from, to, amount, rate, converted}: `amount` is the input, never the answer.
+    const n = [o.converted, o.result, o.value].find((v) => typeof v === "number") as number | undefined;
+    const u = [o.unit, o.to].find((v) => typeof v === "string") as string | undefined;
     if (n !== undefined) return u ? `${tidy(n)} ${unit(u)}` : tidy(n);
   }
   const text = JSON.stringify(value) ?? "—";
@@ -257,7 +270,7 @@ export function moneySplit(paid: string, wasted: string) {
 }
 
 /** True when this side paid at least one vendor whose answer the oracle graded correct. */
-export function paidHonestVendor(result: SideResult): boolean {
+export function paidForCorrectAnswer(result: SideResult): boolean {
   return result.parts.some((p) => p.payment?.paid && p.outcome === "correct");
 }
 

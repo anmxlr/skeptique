@@ -5,6 +5,7 @@ import { ArenaRunView, BatchView, KeysForm, KeysPill, MoneyMeter } from "../comp
 import {
   type ArenaEvent,
   type ArenaRecord,
+  answerText,
   arenaReducer,
   type BatchEvent,
   batchReducer,
@@ -25,6 +26,8 @@ const MI_KM: SubTask = { category: "conversion", input: { value: 26.2, from: "mi
 const USD_EUR: SubTask = { category: "currency-conversion", input: { amount: 100, from: "USD", to: "EUR" } };
 const F_C: SubTask = { category: "conversion", input: { value: 451, from: "F", to: "C" } };
 
+const FX_WRONG = { from: "USD", to: "EUR", amount: 100, rate: 0.01, converted: 1 };
+
 const part = (index: number, task: SubTask, over: Partial<PartResult> = {}): PartResult => ({
   part: index,
   task,
@@ -32,8 +35,13 @@ const part = (index: number, task: SubTask, over: Partial<PartResult> = {}): Par
   pick: { option: 1, id: 1, name: "unit-convert", endpoint: "http://127.0.0.1:1/call", pricePerCall: "5" },
   policy: { allowed: true, checks: [{ rule: "budget", pass: true, detail: "ok" }] },
   payment: { txId: TX, paid: true, tinybars: "5" },
-  response: { result: 42.16, unit: "km" },
-  verdict: { correct: true, expected: { result: 42.16, unit: "km" }, actual: { result: 42.16, unit: "km" }, note: "" },
+  response: { result: 42.1648128, unit: "km" },
+  verdict: {
+    correct: true,
+    expected: { result: 42.1648128, unit: "km" },
+    actual: { result: 42.1648128, unit: "km" },
+    note: "",
+  },
   outcome: "correct",
   error: null,
   ...over,
@@ -42,13 +50,8 @@ const part = (index: number, task: SubTask, over: Partial<PartResult> = {}): Par
 const wrongPart = (index: number, task: SubTask) =>
   part(index, task, {
     pick: { option: 2, id: 2, name: "suite-gamer", endpoint: "x", pricePerCall: "5" },
-    response: { result: 1, unit: "EUR" },
-    verdict: {
-      correct: false,
-      expected: { result: 92, currency: "EUR" },
-      actual: { result: 1, unit: "EUR" },
-      note: "",
-    },
+    response: FX_WRONG,
+    verdict: { correct: false, expected: { converted: 92, to: "EUR" }, actual: FX_WRONG, note: "" },
     outcome: "wrong",
   });
 
@@ -163,7 +166,7 @@ describe("arenaReducer", () => {
     expect(page).toContain(`href="https://hashscan.io/testnet/transaction/${TX}"`);
     expect(page).toContain("Spent 15 tinybars: 10 paid for correct, 5 wasted on wrong");
     expect(page).toContain("Verdict");
-    expect(page).toContain("Honest vendor got paid?");
+    expect(page).toContain("Paid for a correct answer?");
     expect(page).toContain("Download proof (JSON)");
     expect(page).toContain("0xabc");
     expect(page).toContain("Verify this run");
@@ -215,6 +218,49 @@ describe("arenaReducer", () => {
     expect(html).toContain("Bought nothing");
     expect(html).toContain("arena-tone-none");
     expect(html).toContain("Spent nothing");
+  });
+
+  it("shows the converted amount for an FX answer, not the input amount", () => {
+    const fx = { from: "USD", to: "EUR", amount: 120, rate: 0.92, converted: 110.4 };
+    expect(answerText(fx)).toBe("110.4 EUR");
+    expect(answerText({ result: 42.1648128, unit: "km" })).toBe("42.164813 km");
+    const fxTask: SubTask = { category: "currency-conversion", input: { amount: 120, from: "USD", to: "EUR" } };
+    const fxPart = part(0, fxTask, {
+      response: fx,
+      verdict: { correct: true, expected: { converted: 110.4 }, actual: fx, note: "" },
+    });
+    const html = render(
+      <ArenaRunView
+        state={run([
+          { type: "run-started", runId: "r1", task: TASK, prompt: "p" },
+          { type: "part", side: "baseline", part: 0, result: fxPart },
+        ])}
+      />,
+    );
+    expect(html).toContain("got <strong>110.4 EUR</strong>");
+    expect(html).not.toContain("got <strong>120");
+  });
+
+  it("fills side results from the record and shows a neutral verdict for an unsupported task", () => {
+    const task: Task = { kind: "unsupported", reason: "no oracle for weather" };
+    const refused = (name: SideResult["side"]) =>
+      side(name, [], { decision: null, outcome: "refused", error: "unsupported task: no oracle for weather" });
+    const state = run([
+      { type: "run-started", runId: "r1", task, prompt: "a" },
+      {
+        type: "run-finished",
+        record: { ...record(refused("baseline"), refused("skeptique")), task },
+        hash: "0xabc",
+      },
+    ]);
+    expect(state.sides.baseline.result?.outcome).toBe("refused");
+    expect(state.sides.skeptique.result?.outcome).toBe("refused");
+    const html = render(<ArenaRunView state={state} />);
+    expect(html).toContain("Bought nothing");
+    expect(html).toContain("Not supported: no oracle for weather");
+    expect(html).not.toContain("Correct parts");
+    expect(html).not.toContain("0/0");
+    expect(html).toContain("0xabc");
   });
 
   it("explains an unsupported task", () => {

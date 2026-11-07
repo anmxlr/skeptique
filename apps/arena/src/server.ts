@@ -60,7 +60,7 @@ function badRequest(error: z.ZodError, fallback: string): string {
   return fields.length > 0 ? `invalid ${[...new Set(fields)].join(", ")}` : fallback;
 }
 
-type RunSetup = Pick<RunArenaArgs, "llm" | "sides" | "credentialSource" | "secrets">;
+type RunSetup = Pick<RunArenaArgs, "llm" | "sides" | "credentialSource" | "modelKeySource" | "secrets">;
 
 /** A replayable event log: keeps the last MAX_RUNS streams in `map`. */
 function openStream<E>(map: Map<string, Stream<E>>, id: string) {
@@ -94,7 +94,8 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
 
   /** Server wallets and login, or the user's account (both sides) and model key for this run only. */
   function setup(credentials: Credentials | undefined): RunSetup {
-    if (!credentials) return { llm: deps.llm, sides: deps.sides, credentialSource: "server", secrets: [] };
+    if (!credentials)
+      return { llm: deps.llm, sides: deps.sides, credentialSource: "server", modelKeySource: "server", secrets: [] };
     const { hederaAccountId: accountId, hederaPrivateKey: privateKey, anthropicApiKey: apiKey, model } = credentials;
     const payAndCall = deps.userPayAndCall();
     const side = (s: Side): SideConfig => ({
@@ -107,7 +108,15 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
       llm: deps.llmFor({ model, apiKey }),
       sides: { baseline: side("baseline"), skeptique: side("skeptique") },
       credentialSource: "user",
-      secrets: [privateKey, privateKey.replace(/^0x/, ""), apiKey ?? ""],
+      modelKeySource: apiKey ? "user" : "server",
+      secrets: [
+        privateKey,
+        privateKey.replace(/^0x/, ""),
+        privateKey.toLowerCase(),
+        privateKey.toUpperCase(),
+        privateKey.replace(/^0x/, "").toLowerCase(),
+        apiKey ?? "",
+      ],
     };
   }
   const sameAsSeller = (credentials: Credentials | undefined) =>
@@ -142,10 +151,10 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
     if (sameAsSeller(body.data.credentials)) return reply.code(400).send({ error: SELLER_ERROR });
     // One run at a time: both agents share the demo wallet and the budget is per run.
     if (busy) return reply.code(409).send({ error: "a run is in progress" });
+    const run = setup(body.data.credentials);
     busy = true;
     const runId = randomUUID();
     const { state, emit } = openStream(runs, runId);
-    const run = setup(body.data.credentials);
     void (async () => {
       try {
         const [{ task, source }, services] = await Promise.all([parseTask(run.llm, body.data.prompt), listServices()]);
@@ -187,10 +196,10 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
     const { mode, credentials } = body.data;
     if (sameAsSeller(credentials)) return reply.code(400).send({ error: SELLER_ERROR });
     if (busy) return reply.code(409).send({ error: "a run is in progress" });
+    const setupRun = setup(credentials);
     busy = true;
     const batchId = randomUUID();
     const batch = openStream(batches, batchId);
-    const setupRun = setup(credentials);
     void (async () => {
       try {
         batch.emit({ type: "batch-started", batchId, tasks: TASK_PACK.map(({ id, prompt }) => ({ id, prompt })) });

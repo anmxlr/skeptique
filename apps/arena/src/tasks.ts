@@ -1,6 +1,7 @@
+import { z } from "zod";
 import type { Llm } from "./llm";
 import { CURRENCY_CODES, UNIT_KEYS } from "./oracle";
-import { MAX_PARTS, type SubTask, type Task, TaskSchema } from "./schema";
+import { MAX_PARTS, type SubTask, SubTaskSchema, type Task, TaskSchema } from "./schema";
 
 export type PresetTask = { id: string; prompt: string; task: Task; why: string };
 
@@ -47,7 +48,7 @@ export const TASK_PACK: readonly PresetTask[] = [
   {
     id: "uk-invoice",
     prompt:
-      "A UK supplier invoiced 2 pallets at 350 GBP each plus a 6 ft shelf. Give the invoice total in USD and the shelf length in cm.",
+      "A UK supplier invoiced 2 pallets at 350 GBP each and also shipped a 6 ft shelf. Give the invoice total in USD and the shelf length in cm.",
     task: parts(fx(700, "GBP", "USD"), conv(6, "ft", "cm")),
     why: "arithmetic resolved into the input (2 × 350 GBP)",
   },
@@ -85,9 +86,24 @@ Request: Write a poem about the sea
 Answer: {"kind":"unsupported","reason":"not a unit or currency conversion"}`;
 
 /** Free text → one structured task, parsed once and shared by both agents so they get identical input. */
+/*
+ * The model API only accepts an object at the top of a structured-output schema (no top-level union),
+ * so the parser answers in this flat shape and toTask turns it into a Task.
+ */
+export const ParserOutputSchema = z.object({
+  kind: z.enum(["tasks", "unsupported"]),
+  parts: z.array(SubTaskSchema).max(MAX_PARTS),
+  reason: z.string(),
+});
+
+export function toTask(out: z.infer<typeof ParserOutputSchema>): Task {
+  if (out.kind === "tasks" && out.parts.length > 0) return TaskSchema.parse({ kind: "tasks", parts: out.parts });
+  return { kind: "unsupported", reason: out.reason || "no supported conversion found" };
+}
+
 export async function parseTask(llm: Llm, prompt: string): Promise<{ task: Task; source: "preset" | "parser" }> {
   const preset = TASK_PACK.find((t) => t.prompt.toLowerCase() === prompt.trim().toLowerCase());
   if (preset) return { task: preset.task, source: "preset" };
-  const { value } = await llm.ask({ system: PARSER_SYSTEM_PROMPT, prompt, schema: TaskSchema });
-  return { task: value, source: "parser" };
+  const { value } = await llm.ask({ system: PARSER_SYSTEM_PROMPT, prompt, schema: ParserOutputSchema });
+  return { task: toTask(value), source: "parser" };
 }

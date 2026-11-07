@@ -12,6 +12,16 @@ export interface Llm {
 
 export class LlmError extends Error {}
 
+/** The CLI reports API errors on stdout as JSON; surface them instead of an empty message. */
+function cliError(stdout: string): string {
+  try {
+    const parsed = JSON.parse(stdout) as { result?: unknown };
+    return typeof parsed.result === "string" ? parsed.result : "no error output";
+  } catch {
+    return "no error output";
+  }
+}
+
 const CliOutputSchema = z.object({
   is_error: z.boolean(),
   result: z.string().optional(),
@@ -90,7 +100,7 @@ export function createClaudeCliLlm({
       child.on("close", (code) => {
         clearTimeout(timer);
         if (code === 0) resolve(out);
-        else reject(new LlmError(`claude CLI exited ${code}: ${err.slice(0, 300)}`));
+        else reject(new LlmError(`claude CLI exited ${code}: ${err.trim() || cliError(out)}`));
       });
       child.stdin.on("error", () => {}); // the close handler reports a child that died early
       child.stdin.end(prompt);
@@ -101,6 +111,8 @@ export function createClaudeCliLlm({
     async ask({ system, prompt, schema }) {
       // The CLI's validator does not resolve the draft-2020-12 meta-schema URI, so drop it.
       const { $schema: _meta, ...plain } = z.toJSONSchema(schema) as Record<string, unknown>;
+      // The API requires a top-level object type; a bare union (anyOf/oneOf) is rejected with a 400.
+      if (plain.type === undefined) plain.type = "object";
       const jsonSchema = JSON.stringify(plain);
       let lastError: unknown;
       for (let attempt = 0; attempt <= retries; attempt++) {

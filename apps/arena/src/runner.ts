@@ -31,19 +31,20 @@ export type RunArenaArgs = {
   seed?: string;
   /** "user" when the payer and model key came with the request. Defaults to "server". */
   credentialSource?: ArenaRecord["credentialSource"];
+  modelKeySource?: ArenaRecord["modelKeySource"];
   /** Secret strings (user keys) masked out of any error text before it is recorded or emitted. */
   secrets?: readonly string[];
 };
 
 /**
- * Deterministic Fisher-Yates driven by sha256(`${seed}:${i}`). Option numbers are random per run so
+ * Deterministic Fisher-Yates driven by sha256(`${seed}:${category}:${i}`), independent per category. Option numbers are random per run so
  * a model that breaks ties by "lowest number" gains nothing, and the recorded seed lets anyone
  * recompute the mapping.
  */
-export function shuffleWithSeed<T>(seed: string, xs: readonly T[]): T[] {
+export function shuffleWithSeed<T>(seed: string, xs: readonly T[], salt = ""): T[] {
   const out = [...xs];
   for (let i = out.length - 1; i > 0; i--) {
-    const j = createHash("sha256").update(`${seed}:${i}`).digest().readUInt32BE(0) % (i + 1);
+    const j = createHash("sha256").update(`${seed}:${salt}${i}`).digest().readUInt32BE(0) % (i + 1);
     [out[i], out[j]] = [out[j] as T, out[i] as T];
   }
   return out;
@@ -215,7 +216,7 @@ export async function runArena(args: RunArenaArgs): Promise<{ record: ArenaRecor
   if (unsupported === null)
     for (const category of new Set(parts.map((p) => p.category))) {
       const inCategory = args.services.filter((s) => s.category === category).sort((a, b) => a.id - b.id);
-      options[category] = shuffleWithSeed(seed, inCategory);
+      options[category] = shuffleWithSeed(seed, inCategory, `${category}:`);
     }
   if (unsupported !== null) {
     for (const side of ["baseline", "skeptique"] as const) {
@@ -237,6 +238,7 @@ export async function runArena(args: RunArenaArgs): Promise<{ record: ArenaRecor
     task,
     model: args.llm.model,
     credentialSource: args.credentialSource ?? "server",
+    modelKeySource: args.modelKeySource ?? "server",
     mode: args.mode ?? "may-refuse",
     systemPrompt: buyerSystemPrompt(args.mode ?? "may-refuse"),
     network: args.network,

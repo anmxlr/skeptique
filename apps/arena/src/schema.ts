@@ -126,7 +126,10 @@ export type ArenaRecord = {
   task: Task;
   model: string;
   /** "user" = the run used credentials sent with the request (only the payer account id is kept). */
+  /** Whose Hedera account paid. */
   credentialSource: "user" | "server";
+  /** Whose Anthropic key ran the model: the user's key, or the server's Claude login. */
+  modelKeySource: "user" | "server";
   systemPrompt: string;
   network: "hedera:testnet" | "test";
   /** Where the marketplace came from, e.g. "api" or "local-chain". */
@@ -136,7 +139,7 @@ export type ArenaRecord = {
   marketplace: { apiUrl: string; services: unknown[] };
   /** Who paid for each side and under which spend policy. */
   agents: Record<Side, { payer: string; policy: PolicySettings }>;
-  /** Seed of the per-run option shuffle; per category, `shuffleWithSeed(seed, inCategoryServicesSortedById)` reproduces `options`. */
+  /** Seed of the per-run option shuffle; per category, `shuffleWithSeed(seed, inCategoryServicesSortedById, `${category}:`)` reproduces `options`. */
   seed: string;
   options: OptionMapping[];
   sides: { baseline: SideResult; skeptique: SideResult };

@@ -43,7 +43,7 @@ export function expectedConversion(value: number, from: string, to: string): num
 }
 
 export function expectedCurrency(amount: number, from: string, to: string): number | null {
-  if (from === to) return amount;
+  if (from === to) return Math.round(amount * 100) / 100;
   const rate = REFERENCE_FX[`${from}:${to}`];
   return rate === undefined ? null : Math.round(amount * rate * 100) / 100;
 }
@@ -84,7 +84,8 @@ export function grade(task: SubTask, response: unknown): Verdict {
     return { correct: false, expected: null, actual: response, note: `no reference rate for ${from}/${to}` };
   const actual = numberField(response, "converted");
   const currency = response && typeof response === "object" ? (response as { to?: unknown }).to : undefined;
-  const correct = actual !== null && currency === to && close(actual, expected);
+  // Both sides round to cents, so the right answer matches to within half a cent.
+  const correct = actual !== null && currency === to && Math.abs(actual - expected) < 0.005;
   return {
     correct,
     expected: { converted: expected, to },
