@@ -346,6 +346,9 @@ importers:
       '@skeptique/api':
         specifier: workspace:*
         version: link:../api
+      '@skeptique/services':
+        specifier: workspace:*
+        version: link:../services
       '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared

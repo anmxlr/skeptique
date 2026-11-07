@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./catalog.ts"
+    ".": "./catalog.ts",
+    "./server": "./common/server.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
