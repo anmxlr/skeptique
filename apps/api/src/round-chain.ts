@@ -25,7 +25,6 @@ export function createRoundSource(options: {
         abi: roundManagerAbi,
         eventName,
         fromBlock: options.fromBlock ?? 0n,
-        toBlock: "latest",
         toBlock: block.number,
         strict: true,
       });
