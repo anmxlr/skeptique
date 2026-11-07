@@ -384,7 +384,8 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
   await expect(page.getByRole("region", { name: "Without Skeptique" })).toContainText("got 1.2 EUR · right: 110.4 EUR");
   const withCard = page.getByRole("region", { name: "With Skeptique" });
   await withCard.getByText("Where this came from").click();
-  await expect(withCard.getByRole("link", { name: "Test results" })).toHaveAttribute(
+  // One "Test results" link per part; both parts bought the same reviewed vendor here.
+  await expect(withCard.getByRole("link", { name: "Test results" }).first()).toHaveAttribute(
     "href",
     `${MOCK_API_URL}/services/1/reviews`,
   );
