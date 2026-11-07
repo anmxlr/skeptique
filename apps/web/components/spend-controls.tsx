@@ -70,6 +70,7 @@ export function SpendControlsView({
         />
       ) : (
         <input
+          id={`spend-${key}`}
           value={draft[key]}
           inputMode="numeric"
           onChange={(e) => onDraft?.({ ...draft, [key]: e.target.value })}
