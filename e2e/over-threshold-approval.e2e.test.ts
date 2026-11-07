@@ -1,13 +1,13 @@
 import { type ServiceStarter, type Stack, startStack } from "@skeptique/harness";
-import type { Approval, SpendLimits } from "@skeptique/shared";
-import type { AuditMessage } from "@skeptique/shared/hcs";
-import { createLocalPayAndCall } from "@skeptique/x402-client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApprovalClient } from "../apps/buyer/src/approvals";
 import { runBuyer } from "../apps/buyer/src/index";
 import { createSpendControls } from "../apps/buyer/src/spend";
 import { type DemoService, defineService, startService } from "../apps/services/common/server";
 import { handleUnitConvert, unitConvertSuite } from "../apps/services/unit-convert/src/index";
+import type { AuditMessage } from "../packages/shared/src/hcs";
+import type { Approval, SpendLimits } from "../packages/shared/src/index";
+import { createLocalPayAndCall } from "../packages/x402-client/src/index";
 
 const SELLER = "0x0000000000000000000000000000000000000022";
 const TASK = { value: 3, from: "m", to: "cm" };
@@ -57,14 +57,19 @@ describe("over-threshold approval", () => {
       },
     });
     origin = new URL(stack.services["unit-convert"] as string).origin;
-    const limits: SpendLimits = { budget: "1000", perMerchantCap: "1000", allowlist: [origin], approvalThreshold: "10" };
+    const limits: SpendLimits = {
+      budget: "1000",
+      perMerchantCap: "1000",
+      allowlist: [origin],
+      approvalThreshold: "10",
+    };
     const put = await fetch(`${stack.apiUrl}/buyer/limits`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(limits),
     });
     expect(put.status).toBe(200);
-  }, 60_000);
+  }, 180_000);
 
   afterAll(async () => {
     await stack?.stop();

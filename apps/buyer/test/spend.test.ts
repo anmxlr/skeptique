@@ -85,12 +85,18 @@ describe("spend controls", () => {
   });
 
   it("pays above the threshold only when a human approves", async () => {
-    const yes = setup(limits(), vi.fn(async () => true));
+    const yes = setup(
+      limits(),
+      vi.fn(async () => true),
+    );
     await yes.pay("11");
     expect(yes.approve).toHaveBeenCalledWith({ merchant: MERCHANT, amount: "11" });
     expect(yes.settle).toHaveBeenCalledTimes(1);
 
-    const no = setup(limits(), vi.fn(async () => false));
+    const no = setup(
+      limits(),
+      vi.fn(async () => false),
+    );
     await expect(no.pay("11")).rejects.toThrow(/denied/);
     expect(no.settle).not.toHaveBeenCalled();
     expect(no.audit).not.toHaveBeenCalled();

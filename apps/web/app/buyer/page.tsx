@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BuyerRuns } from "../../components/buyer-runs";
+import { SpendControls } from "../../components/spend-controls";
 
 export const metadata: Metadata = { title: "Buyer" };
 
@@ -12,6 +13,7 @@ export default function BuyerPage() {
         with no human approving.
       </p>
       <BuyerRuns />
+      <SpendControls />
     </>
   );
 }
