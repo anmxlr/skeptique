@@ -76,7 +76,8 @@ export function MarketplaceView({ state }: { state: MarketplaceState }) {
         Could not load services: {state.message}
       </p>
     );
-  if (state.services.length === 0) return <p>No services listed yet.</p>;
+  if (state.services.length === 0)
+    return <p className="empty-state">No services listed yet. Listings appear here as soon as a seller lists one.</p>;
   return (
     <ul className="market-grid">
       {state.services.map((service) => (

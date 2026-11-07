@@ -30,7 +30,7 @@ export function CriticsView({
         Could not load critics: {state.message}
       </p>
     );
-  if (state.critics.length === 0) return <p>No critics registered yet.</p>;
+  if (state.critics.length === 0) return <p className="empty-state">No critics registered yet.</p>;
   return (
     <>
       {claimMessage && <p role="status">{claimMessage}</p>}
