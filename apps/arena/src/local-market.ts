@@ -51,7 +51,7 @@ const judged = (id: string, input: Record<string, unknown>, rubric: string): Tes
   weight: 1,
 });
 const unitProbe = (id: string, value: number, from: string, to: string) =>
-  judged(id, { value, from, to }, "result equals the SI conversion and unit is the target unit");
+  judged(id, { value, from, to }, "result equals the documented conversion and unit is the target unit");
 const fxProbe = (id: string, amount: number, from: string, to: string) =>
   judged(id, { amount, from, to }, "converted equals amount at the reference rate, rounded to cents");
 
@@ -64,12 +64,7 @@ const PROBE_POOLS: Record<string, TestCase[]> = {
       expect: { kind: "exact", value: { result: -300, unit: "cm" } },
       weight: 1,
     },
-    {
-      id: "fractional-mass",
-      input: { value: 0.125, from: "kg", to: "g" },
-      expect: { kind: "exact", value: { result: 125, unit: "g" } },
-      weight: 1,
-    },
+    unitProbe("gwei-eth", 450000, "gwei", "ETH"),
     {
       id: "cold-temperature",
       input: { value: -10, from: "C", to: "F" },
@@ -77,11 +72,11 @@ const PROBE_POOLS: Record<string, TestCase[]> = {
       weight: 1,
     },
     unitProbe("feet-metres", 5, "ft", "m"),
-    unitProbe("litres-millilitres", 2, "L", "mL"),
+    unitProbe("hbar-tinybars", 1.5, "HBAR", "tinybar"),
     unitProbe("kelvin-celsius", 300, "K", "C"),
     unitProbe("millimetres-kilometres", 1500, "mm", "km"),
     unitProbe("pounds-kilograms", 10, "lb", "kg"),
-    unitProbe("miles-feet", 3, "mi", "ft"),
+    unitProbe("eth-gwei", 0.002, "ETH", "gwei"),
   ],
   "currency-conversion": [
     fxProbe("usd-eur-75", 75, "USD", "EUR"),

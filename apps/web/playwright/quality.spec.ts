@@ -384,7 +384,7 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
     "href",
     `${MOCK_API_URL}/services/1/reviews`,
   );
-  await expect(withCard).toContainText("Every number it quoted is in its data");
+  await expect(withCard).toContainText("Every number it quoted appears in what it was shown");
   const withoutCard = page.getByRole("region", { name: "Without Skeptique" });
   await withoutCard.getByText("Where this came from").click();
   await expect(withoutCard).toContainText("It quoted 94, which was not directly in its data");

@@ -65,6 +65,9 @@ export const CURRENCY_CODES = [...new Set(Object.keys(REFERENCE_FX).flatMap((pai
 
 /** Relative tolerance 1e-6 plus a tiny absolute floor, so small expected values are not waved through. */
 const close = (a: number, b: number) => Math.abs(a - b) <= 1e-6 * Math.abs(b) + 1e-8;
+/** Crypto amounts can be tiny (1 gwei = 1e-9 ETH), so they are compared relatively with no absolute floor. */
+const closeRelative = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.abs(b);
+const CRYPTO_UNITS = new Set<string>([...Object.keys(HBAR), ...Object.keys(ETH)]);
 
 function toCelsius(value: number, unit: string): number {
   return unit === "C" ? value : unit === "F" ? ((value - 32) * 5) / 9 : value - 273.15;
@@ -108,12 +111,13 @@ export function grade(task: SubTask, response: unknown): Verdict {
       return { correct: false, expected: null, actual: response, note: `no ground truth for ${from}→${to}`, source };
     const actual = numberField(response, "result");
     const unit = response && typeof response === "object" ? (response as { unit?: unknown }).unit : undefined;
-    const correct = actual !== null && unit === to && close(actual, expected);
+    const near = CRYPTO_UNITS.has(to) ? closeRelative : close;
+    const correct = actual !== null && unit === to && near(actual, expected);
     return {
       correct,
       expected: { result: expected, unit: to },
       actual: response,
-      note: correct ? "matches SI conversion" : "does not match SI conversion",
+      note: correct ? "matches the unit definition" : "does not match the unit definition",
       source,
     };
   }

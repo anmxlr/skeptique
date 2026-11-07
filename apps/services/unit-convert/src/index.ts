@@ -54,7 +54,10 @@ export async function handleUnitConvert(input: unknown): Promise<UnitConvertOutp
     const to = Object.hasOwn(units, value.to) ? units[value.to] : undefined;
     if (!from || !to || from.group !== to.group)
       throw new Error(`Unsupported conversion: ${value.from} to ${value.to}`);
-    result = round(value.value * (from.factor / to.factor));
+    const raw = value.value * (from.factor / to.factor);
+    // Crypto denominations span 18 orders of magnitude: keep 15 significant digits instead of 8 decimals,
+    // so 1 gwei is 1e-9 ETH (not 0) and 0.271 HBAR is 27100000 tinybars (no float noise).
+    result = from.group === "hbar" || from.group === "eth" ? Number(raw.toPrecision(15)) : round(raw);
   }
   return value.format === "text" ? `${result} ${value.to}` : { result, unit: value.to };
 }

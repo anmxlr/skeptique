@@ -14,7 +14,10 @@ const toNumber = (raw: string) => Number(raw.replace(/,/g, ""));
  * derived itself (a sum, a ratio) shows as not found.
  */
 export function checkGrounding(decision: Decision, prompt: string): Grounding {
-  const inPrompt = new Set(numbersIn(prompt).map(toNumber));
+  // The field legend is fixed explanatory text ("0-100", "40%", "60%"); its numbers are not data, so a
+  // quoted "score 100" must be found in the listings or task, not in the legend.
+  const data = prompt.replace(/^Field legend:.*$/m, "");
+  const inPrompt = new Set(numbersIn(data).map(toNumber));
   const quoted = [...new Set(numbersIn(decision.reason.replace(LABEL, "")))];
   const numbers = quoted.map((value) => ({ value, found: inPrompt.has(toNumber(value)) }));
   const lower = prompt.toLowerCase();

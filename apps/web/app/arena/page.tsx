@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Arena" };
 const LIMITS = [
   "Critic agreement is not ground truth: a review score is what staked critics agreed on.",
   "The agents' choices are model judgments and can vary from run to run.",
-  "Local-market shortcuts: critics call a free review instance, probes are fixed held-out cases, and flaky-fx is unreviewed.",
+  "Local-market shortcuts: critics call a free review instance, probes are fixed held-out cases, and flaky-fx is reviewed (median 67) but answers with stale rates about 30% of the time.",
 ];
 
 export default function ArenaPage() {

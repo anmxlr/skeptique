@@ -289,7 +289,11 @@ export function moneySplit(paid: string, wasted: string) {
 /** The listing row the agent was shown for `option` in `category`, read back from its prompt (see buildPrompt in apps/arena/src/agent.ts). */
 export function listingSeen(prompt: string, category: string, option: number): Record<string, unknown> | null {
   const head = `Listings for ${category} (the only data you have):\n`;
-  const block = prompt.split("\n\n").find((b) => b.startsWith(head));
+  // The listing blocks come after the user's text, so take the last match (user text cannot spoof it).
+  const block = prompt
+    .split("\n\n")
+    .filter((b) => b.startsWith(head))
+    .at(-1);
   if (!block) return null;
   try {
     const rows: unknown = JSON.parse(block.slice(head.length));
@@ -309,9 +313,9 @@ export function listingFacts(row: Record<string, unknown>): string {
     facts.push(
       row.skeptiqueMedianScore === null
         ? "Review score: not reviewed yet"
-        : `Review score: ${row.skeptiqueMedianScore}/100 from ${plural(row.reviewRounds, "review round")}`,
+        : `Review score: ${row.skeptiqueMedianScore}/100 (latest of ${plural(row.reviewRounds, "review round")})`,
     );
-  if (typeof row.skeptiqueRank === "number") facts.push(`Rank ${row.skeptiqueRank}`);
+  if (typeof row.skeptiqueRank === "number") facts.push(`Trust rank ${row.skeptiqueRank}/100`);
   return facts.join(" · ");
 }
 
@@ -331,7 +335,9 @@ const listText = (items: string[]) =>
 
 /** One neutral line on whether the agent's reason sticks to its data. */
 export function groundingLine(g: Grounding): string {
-  if (g.ok) return "Every number it quoted is in its data";
+  if (g.numbers.length === 0 && g.signals.length === 0) return "It quoted no numbers or fields";
+  // Honest scope: we check each number appears in what it was shown, not which vendor it belongs to.
+  if (g.ok) return "Every number it quoted appears in what it was shown";
   const numbers = g.numbers.filter((n) => !n.found).map((n) => n.value);
   const signals = g.signals.filter((s) => !s.found).map((s) => `"${FIELD_LABEL[s.name] ?? s.name}"`);
   const said = [numbers.length && `quoted ${listText(numbers)}`, signals.length && `named ${listText(signals)}`].filter(

@@ -106,9 +106,11 @@ Ticket 27 owns the complete integrated evidence run. Tickets 20/21 code is integ
 
 `/arena` runs one task through two buyer agents side by side, one without Skeptique and one with it. Both use the same model, prompt and budget, and both pay with real x402 payments on Hedera testnet. A deterministic oracle grades each part. Users can bring their own Hedera testnet and Claude keys.
 
-Across three live must-buy batches (51 paid parts per side):
-- **Without Skeptique:** 75% correct, with 25% of its spend going to wrong answers from a suite-gaming vendor.
+Across two live must-buy batches (38 paid parts per side, half of them Web3 tasks in HBAR and ETH units):
+- **Without Skeptique:** 66% correct, against an expected 64.5%, with 32% of its spend going to wrong answers.
 - **With Skeptique:** 100% correct, nothing wasted.
+
+Unit answers link to the page that defines them (NIST, Hedera docs, ethereum.org) and currency answers link to the demo's fixed rate table, and a "made-up check" checks that every number an agent quotes appears in the data it was shown.
 
 Method, expected values, tx links and limits: [docs/arena.md](docs/arena.md).
 

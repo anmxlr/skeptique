@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ArenaRunView, BatchView, KeysForm, KeysPill, MoneyMeter, SourcesCorner, TaskChips } from "../components/arena";
 import {
   type ArenaEvent,
@@ -304,6 +304,14 @@ describe("arenaReducer", () => {
 });
 
 describe("where this came from", () => {
+  // The Listing link is only shown when the web app's own API is the one this run used.
+  const prevApi = process.env.NEXT_PUBLIC_API_URL;
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_API_URL = API;
+  });
+  afterAll(() => {
+    process.env.NEXT_PUBLIC_API_URL = prevApi;
+  });
   const finished = (baseline: SideResult, skeptique: SideResult) =>
     run([
       { type: "run-started", runId: "r1", task: { kind: "tasks", parts: [MI_KM] }, prompt: "p" },
@@ -317,7 +325,7 @@ describe("where this came from", () => {
     expect(html.match(/Where this came from/g)).toHaveLength(2);
     expect(html).toContain("Price: 5 tinybars · Other buyers: 0</span>");
     expect(html).toContain(
-      "Price: 5 tinybars · Other buyers: 0 · Review score: 100/100 from 3 review rounds · Rank 91",
+      "Price: 5 tinybars · Other buyers: 0 · Review score: 100/100 (latest of 3 review rounds) · Trust rank 91/100",
     );
     expect(html.match(/href="\/services\/1" target="_blank"/g)).toHaveLength(2);
     expect(html.match(new RegExp(`href="${API}/services/1" target="_blank"`, "g"))).toHaveLength(2);
@@ -339,7 +347,7 @@ describe("where this came from", () => {
 
   it("says plainly whether every quoted number is in the agent's data", () => {
     const ok = render(<SourcesCorner result={side("baseline", [part(0, MI_KM)])} />);
-    expect(ok).toContain("Every number it quoted is in its data");
+    expect(ok).toContain("Every number it quoted appears in what it was shown");
     expect(ok).toContain("arena-tone-good");
 
     const made = side("skeptique", [part(0, MI_KM)], {
@@ -367,7 +375,8 @@ describe("where this came from", () => {
     });
     const html = render(<SourcesCorner result={old} />);
     expect(html).toContain("Price: 5 tinybars");
-    expect(html).toContain('href="/services/1"');
+    // No API known for this old record, so the Listing link (which needs the same API) is hidden.
+    expect(html).not.toContain('href="/services/1"');
     expect(html).not.toContain("Right answer");
     expect(html).not.toContain("Raw data");
     expect(html).not.toContain("in its data");

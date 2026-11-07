@@ -472,6 +472,10 @@ function Out({ href, children, title }: { href: string; children: ReactNode; tit
 const trimmed = (text: string, max = 140) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
 
 /** Collapsed corner answering "is the agent making things up?": its data, its reason, and links to check both. */
+/** The /services page reads NEXT_PUBLIC_API_URL, so its ids only match this run when the APIs are the same. */
+const sameApi = (api: string | null | undefined) =>
+  !!api && api.replace(/\/+$/, "") === (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+
 export function SourcesCorner({ result, apiUrl }: { result: SideResult; apiUrl?: string }) {
   const api = apiUrl?.replace(/\/+$/, "");
   const picked = result.parts.filter((p) => p.pick);
@@ -498,12 +502,14 @@ export function SourcesCorner({ result, apiUrl }: { result: SideResult; apiUrl?:
               </span>
               <span className="arena-sources-row arena-sources-links">
                 <b>Check</b>
-                <Out
-                  href={`/services/${pick.id}`}
-                  title="The marketplace page: listing, review rounds and each tester's score"
-                >
-                  Listing
-                </Out>
+                {sameApi(api) && (
+                  <Out
+                    href={`/services/${pick.id}`}
+                    title="The marketplace page: listing, review rounds and each tester's score"
+                  >
+                    Listing
+                  </Out>
+                )}
                 {api && (
                   <Out href={`${api}/services/${pick.id}`} title="The listing as raw data">
                     Raw data

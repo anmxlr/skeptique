@@ -11,9 +11,9 @@ Both pay real x402 payments on Hedera testnet, one per part, in order; the spend
 
 - **Same everything except the evidence.** Both agents use the same model (Claude Haiku by default, via `claude -p`, safe mode, no tools), the same system prompt, the same structured task (parsed once and shared), the same budget and per-call cap. Their prompts differ only in the evidence fields and the field legend (this is covered by a test).
 - **Names hidden from both sides.** Services appear as `Service #k`. Option numbers are a fresh random permutation per category for every run, shared by both sides, so list order and "lowest number" carry no signal. The seed and the `options` mapping (`category`, `option`, `serviceId`) are in the record.
-- **No LLM grading.** The model only chooses. Each part is graded by `src/oracle.ts`: SI unit factors and a published FX reference table. A task with any part the oracle cannot grade is refused before either side runs.
+- **No LLM grading.** The model only chooses. Each part is graded by `src/oracle.ts`: SI unit factors, the documented HBAR/ETH denominations (graded relatively) and a fixed FX reference table. Each verdict links to its source. A task with any part the oracle cannot grade is refused before either side runs.
 - **Headline metric:** parts delivered *and* correct (`correctParts` / `totalParts`), shown next to wasted tinybars (paid for parts graded wrong). A run is `correct` when every part is, `partial` when some are; a refusal or a policy block counts as "no answer", never as a win.
-- **Task pack** (`src/tasks.ts`): 8 preset tasks, 6 of them multi-part word problems mixing units and currency. `suite-mix` puts two parts on unit-convert's public suite, where the suite-gamer is right. Presets carry their structured task and never go through the parser.
+- **Task pack** (`src/tasks.ts`): 8 multi-part preset tasks (19 parts): 4 Web3 (HBAR/tinybar, ETH/gwei, fiat), then 4 everyday. `suite-mix` puts two parts on unit-convert's public suite, where the suite-gamer is right. Presets carry their structured task and never go through the parser.
 
 ## Run
 
@@ -37,7 +37,7 @@ Requests must use Host `127.0.0.1:<port>` or `localhost:<port>` (any other host 
 | Route | |
 | --- | --- |
 | `GET /health` | model, `models` (allowed per-run models), `acceptsUserCredentials`, network, busy flag, paywall probe results, buyer accounts, provenance |
-| `GET /tasks` | the fixed task pack (`id`, `prompt`, `why`) |
+| `GET /tasks` | the fixed task pack (`id`, `prompt`, `why`, `group`: web3 or general) |
 | `POST /runs` `{ "prompt": "...", "mode"?, "credentials"? }` | 202 `{ runId }`; 400 for a prompt outside 3-300 chars or invalid credentials |
 | `GET /runs/:id` | `{ type: "run-finished", record, hash }`, or `{ type: "pending" }` |
 | `GET /runs/:id/events` | SSE: `run-started`, per side `decided` → one `part` per part → `graded`, then `run-finished` or `run-failed` |

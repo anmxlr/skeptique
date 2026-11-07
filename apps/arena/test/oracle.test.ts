@@ -183,3 +183,30 @@ describe("parser output", () => {
     expect(toTask({ kind: "unsupported", parts: [], reason: "poem" })).toEqual({ kind: "unsupported", reason: "poem" });
   });
 });
+
+describe("crypto precision", () => {
+  it("returns exact denominations without float noise and grades tiny amounts relatively", async () => {
+    const { handleUnitConvert } = await import("../../services/unit-convert/src/index");
+    const conv = (value: number, from: string, to: string) =>
+      ({ category: "conversion", input: { value, from, to } }) as Parameters<typeof grade>[0];
+    expect(await handleUnitConvert({ value: 0.271, from: "HBAR", to: "tinybar" })).toEqual({
+      result: 27100000,
+      unit: "tinybar",
+    });
+    expect(await handleUnitConvert({ value: 1, from: "gwei", to: "ETH" })).toEqual({ result: 1e-9, unit: "ETH" });
+    const oneGwei = conv(1, "gwei", "ETH");
+    expect(grade(oneGwei, { result: 1e-9, unit: "ETH" }).correct).toBe(true);
+    expect(grade(oneGwei, { result: 0, unit: "ETH" }).correct).toBe(false);
+  });
+});
+
+describe("grounding ignores the legend", () => {
+  it("does not let the legend's fixed numbers vouch for a made-up score", async () => {
+    const { checkGrounding } = await import("../src/grounding");
+    const prompt =
+      'Field legend: skeptiqueMedianScore = median 0-100 from public suite (40%) and probes (60%).\n\nListings:\n[{"skeptiqueMedianScore": 40}]';
+    const g = checkGrounding({ choices: [], reason: "Service #1 scored 60", signalsUsed: [] }, prompt);
+    expect(g.ok).toBe(false);
+    expect(checkGrounding({ choices: [], reason: "It scored 40", signalsUsed: [] }, prompt).ok).toBe(true);
+  });
+});
