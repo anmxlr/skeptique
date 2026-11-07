@@ -20,6 +20,7 @@
     "@skeptique/harness": "workspace:*"
   },
   "dependencies": {
+    "@skeptique/relayer": "workspace:*",
     "@skeptique/shared": "workspace:*",
     "@skeptique/x402-client": "workspace:*"
   }

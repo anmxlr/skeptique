@@ -2,6 +2,7 @@ import type { Deployment } from "@skeptique/shared/deployment";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import type { PublicClient } from "viem";
 import { registerBuyerRunRoutes } from "./buyer-runs";
+import { registerBuyerSpendRoutes } from "./buyer-spend";
 import { type CriticSource, registerCriticRoutes } from "./critics";
 import { type ChainEventDeps, registerEventRoutes } from "./events";
 import { type EvidenceStore, MemoryEvidenceStore, registerEvidenceRoutes } from "./evidence";
@@ -110,6 +111,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
   if (deps.events) registerEventRoutes(app, deps.events);
   registerEvidenceRoutes(app, deps.evidence ?? deps.evidenceStore ?? new MemoryEvidenceStore());
   registerBuyerRunRoutes(app);
+  registerBuyerSpendRoutes(app);
   if (deps.serviceReviews) registerServiceReviewRoutes(app, deps.serviceReviews);
   if (deps.world) registerWorldRoutes(app, deps.world, deps.publicClient);
 

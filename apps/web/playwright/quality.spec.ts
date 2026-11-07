@@ -111,7 +111,11 @@ async function mockApi(page: Page) {
               ? CRITICS
               : path === "/buyer/runs"
                 ? RUNS
-                : undefined;
+                : path === "/buyer/approvals"
+                  ? []
+                  : path === "/buyer/limits"
+                    ? null
+                    : undefined;
     await route.fulfill(
       body === undefined
         ? { status: 404, json: { error: "Not found" }, headers: { "access-control-allow-origin": "*" } }

@@ -115,6 +115,9 @@ importers:
 
   apps/buyer:
     dependencies:
+      '@skeptique/relayer':
+        specifier: workspace:*
+        version: link:../relayer
       '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
