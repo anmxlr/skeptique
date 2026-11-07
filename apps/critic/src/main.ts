@@ -139,6 +139,7 @@ export async function createCriticFromEnv(env: Env, deps: CriticDeps = {}) {
         seed: round.roundId,
         probeModel,
         budgetMs,
+        timeoutMs: positiveInt(env, "CRITIC_OP_TIMEOUT_MS", 15_000),
       });
       return { evidenceHash: result.evidenceHash as `0x${string}`, evidence: result.evidence };
     },
