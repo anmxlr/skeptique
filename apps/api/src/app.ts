@@ -37,6 +37,8 @@ export interface AppDeps {
   events?: ChainEventDeps;
   /** Where published evidence is kept, by hash; defaults to memory. */
   evidence?: EvidenceStore;
+  /** Served by a stateless host that refuses writes; reported on /health so the web app can say so. */
+  readOnly?: boolean;
 }
 
 export { type CriticSource, type CriticView, createCriticSource } from "./critics";
@@ -91,7 +93,7 @@ export function buildApp(deps: AppDeps, options: FastifyServerOptions = {}) {
 
   app.get("/health", async (_req, reply) => {
     try {
-      return { ok: true, chainId: await deps.publicClient.getChainId() };
+      return { ok: true, chainId: await deps.publicClient.getChainId(), ...(deps.readOnly ? { readOnly: true } : {}) };
     } catch {
       return reply.code(503).send({ ok: false });
     }

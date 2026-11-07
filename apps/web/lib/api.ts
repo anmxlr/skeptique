@@ -18,7 +18,7 @@ export interface CriticView {
 
 export interface ApiRoutes {
   [path: `/services/${string}/reviews`]: { evidenceHash: string; evidence: Evidence }[];
-  "/health": { ok: true; chainId: number } | { ok: false };
+  "/health": { ok: true; chainId: number; readOnly?: boolean } | { ok: false };
   "/buyer/runs": BuyerRun[];
   "/critics": CriticView[];
   /** Ranked services; registry-indexed listings also carry their specHash and bounty (tinybars). */

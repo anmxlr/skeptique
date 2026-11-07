@@ -103,6 +103,7 @@ export async function buildChainApp(options: ChainAppOptions) {
       },
       world,
       webOrigin: options.readOnly ? undefined : options.webOrigin?.trim() || undefined,
+      readOnly: options.readOnly,
     },
     { logger: options.logger ?? false },
   );
