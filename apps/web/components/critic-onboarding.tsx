@@ -5,8 +5,8 @@ import { contractValue } from "@skeptique/shared/deployment";
 import { useState } from "react";
 import { createPublicClient, createWalletClient, custom, type EIP1193Provider } from "viem";
 import { apiClient, apiUrl } from "../lib/api";
-import { READ_ONLY_NOTICE, useApiReadOnly } from "../lib/read-only";
 import { type OnboardOutcome, type OnboardStep, onboardCritic, type RpContext, type Voucher } from "../lib/onboard";
+import { READ_ONLY_NOTICE, useApiReadOnly } from "../lib/read-only";
 
 export type OnboardingState =
   | { status: "idle" }

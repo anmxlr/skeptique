@@ -100,6 +100,8 @@ async function mockApi(page: Page) {
         body: "retry: 60000\n\n",
       });
     if (path === "/deployment") return route.fulfill({ json: DEPLOYMENT });
+    if (path === "/health")
+      return route.fulfill({ json: { ok: true, chainId: 296 }, headers: { "access-control-allow-origin": "*" } });
     const body =
       path === "/services"
         ? SERVICES
