@@ -179,11 +179,17 @@ export function ArenaHero({ health }: { health: HealthState }) {
       <div>
         <p className="arena-lead">Same task. Same AI. One sees Skeptique&apos;s reviews.</p>
         <HealthPill health={health} />
-        {health.status === "offline" && (
-          <p className="arena-muted arena-small">
-            Start the arena server at <code>{arenaUrl()}</code> to run.
-          </p>
-        )}
+        {health.status === "offline" &&
+          (process.env.NEXT_PUBLIC_ARENA_URL ? (
+            <p className="arena-muted arena-small">
+              The arena server at <code>{arenaUrl()}</code> is not answering.
+            </p>
+          ) : (
+            <p className="arena-muted arena-small">
+              The arena is not hosted on this deployment: its agents run on a local server. Run{" "}
+              <code>pnpm --filter @skeptique/arena start</code> and this page at localhost to try it.
+            </p>
+          ))}
       </div>
       <VersusDiagram />
       <details className="arena-details arena-hero-details">
