@@ -3,7 +3,7 @@
 import type { RoundView } from "@skeptique/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiClient, apiUrl } from "../lib/api";
+import { apiClient, apiUrl, fetchServiceRounds } from "../lib/api";
 
 export type RoundEvent = { type: string; data: { roundId: number; serviceId?: number } };
 
@@ -52,7 +52,10 @@ export function LatestRoundView({ state }: { state: LatestRoundState }) {
   );
 }
 
-/** The service's latest round, kept current from the API's event stream without reloading the page. */
+/**
+ * The service's latest round, kept current from the API's event stream without reloading the page. Where the API
+ * has no event stream (the read-only serverless deployment), it polls the service's rounds instead.
+ */
 export function LatestRound({ serviceId }: { serviceId: number }) {
   const [state, setState] = useState<LatestRoundState>({ status: "waiting" });
 
@@ -61,6 +64,18 @@ export function LatestRound({ serviceId }: { serviceId: number }) {
     if (!baseUrl) return;
     let latest: number | null = null;
     let active = true;
+    let poller: ReturnType<typeof setInterval> | undefined;
+    const poll = () =>
+      fetchServiceRounds(serviceId, baseUrl).then(
+        (rounds) => {
+          const newest = rounds.at(-1);
+          if (!active || !newest || (latest !== null && newest.id < latest)) return;
+          latest = newest.id;
+          setState({ status: "ready", round: newest });
+        },
+        () => {},
+      );
+    poll();
     const refresh = (roundId: number) =>
       apiClient()
         .getRound(roundId)
@@ -76,9 +91,14 @@ export function LatestRound({ serviceId }: { serviceId: number }) {
       if (latest !== null && event.data.roundId === latest) refresh(latest);
     };
     for (const type of ROUND_EVENTS) source.addEventListener(type, onEvent(type));
+    source.onerror = () => {
+      // A refused stream (e.g. 404) is closed for good; an open one reconnects by itself.
+      if (source.readyState === EventSource.CLOSED && active && !poller) poller = setInterval(poll, 15_000);
+    };
     return () => {
       active = false;
       source.close();
+      clearInterval(poller);
     };
   }, [serviceId]);
 

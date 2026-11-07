@@ -3,6 +3,7 @@
 import { type Approval, type SpendLimits, SpendLimitsSchema } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { apiUrl as joinApiUrl } from "../lib/api";
+import { READ_ONLY_NOTICE, useApiReadOnly } from "../lib/read-only";
 
 const apiUrl = () => {
   const url = process.env.NEXT_PUBLIC_API_URL;
@@ -49,6 +50,7 @@ export function SpendControlsView({
   onDraft,
   onSave,
   onAnswer,
+  readOnly = false,
 }: {
   draft: LimitsDraft;
   approvals: readonly Approval[];
@@ -56,6 +58,7 @@ export function SpendControlsView({
   onDraft?: (draft: LimitsDraft) => void;
   onSave?: () => void;
   onAnswer?: (id: string, answer: "approve" | "deny") => void;
+  readOnly?: boolean;
 }) {
   const pending = approvals.filter((approval) => approval.status === "pending");
   const field = (key: keyof LimitsDraft, label: string, hint: string) => (
@@ -90,7 +93,8 @@ export function SpendControlsView({
       {field("perMerchantCap", "Per-merchant cap", "")}
       {field("approvalThreshold", "Approval threshold", "payments above this need your OK")}
       {field("allowlist", "Merchant allowlist", "one per line; others are denied")}
-      <button type="button" onClick={onSave}>
+      {readOnly && <p className="buyer-muted">{READ_ONLY_NOTICE}</p>}
+      <button type="button" onClick={onSave} disabled={readOnly}>
         Save limits
       </button>
       {message && <p role="status">{message}</p>}
@@ -102,10 +106,10 @@ export function SpendControlsView({
           {pending.map((approval) => (
             <li key={approval.id}>
               Pay {approval.amount} tinybars to <code>{approval.merchant}</code>{" "}
-              <button type="button" onClick={() => onAnswer?.(approval.id, "approve")}>
+              <button type="button" onClick={() => onAnswer?.(approval.id, "approve")} disabled={readOnly}>
                 Approve
               </button>{" "}
-              <button type="button" onClick={() => onAnswer?.(approval.id, "deny")}>
+              <button type="button" onClick={() => onAnswer?.(approval.id, "deny")} disabled={readOnly}>
                 Deny
               </button>
             </li>
@@ -121,6 +125,7 @@ export function SpendControls() {
   const [draft, setDraft] = useState<LimitsDraft>(draftFrom(null));
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [message, setMessage] = useState<string | undefined>();
+  const readOnly = useApiReadOnly();
 
   useEffect(() => {
     let active = true;
@@ -166,6 +171,7 @@ export function SpendControls() {
       onDraft={setDraft}
       onSave={save}
       onAnswer={answer}
+      readOnly={readOnly}
     />
   );
 }

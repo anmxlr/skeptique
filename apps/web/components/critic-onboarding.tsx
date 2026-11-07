@@ -5,6 +5,7 @@ import { contractValue } from "@skeptique/shared/deployment";
 import { useState } from "react";
 import { createPublicClient, createWalletClient, custom, type EIP1193Provider } from "viem";
 import { apiClient, apiUrl } from "../lib/api";
+import { READ_ONLY_NOTICE, useApiReadOnly } from "../lib/read-only";
 import { type OnboardOutcome, type OnboardStep, onboardCritic, type RpContext, type Voucher } from "../lib/onboard";
 
 export type OnboardingState =
@@ -23,16 +24,19 @@ export function OnboardingView({
   state,
   onStart,
   onCancel,
+  readOnly = false,
 }: {
   state: OnboardingState;
   onStart?: () => void;
   onCancel?: () => void;
+  readOnly?: boolean;
 }) {
   return (
     <section aria-label="Register a critic">
       <h2>Register a critic</h2>
       <p>Verify with World ID Agent Pass, then stake to register your critic agent.</p>
-      {state.status === "idle" && (
+      {state.status === "idle" && readOnly && <p>{READ_ONLY_NOTICE}</p>}
+      {state.status === "idle" && !readOnly && (
         <button type="button" onClick={onStart}>
           Verify with World ID
         </button>
@@ -170,6 +174,7 @@ async function runOnboarding(onChange: (state: OnboardingState) => void, signal:
 export function CriticOnboarding() {
   const [state, setState] = useState<OnboardingState>({ status: "idle" });
   const [abort, setAbort] = useState<AbortController | null>(null);
+  const readOnly = useApiReadOnly();
 
   const start = () => {
     const controller = new AbortController();
@@ -180,5 +185,5 @@ export function CriticOnboarding() {
     );
   };
 
-  return <OnboardingView state={state} onStart={start} onCancel={() => abort?.abort()} />;
+  return <OnboardingView state={state} onStart={start} onCancel={() => abort?.abort()} readOnly={readOnly} />;
 }
