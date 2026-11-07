@@ -194,20 +194,24 @@ export function createOpenAICompatibleProbeModel(config: {
   const baseUrl = (config.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
   const timeoutMs = checkedTimeout(config.timeoutMs);
   const complete = async (system: string, data: unknown, signal?: AbortSignal): Promise<unknown> => {
-    const response = await fetchImpl(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${config.apiKey}`, "content-type": "application/json" },
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: JSON.stringify(data) },
-        ],
-      }),
-    });
+    const request = (withTemperature: boolean) =>
+      fetchImpl(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${config.apiKey}`, "content-type": "application/json" },
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
+        body: JSON.stringify({
+          model: config.model,
+          ...(withTemperature ? { temperature: 0 } : {}),
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: JSON.stringify(data) },
+          ],
+        }),
+      });
+    let response = await request(true);
+    // Some models only accept the default temperature; retry once without it.
+    if (response.status === 400 && /temperature/i.test(await response.clone().text())) response = await request(false);
     if (!response.ok) throw new Error(`LLM provider returned HTTP ${response.status}`);
     const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string | null } }> };
     const content = payload.choices?.[0]?.message?.content;
