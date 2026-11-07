@@ -247,5 +247,10 @@ export function createOpenAICompatibleProbeModel(config: {
 export function createConfiguredProbeModel(env: Record<string, string | undefined> = process.env): ProbeModel {
   const apiKey = env.LLM_API_KEY ?? env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("LLM_API_KEY or OPENAI_API_KEY is required");
-  return createOpenAICompatibleProbeModel({ apiKey, baseUrl: env.LLM_BASE_URL, model: env.LLM_MODEL ?? "gpt-4o-mini" });
+  return createOpenAICompatibleProbeModel({
+    apiKey,
+    baseUrl: env.LLM_BASE_URL,
+    model: env.LLM_MODEL ?? "gpt-4o-mini",
+    timeoutMs: env.LLM_TIMEOUT_MS ? Number(env.LLM_TIMEOUT_MS) : undefined,
+  });
 }
