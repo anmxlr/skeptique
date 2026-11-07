@@ -18,6 +18,7 @@ export function createRegistryFeed(options: {
         abi: serviceRegistryAbi,
         eventName: "ServiceListed",
         fromBlock: options.fromBlock ?? 0n,
+        toBlock: "latest",
       });
       const named = [];
       for (const log of logs) {

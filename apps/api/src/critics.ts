@@ -38,6 +38,7 @@ export function createCriticSource(options: {
       abi: criticRegistryAbi,
       eventName: "CriticRegistered",
       fromBlock: options.fromBlock ?? 0n,
+      toBlock: "latest",
       strict: true,
     });
     const [reveals, finalized, accrued, slashes] = options.roundManager
@@ -47,6 +48,7 @@ export function createCriticSource(options: {
             abi: roundManagerAbi,
             eventName: "CriticRevealed",
             fromBlock: options.fromBlock ?? 0n,
+            toBlock: "latest",
             strict: true,
           }),
           options.client.getContractEvents({
@@ -54,6 +56,7 @@ export function createCriticSource(options: {
             abi: roundManagerAbi,
             eventName: "RoundFinalized",
             fromBlock: options.fromBlock ?? 0n,
+            toBlock: "latest",
             strict: true,
           }),
           options.client.getContractEvents({
@@ -61,6 +64,7 @@ export function createCriticSource(options: {
             abi: roundManagerAbi,
             eventName: "RewardAccrued",
             fromBlock: options.fromBlock ?? 0n,
+            toBlock: "latest",
             strict: true,
           }),
           options.client.getContractEvents({
@@ -68,6 +72,7 @@ export function createCriticSource(options: {
             abi: criticRegistryAbi,
             eventName: "CriticSlashed",
             fromBlock: options.fromBlock ?? 0n,
+            toBlock: "latest",
             strict: true,
           }),
         ])

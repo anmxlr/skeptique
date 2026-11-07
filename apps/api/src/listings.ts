@@ -46,6 +46,7 @@ export function createRegistrySource(options: {
       abi: serviceRegistryAbi,
       eventName: "ServiceListed",
       fromBlock: options.fromBlock ?? 0n,
+      toBlock: "latest",
     });
     return logs.map((log) => serviceListedEvent(log.args));
   };

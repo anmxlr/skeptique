@@ -61,6 +61,7 @@ export function createKeeper(options: KeeperOptions) {
       address: criticRegistry,
       event: criticRegistered,
       fromBlock: options.fromBlock ?? 0n,
+      toBlock: "latest",
       strict: true,
     });
     const critics = [...new Set(logs.map((entry) => entry.args.critic))];

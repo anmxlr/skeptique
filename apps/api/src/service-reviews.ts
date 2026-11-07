@@ -29,6 +29,7 @@ export function createServiceReviewSource(options: {
         eventName: "RoundFinalized",
         args: { serviceId: BigInt(serviceId) },
         fromBlock: options.fromBlock ?? 0n,
+        toBlock: "latest",
       });
       const round = rounds
         .filter((log) => log.args.isVoid === false)
@@ -42,6 +43,7 @@ export function createServiceReviewSource(options: {
         eventName: "CriticRevealed",
         args: { roundId: round.args.roundId },
         fromBlock: options.fromBlock ?? 0n,
+        toBlock: "latest",
       });
       const reviews: ServiceReview[] = [];
       for (const reveal of reveals) {
