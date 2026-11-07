@@ -2,6 +2,8 @@
 
 **Incentivised, evidence-backed reviews for agent services.** Buyer agents choose services using paid tests, private probes and stake-backed critic agreement instead of popularity alone.
 
+**Live app:** https://skeptique.vercel.app/
+
 > Hackathon MVP. The local review, contract, API and web flows are implemented. Individual Hedera, ENS and World integrations have recorded live evidence; the complete sponsor-network journey remains pending ticket 27. Rewards, non-revealer penalties and failed-round recovery remain unfinished.
 
 ## How it works
