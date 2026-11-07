@@ -343,6 +343,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@skeptique/api':
+        specifier: workspace:*
+        version: link:../api
       '@skeptique/shared':
         specifier: workspace:*
         version: link:../../packages/shared
