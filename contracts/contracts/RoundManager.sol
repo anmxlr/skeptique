@@ -7,6 +7,7 @@ interface ICriticStakeRegistry {
     function slashStake(address critic, uint256 roundId, uint256 amount, string calldata reason) external;
     function lockStake(address critic, uint256 roundId) external;
     function releaseStake(address critic, uint256 roundId) external;
+    function releaseSlashed(uint256 roundId, uint256 amount) external;
 }
 
 interface IServiceBounty {
@@ -20,6 +21,8 @@ interface IServiceBounty {
     }
 
     function getService(uint256 serviceId) external view returns (Service memory);
+    function releaseBounty(uint256 serviceId, uint256 amount) external;
+    function minListingFee() external view returns (uint256);
 }
 
 contract RoundManager {
@@ -38,8 +41,10 @@ contract RoundManager {
     uint8 public immutable kMax;
     uint8 public immutable tolerance;
     uint16 public immutable slashBps;
-    /// Stake share (basis points) slashed from a critic that committed and did not reveal in a void round (spec/02 �2).
+    /// Stake share (basis points) slashed from a critic that committed and did not reveal (spec/02 §2).
     uint16 public constant NOREVEAL_SLASH_BPS = 1000;
+    /// Most test cost reimbursed to one honest critic per round: 1 HBAR in tinybars (spec/02 §3 step 4).
+    uint256 public constant COST_CAP = 1e8;
     ICriticStakeRegistry public immutable criticRegistry;
     uint256 public nextRoundId = 1;
     address public immutable deployer;
@@ -57,6 +62,9 @@ contract RoundManager {
     mapping(uint256 => uint256) private openRoundPlusOne;
     mapping(uint256 => mapping(address => bool)) private honestCritic;
     mapping(uint256 => mapping(address => uint256)) public slashedAmount;
+    mapping(uint256 => mapping(address => uint256)) private claimedCost;
+    /// Accrued honest-critic rewards, paid out by `claim`.
+    mapping(address => uint256) public pendingRewards;
 
     error InvalidConfiguration();
     error InvalidService();
@@ -77,11 +85,15 @@ contract RoundManager {
     error CriticNotRegistered();
     error TooManyCritics();
     error AlreadyFinalized();
+    error NothingToClaim();
+    error UnexpectedPayment();
+    error TransferFailed();
 
     event RoundOpened(uint256 indexed roundId, uint256 indexed serviceId, uint64 commitEnd, uint64 revealEnd);
     event CriticCommitted(uint256 indexed roundId, address indexed critic);
     event CriticRevealed(uint256 indexed roundId, address indexed critic, uint8 score, bytes32 evidenceHash);
     event RoundFinalized(uint256 indexed roundId, uint256 indexed serviceId, uint8 median, uint8 nReveals, bool isVoid);
+    event RewardAccrued(uint256 indexed roundId, address indexed critic, uint256 amount);
 
     constructor(uint64 commitSeconds_, uint64 revealSeconds_, uint8 kMin_, uint8 kMax_, address criticRegistry_, uint8 tolerance_, uint16 slashBps_) {
         if (commitSeconds_ == 0 || revealSeconds_ == 0 || kMin_ == 0 || kMax_ < kMin_ || criticRegistry_ == address(0) || tolerance_ > 100 || slashBps_ > 10_000) revert InvalidConfiguration();
@@ -140,7 +152,7 @@ contract RoundManager {
         emit CriticCommitted(roundId, msg.sender);
     }
 
-    function reveal(uint256 roundId, uint8 score, bytes32 salt, bytes32 evidenceHash, uint256) external {
+    function reveal(uint256 roundId, uint8 score, bytes32 salt, bytes32 evidenceHash, uint256 claimedCost_) external {
         Round storage round = _round(roundId);
         if (block.timestamp < round.commitEnd) revert CommitPhaseActive();
         if (block.timestamp >= round.revealEnd) revert RevealWindowClosed();
@@ -149,6 +161,7 @@ contract RoundManager {
         if (revealed[roundId][msg.sender]) revert AlreadyRevealed();
         if (commitments[roundId][msg.sender] != keccak256(abi.encode(score, salt, evidenceHash, msg.sender))) revert CommitmentMismatch();
         revealed[roundId][msg.sender] = true;
+        claimedCost[roundId][msg.sender] = claimedCost_;
         scores[roundId].push(score);
         revealers[roundId].push(msg.sender);
         round.nReveals++;
@@ -167,6 +180,8 @@ contract RoundManager {
         round.finalized = true;
         openRoundPlusOne[round.serviceId] = 0;
         address[] storage critics = revealers[roundId];
+        uint256 slashed;
+        uint256 honestStake;
         for (uint256 i = 0; i < critics.length; i++) {
             address critic = critics[i];
             uint256 stake = stakeAtCommit[roundId][critic];
@@ -174,17 +189,76 @@ contract RoundManager {
             uint256 distance = score > round.median ? score - round.median : round.median - score;
             if (distance <= tolerance) {
                 honestCritic[roundId][critic] = true;
+                honestStake += stake;
             } else {
-                uint256 amount = stake * slashBps / 10_000;
-                if (amount > 0) {
-                    slashedAmount[roundId][critic] = amount;
-                    criticRegistry.slashStake(critic, roundId, amount, 'outlier');
-                }
+                slashed += _slash(roundId, critic, slashBps, 'outlier');
             }
         }
         address[] storage allCritics = committers[roundId];
+        for (uint256 i = 0; i < allCritics.length; i++) {
+            if (!revealed[roundId][allCritics[i]]) slashed += _slash(roundId, allCritics[i], NOREVEAL_SLASH_BPS, 'no-reveal');
+        }
+        _payHonest(roundId, round.serviceId, slashed, honestStake);
         for (uint256 i = 0; i < allCritics.length; i++) criticRegistry.releaseStake(allCritics[i], roundId);
         emit RoundFinalized(roundId, round.serviceId, round.median, round.nReveals, false);
+    }
+
+    /// Pull-based payout of accrued rewards (spec/02 §3 step 5).
+    function claim() external {
+        uint256 amount = pendingRewards[msg.sender];
+        if (amount == 0) revert NothingToClaim();
+        pendingRewards[msg.sender] = 0;
+        (bool ok,) = msg.sender.call{value: amount}("");
+        if (!ok) revert TransferFailed();
+    }
+
+    /// Rewards arrive only from the two pools: the service bounty and the round's slashed stake.
+    receive() external payable {
+        if (msg.sender != address(serviceRegistry) && msg.sender != address(criticRegistry)) revert UnexpectedPayment();
+    }
+
+    function _slash(uint256 roundId, address critic, uint256 bps, string memory reason) private returns (uint256 amount) {
+        amount = stakeAtCommit[roundId][critic] * bps / 10_000;
+        if (amount > 0) {
+            slashedAmount[roundId][critic] = amount;
+            criticRegistry.slashStake(critic, roundId, amount, reason);
+        }
+    }
+
+    /// A round spends at most one listing fee of the bounty (spec/02 §2: the fee funds one round); the rest stays for
+    /// re-review rounds. Honest critics get their claimed test cost (capped at COST_CAP, while the budget lasts), then
+    /// share the rest of the budget plus the round's slashed stake pro rata by stake. Rounding dust stays in the pools;
+    /// the seller gets nothing.
+    function _payHonest(uint256 roundId, uint256 serviceId, uint256 slashed, uint256 honestStake) private {
+        uint256 available;
+        if (address(serviceRegistry) != address(0)) {
+            available = serviceRegistry.getService(serviceId).bounty;
+            uint256 budget = serviceRegistry.minListingFee();
+            if (available > budget) available = budget;
+        }
+        address[] storage critics = revealers[roundId];
+        uint256[] memory rewards = new uint256[](critics.length);
+        for (uint256 i = 0; i < critics.length; i++) {
+            if (!honestCritic[roundId][critics[i]]) continue;
+            uint256 cost = claimedCost[roundId][critics[i]];
+            if (cost > COST_CAP) cost = COST_CAP;
+            if (cost > available) cost = available;
+            available -= cost;
+            rewards[i] = cost;
+        }
+        uint256 pool = available + slashed;
+        uint256 total;
+        for (uint256 i = 0; i < critics.length; i++) {
+            address critic = critics[i];
+            if (!honestCritic[roundId][critic]) continue;
+            uint256 reward = rewards[i] + pool * stakeAtCommit[roundId][critic] / honestStake;
+            total += reward;
+            pendingRewards[critic] += reward;
+            emit RewardAccrued(roundId, critic, reward);
+        }
+        uint256 fromSlashed = total < slashed ? total : slashed;
+        if (fromSlashed > 0) criticRegistry.releaseSlashed(roundId, fromSlashed);
+        if (total > fromSlashed) serviceRegistry.releaseBounty(serviceId, total - fromSlashed);
     }
 
     /// Fewer than kMin reveals: no score, no rewards, only non-revealers are slashed, every committer is released.
@@ -195,13 +269,7 @@ contract RoundManager {
         address[] storage allCritics = committers[roundId];
         for (uint256 i = 0; i < allCritics.length; i++) {
             address critic = allCritics[i];
-            if (!revealed[roundId][critic]) {
-                uint256 amount = stakeAtCommit[roundId][critic] * NOREVEAL_SLASH_BPS / 10_000;
-                if (amount > 0) {
-                    slashedAmount[roundId][critic] = amount;
-                    criticRegistry.slashStake(critic, roundId, amount, 'no-reveal');
-                }
-            }
+            if (!revealed[roundId][critic]) _slash(roundId, critic, NOREVEAL_SLASH_BPS, 'no-reveal');
             criticRegistry.releaseStake(critic, roundId);
         }
         emit RoundFinalized(roundId, round.serviceId, 0, round.nReveals, true);

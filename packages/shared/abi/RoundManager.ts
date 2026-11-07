@@ -5,6 +5,9 @@ export const roundManagerAbi = parseAbi([
   "function commit(uint256 roundId, bytes32 commitment)",
   "function reveal(uint256 roundId, uint8 score, bytes32 salt, bytes32 evidenceHash, uint256 claimedCost)",
   "function finalize(uint256 roundId)",
+  "function claim()",
+  "function pendingRewards(address critic) view returns (uint256)",
+  "function COST_CAP() view returns (uint256)",
   "function NOREVEAL_SLASH_BPS() view returns (uint16)",
   "function getRound(uint256 roundId) view returns ((uint256 serviceId, uint64 commitEnd, uint64 revealEnd, uint8 median, uint8 nReveals, bool finalized))",
   "function isHonest(uint256 roundId, address critic) view returns (bool)",
@@ -18,4 +21,5 @@ export const roundManagerAbi = parseAbi([
   "event CriticCommitted(uint256 indexed roundId, address indexed critic)",
   "event CriticRevealed(uint256 indexed roundId, address indexed critic, uint8 score, bytes32 evidenceHash)",
   "event RoundFinalized(uint256 indexed roundId, uint256 indexed serviceId, uint8 median, uint8 nReveals, bool isVoid)",
+  "event RewardAccrued(uint256 indexed roundId, address indexed critic, uint256 amount)",
 ]);

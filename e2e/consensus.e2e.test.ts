@@ -108,8 +108,9 @@ it("lazy and bribed critics slashed: actual registered stakes, retained funds, A
       functionName: "slashedFunds",
       args: [1n],
     }),
-  ).toBe(200000000n);
-  expect(await client.getBalance({ address: stack.contracts.CriticRegistry })).toBe(2500000000n);
+  ).toBe(0n);
+  // The 200000000 slashed stake left the registry as the honest critics' rewards (ticket 22).
+  expect(await client.getBalance({ address: stack.contracts.CriticRegistry })).toBe(2300000000n);
   const apiRound = (await (await fetch(`${stack.apiUrl}/rounds/1`)).json()) as RoundView;
   expect(apiRound).toMatchObject({ phase: "finalized", median: 72 });
   expect(apiRound.reveals.map((reveal) => reveal.honest)).toEqual([true, true, true, false, false]);

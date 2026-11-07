@@ -40,4 +40,31 @@ describe("critics routes", () => {
     expect(found.json()).toEqual({ address: CRITIC, nullifier, stake: "400000000" });
     expect((await server.inject("/critics/0x0000000000000000000000000000000000000044")).statusCode).toBe(404);
   });
+
+  it("adds honest rounds, slashes and pending rewards for the critic dashboard", async () => {
+    const ROUND_MANAGER = "0x00000000000000000000000000000000000000bb";
+    const events: Record<string, unknown[]> = {
+      CriticRegistered: [{ args: { critic: CRITIC, nullifier, stake: 500_000_000n } }],
+      CriticRevealed: [1n, 2n, 3n].map((roundId) => ({ args: { roundId, critic: CRITIC, score: 70 } })),
+      RoundFinalized: [1n, 2n, 3n].map((roundId) => ({ args: { roundId, isVoid: false } })),
+      RewardAccrued: [1n, 3n].map((roundId) => ({ args: { roundId, critic: CRITIC, amount: 7n } })),
+      CriticSlashed: [{ args: { critic: CRITIC, roundId: 2n, amount: 100n, reason: "outlier" } }],
+    };
+    const reads: Record<string, unknown> = {
+      stakeOf: 400_000_000n,
+      isHonest: true,
+      slashedAmount: 0n,
+      pendingRewards: 123_456_789n,
+    };
+    const roundClient = {
+      getContractEvents: async ({ eventName }: { eventName: string }) => events[eventName] ?? [],
+      readContract: async ({ functionName }: { functionName: string }) => reads[functionName],
+    } as unknown as Pick<PublicClient, "getContractEvents" | "readContract">;
+    const critic = await createCriticSource({
+      client: roundClient,
+      address: REGISTRY,
+      roundManager: ROUND_MANAGER,
+    }).get(CRITIC);
+    expect(critic).toMatchObject({ honestRounds: 2, slashes: 1, pendingRewards: "123456789", verdict: "honest" });
+  });
 });

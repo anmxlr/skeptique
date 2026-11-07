@@ -12,11 +12,14 @@ export const serviceRegistryAbi = parseAbi([
   "function deployer() view returns (address)",
   "function roundManager() view returns (address)",
   "function setRoundManager(address roundManager)",
+  "function releaseBounty(uint256 serviceId, uint256 amount)",
   "event ServiceListed(uint256 indexed serviceId, address indexed seller, bytes32 specHash, string endpoint, uint256 pricePerCall, bytes32 ensNode)",
   "event BountyToppedUp(uint256 indexed serviceId, uint256 amount)",
   "error FeeTooLow(uint256 sent, uint256 minimum)",
   "error UnknownService(uint256 serviceId)",
   "error AlreadySet()",
+  "error NotRoundManager()",
+  "error TransferFailed()",
 ]);
 
 type ServiceListedArgs = {
