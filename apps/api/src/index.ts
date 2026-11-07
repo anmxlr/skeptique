@@ -2,19 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
 import { loadDeployment } from "@skeptique/shared/deployment-file";
-import { createPublicClient, http } from "viem";
-import {
-  buildApp,
-  createCriticSource,
-  createFinalizedRankingSource,
-  createRegistrySource,
-  createRoundSource,
-  createServiceReviewSource,
-  MemoryEvidenceStore,
-} from "./app";
-import type { WorldEnvironment } from "./world";
+import { buildChainApp } from "./chain-app";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 if (existsSync(resolve(root, ".env"))) process.loadEnvFile(resolve(root, ".env"));
@@ -24,21 +13,6 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("API_PO
 const rpcUrl = process.env.HEDERA_RPC_URL;
 if (!rpcUrl) throw new Error("HEDERA_RPC_URL must be set");
 
-const worldKeys = ["WORLD_RP_ID", "WORLD_SIGNING_KEY", "WORLD_ENVIRONMENT", "ATTESTOR_PRIVATE_KEY"] as const;
-const world = worldKeys.every((key) => process.env[key])
-  ? {
-      rpId: process.env.WORLD_RP_ID as string,
-      signingKey: process.env.WORLD_SIGNING_KEY as string,
-      environment: process.env.WORLD_ENVIRONMENT as WorldEnvironment,
-      attestorKey: process.env.ATTESTOR_PRIVATE_KEY as `0x${string}`,
-    }
-  : undefined;
-
-const deployment = await loadDeployment();
-const ensParentName = process.env.ENS_PARENT_NAME?.trim() || deployment.ensParentName;
-const publicClient = createPublicClient({ transport: http(rpcUrl) });
-if ((await publicClient.getChainId()) !== deployment.chainId)
-  throw new Error("RPC chain does not match deployment manifest");
 let serviceNames: Record<string, string> = {};
 if (process.env.ENS_NAMES_PATH?.trim()) {
   const config: unknown = JSON.parse(await readFile(resolve(root, process.env.ENS_NAMES_PATH), "utf8"));
@@ -52,56 +26,19 @@ if (process.env.ENS_NAMES_PATH?.trim()) {
     throw new Error("ENS_NAMES_PATH must provide serviceNames mapping IDs to ENS names");
   serviceNames = names as Record<string, string>;
 }
-const { ServiceRegistry, CriticRegistry, RoundManager } = deployment.contracts;
-const fromBlock = BigInt(deployment.deploymentBlock);
-const listings = createRegistrySource({
-  client: publicClient,
-  address: ServiceRegistry,
+
+const app = await buildChainApp({
+  rpcUrl,
+  deployment: await loadDeployment(),
+  ensParentName: process.env.ENS_PARENT_NAME,
   serviceNames,
-  ensParent: ensParentName,
-  fromBlock,
-});
-const ranked = createFinalizedRankingSource({
-  listing: listings,
-  client: publicClient,
-  address: RoundManager,
-  fromBlock,
-});
-const evidenceStore = new MemoryEvidenceStore();
-const app = buildApp(
-  {
-    publicClient,
-    contracts: deployment.contracts,
-    deployment: { ...deployment, ensParentName },
-    listings,
-    critics: createCriticSource({
-      client: publicClient,
-      address: CriticRegistry,
-      roundManager: RoundManager,
-      fromBlock,
-    }),
-    rounds: createRoundSource({ client: publicClient, address: RoundManager, fromBlock }),
-    events: { client: publicClient, address: RoundManager, fromBlock },
-    evidence: evidenceStore,
-    serviceReviews: createServiceReviewSource({
-      client: publicClient,
-      address: RoundManager,
-      store: evidenceStore,
-      fromBlock,
-    }),
-    marketplace: {
-      source: ranked,
-      isCritic: (address) =>
-        publicClient.readContract({
-          address: CriticRegistry,
-          abi: criticRegistryAbi,
-          functionName: "isCritic",
-          args: [address as `0x${string}`],
-        }),
-    },
-    world,
-    webOrigin: process.env.WEB_ORIGIN?.trim() || undefined,
+  world: {
+    rpId: process.env.WORLD_RP_ID,
+    signingKey: process.env.WORLD_SIGNING_KEY,
+    environment: process.env.WORLD_ENVIRONMENT,
+    attestorKey: process.env.ATTESTOR_PRIVATE_KEY,
   },
-  { logger: true },
-);
+  webOrigin: process.env.WEB_ORIGIN,
+  logger: true,
+});
 await app.listen({ port, host: "0.0.0.0" });

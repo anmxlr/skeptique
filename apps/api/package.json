@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/app.ts"
+    ".": "./src/app.ts",
+    "./chain-app": "./src/chain-app.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
