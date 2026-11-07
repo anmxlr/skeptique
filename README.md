@@ -104,7 +104,13 @@ Ticket 27 owns the complete integrated evidence run. Tickets 20/21 code is integ
 
 ## Arena: does Skeptique help a buyer?
 
-`/arena` runs one task through two buyer agents side by side, one without Skeptique and one with it. Both use the same model, prompt and budget, and both pay with real x402 payments on Hedera testnet. A deterministic oracle grades the answers. In a live 8-task must-buy run, the status-quo agent spent 37.5% of its tinybars on wrong answers from a suite-gaming service. The Skeptique agent wasted nothing and got 0 answers wrong, at the cost of blocking an unreviewed service. Method, fairness rules, tx links and limits: [docs/arena.md](docs/arena.md).
+`/arena` runs one task through two buyer agents side by side, one without Skeptique and one with it. Both use the same model, prompt and budget, and both pay with real x402 payments on Hedera testnet. A deterministic oracle grades each part. Users can bring their own Hedera testnet and Claude keys.
+
+Across three live must-buy batches (51 paid parts per side):
+- **Without Skeptique:** 75% correct, with 25% of its spend going to wrong answers from a suite-gaming vendor.
+- **With Skeptique:** 100% correct, nothing wasted.
+
+Method, expected values, tx links and limits: [docs/arena.md](docs/arena.md).
 
 ## Ranking and trust limits
 
