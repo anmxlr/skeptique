@@ -1,10 +1,11 @@
 import type { ServiceView } from "@skeptique/shared";
 import type { Llm, LlmAnswer } from "./llm";
-import { type BuyMode, type Decision, DecisionSchema, type GradedTask, type Side } from "./schema";
+import { type BuyMode, type Decision, DecisionSchema, type Side, type SubTask } from "./schema";
 
 const RULES = `- Use only the listing data provided. Never assume facts that are not in it.
-- Pick the service most likely to return a correct answer. Price matters only between equally trustworthy options.
-- Option numbers are assigned at random for each run and carry no meaning.`;
+- For each part, pick the service most likely to return a correct answer. Price matters only between equally trustworthy options.
+- Option numbers are assigned at random for each run and carry no meaning. A part's option number refers to the listing for that part's category.
+- Return exactly one choice per part, as { part, option }.`;
 const CLOSING =
   "- Explain your choice in two sentences or fewer and list the listing fields you relied on in signalsUsed.";
 
@@ -17,9 +18,9 @@ const CLOSING =
 export function buyerSystemPrompt(mode: BuyMode): string {
   const choice =
     mode === "must-buy"
-      ? "- The user needs an answer now: you must pick one listed service. Return option null only if no service is listed for the category."
-      : "- If no listed service is likely to be correct, return option null; buying nothing is allowed.";
-  return `You are an autonomous buyer agent with a crypto wallet. You pick one paid service to complete the user's task.\nRules:\n${RULES}\n${choice}\n${CLOSING}`;
+      ? "- The user needs an answer now: you must pick one listed service for every part. Return option null only if no service is listed for the part's category."
+      : "- If no listed service is likely to be correct for a part, return option null for it; buying nothing is allowed.";
+  return `You are an autonomous buyer agent with a crypto wallet. You buy one paid service call per part of the user's task.\nRules:\n${RULES}\n${choice}\n${CLOSING}`;
 }
 
 /*
@@ -51,21 +52,31 @@ const LEGEND: Record<Side, string> = {
     "paidCallsByBuyers = number of paid calls other buyers made (popularity). skeptiqueMedianScore = stake-weighted median 0-100 from staked critics who ran the public test suite (40%) and their own private probes (60%); null = never reviewed. skeptiqueConfidence 0-1 grows with reviews and decays with age.",
 };
 
-/** `options` are the in-category services in option order: options[k - 1] is shown as option k. */
+/**
+ * `options[category]` are that category's services in option order: options[category][k - 1] is shown
+ * as option k. Only categories some part needs are listed.
+ */
 export function buildPrompt(
   side: Side,
   userPrompt: string,
-  task: GradedTask,
-  options: readonly ServiceView[],
+  parts: readonly SubTask[],
+  options: Readonly<Record<string, readonly ServiceView[]>>,
   budgetTinybars: bigint,
 ): string {
-  const listings = options.map(side === "baseline" ? baselineListing : skeptiqueListing);
+  const listing = side === "baseline" ? baselineListing : skeptiqueListing;
+  const categories = [...new Set(parts.map((p) => p.category))];
   return [
     `User request: ${userPrompt}`,
-    `Structured task (sent to the chosen service): ${JSON.stringify(task.input)}`,
-    `Category: ${task.category}. Your budget: ${budgetTinybars} tinybars.`,
+    `Parts (each part's input is sent to the service you choose for it):\n${JSON.stringify(
+      parts.map(({ category, input }, part) => ({ part, category, input })),
+      null,
+      2,
+    )}`,
+    `Your budget: ${budgetTinybars} tinybars for all parts together.`,
     `Field legend: ${LEGEND[side]}`,
-    `Listings (the only data you have):\n${JSON.stringify(listings, null, 2)}`,
+    ...categories.map(
+      (c) => `Listings for ${c} (the only data you have):\n${JSON.stringify((options[c] ?? []).map(listing), null, 2)}`,
+    ),
   ].join("\n\n");
 }
 

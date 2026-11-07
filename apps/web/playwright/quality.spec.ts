@@ -72,6 +72,8 @@ const ARENA_HEALTH = {
   busy: false,
   paywall: { "unit-convert": "402 payment required ✓" },
   provenance: "local-chain",
+  models: ["claude-haiku-5-5", "claude-sonnet-5-5"],
+  acceptsUserCredentials: true,
 };
 const ARENA_TASKS = [{ id: "m-cm", prompt: "Convert 3 metres to centimetres", why: "off the public suite" }];
 
@@ -231,35 +233,94 @@ test("live updates: a round phase change appears on an open service page without
   expect(await page.evaluate(() => (window as unknown as { marker?: boolean }).marker)).toBe(true);
 });
 
-test("arena: a finished run renders both columns and the verdict with no accessibility violations", async ({
+test("arena: a multi-part run with user keys renders both cards and the verdict with no accessibility violations", async ({
   page,
 }) => {
   await mockApi(page);
   const arena = PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_ARENA_URL;
   const headers = { "access-control-allow-origin": "*" };
-  const side = (name: "baseline" | "skeptique", outcome: "correct" | "wrong") => ({
+  const TX = "0.0.9185802@1793949293.996636002";
+  // Test-only fake key material: never a real account key.
+  const FAKE_KEY = `0x${"ab".repeat(32)}`;
+  const tasks = [
+    { category: "conversion", input: { value: 3, from: "m", to: "cm" } },
+    { category: "currency-conversion", input: { amount: 100, from: "USD", to: "EUR" } },
+  ];
+  const part = (index: number, outcome: "correct" | "wrong" | "blocked") => ({
+    part: index,
+    task: tasks[index],
+    option: 1,
+    pick: {
+      option: 1,
+      id: 1,
+      name: outcome === "correct" ? "unit-convert" : "suite-gamer",
+      endpoint: "x",
+      pricePerCall: "1",
+    },
+    policy:
+      outcome === "blocked"
+        ? { allowed: false, checks: [{ rule: "evidence", pass: false, detail: "score 40 < 70" }] }
+        : { allowed: true, checks: [{ rule: "budget", pass: true, detail: "ok" }] },
+    payment: outcome === "blocked" ? null : { txId: TX, paid: true, tinybars: "1" },
+    response: outcome === "blocked" ? null : { result: outcome === "correct" ? 300 : 1, unit: "cm" },
+    verdict:
+      outcome === "blocked"
+        ? null
+        : { correct: outcome === "correct", expected: { result: 300, unit: "cm" }, actual: {}, note: "n" },
+    outcome,
+    error: null,
+  });
+  const side = (name: "baseline" | "skeptique", second: "wrong" | "blocked") => ({
     side: name,
     prompt: `listings shown to ${name}`,
-    decision: { option: 1, reason: `${name} reason`, signalsUsed: ["category"] },
-    llm: { model: "claude-haiku-5-5", costUsd: null, ms: 1, raw: "{}" },
-    pick: { option: 1, id: 1, name: "unit-convert", endpoint: "x", pricePerCall: "1" },
-    policy: { allowed: true, checks: [{ rule: "budget", pass: true, detail: "ok" }] },
-    payment: { txId: "0.0.9185802@1793949293.996636002", paid: true, tinybars: "1" },
-    response: { result: 300, unit: "cm" },
-    verdict: { correct: outcome === "correct", expected: { result: 300, unit: "cm" }, actual: {}, note: "n" },
-    outcome,
-    wastedTinybars: outcome === "correct" ? "0" : "1",
+    decision: {
+      choices: [
+        { part: 0, option: 1 },
+        { part: 1, option: 1 },
+      ],
+      reason: `${name} reason`,
+      signalsUsed: [],
+    },
+    llm: { model: "claude-sonnet-5-5", costUsd: null, ms: 1, raw: "{}" },
+    parts: [part(0, "correct"), part(1, second)],
+    correctParts: 1,
+    totalParts: 2,
+    paidTinybars: second === "wrong" ? "2" : "1",
+    wastedTinybars: second === "wrong" ? "1" : "0",
+    outcome: "partial",
     error: null,
   });
   const baseline = side("baseline", "wrong");
-  const skeptique = side("skeptique", "correct");
+  const skeptique = side("skeptique", "blocked");
   const events = [
-    { type: "run-started", runId: "r1", task: null, prompt: "Convert 3 metres to centimetres" },
+    {
+      type: "run-started",
+      runId: "r1",
+      task: { kind: "tasks", parts: tasks },
+      prompt: "Convert 3 metres to centimetres",
+    },
+    { type: "decided", side: "baseline", decision: baseline.decision },
+    { type: "part", side: "baseline", part: 0, result: baseline.parts[0] },
     { type: "graded", side: "baseline", result: baseline },
     { type: "graded", side: "skeptique", result: skeptique },
-    { type: "run-finished", record: { version: 2, runId: "r1", sides: { baseline, skeptique } }, hash: "0xabc" },
+    {
+      type: "run-finished",
+      record: {
+        version: 3,
+        runId: "r1",
+        prompt: "p",
+        mode: "may-refuse",
+        credentialSource: "user",
+        sides: { baseline, skeptique },
+      },
+      hash: "0xabc",
+    },
   ];
-  await page.route(`${arena}/runs`, (route) => route.fulfill({ status: 202, json: { runId: "r1" }, headers }));
+  let posted: Record<string, unknown> | null = null;
+  await page.route(`${arena}/runs`, (route) => {
+    posted = route.request().postDataJSON();
+    return route.fulfill({ status: 202, json: { runId: "r1" }, headers });
+  });
   await page.route(`${arena}/runs/r1/events`, (route) =>
     route.fulfill({
       status: 200,
@@ -268,12 +329,40 @@ test("arena: a finished run renders both columns and the verdict with no accessi
     }),
   );
   await page.goto("/arena");
+
+  await page.getByRole("button", { name: "Use your own keys" }).click();
+  const dialog = page.getByRole("dialog", { name: "Use your own keys" });
+  await dialog.getByLabel("Hedera testnet account ID").fill("12345");
+  await dialog.getByLabel("Hedera private key").fill(FAKE_KEY);
+  await dialog.getByLabel("Model").selectOption("claude-sonnet-5-5");
+  await dialog.getByRole("button", { name: "Use these keys" }).click();
+  await expect(dialog).toContainText("Use the form 0.0.12345.");
+  await dialog.getByLabel("Hedera testnet account ID").fill("0.0.4242");
+  await dialog.getByRole("button", { name: "Use these keys" }).click();
+  await expect(page.getByText("Using your keys · 0.0.4242")).toBeVisible();
+
   await page.getByRole("button", { name: /Convert 3 metres/ }).click();
   await page.getByRole("button", { name: "Run", exact: true }).click();
   await expect(page.getByRole("region", { name: "Verdict" })).toContainText("0xabc");
-  await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("correct");
-  const { violations } = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-  expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("1/2");
+  await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("score 40 < 70");
+  expect(posted).toMatchObject({
+    prompt: "Convert 3 metres to centimetres",
+    mode: "may-refuse",
+    credentials: { hederaAccountId: "0.0.4242", hederaPrivateKey: FAKE_KEY, model: "claude-sonnet-5-5" },
+  });
+  expect(await page.content()).not.toContain(FAKE_KEY);
+  expect(
+    await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage })),
+  ).not.toContain("abab");
+
+  for (const theme of ["light", "dark"] as const) {
+    await page.evaluate((t) => {
+      document.documentElement.dataset.theme = t;
+    }, theme);
+    const { violations } = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(violations.map((v) => `${theme} ${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  }
 });

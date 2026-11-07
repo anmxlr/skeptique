@@ -19,18 +19,22 @@ const CliOutputSchema = z.object({
   total_cost_usd: z.number().optional(),
 });
 
-/** Only what the CLI needs to find itself and its login: never the buyer's keys. */
-const childEnv = () =>
-  Object.fromEntries(
+/**
+ * Only what the CLI needs to find itself and its login: never the buyer's keys. With a user `apiKey`,
+ * the server's own Anthropic credentials are dropped so the call is billed to the user's key.
+ */
+export const childEnv = (apiKey?: string): Record<string, string | undefined> => {
+  const env = Object.fromEntries(
     Object.entries(process.env).filter(
       ([key]) =>
         ["PATH", "HOME", "USER", "LANG", "TERM"].includes(key) ||
-        key.startsWith("ANTHROPIC_") ||
-        key.startsWith("CLAUDE_"),
+        (!apiKey && (key.startsWith("ANTHROPIC_") || key.startsWith("CLAUDE_"))),
     ),
   );
+  return apiKey ? { ...env, ANTHROPIC_API_KEY: apiKey } : env;
+};
 
-type ClaudeCliOptions = { model?: string; bin?: string; timeoutMs?: number; retries?: number };
+type ClaudeCliOptions = { model?: string; bin?: string; timeoutMs?: number; retries?: number; apiKey?: string };
 
 /**
  * Runs `claude -p` in safe mode with no tools, no MCP servers, no settings and no saved session, from
@@ -41,6 +45,7 @@ export function createClaudeCliLlm({
   bin = "claude",
   timeoutMs = 45_000,
   retries = 1,
+  apiKey,
 }: ClaudeCliOptions = {}): Llm {
   const once = (system: string, prompt: string, jsonSchema: string) =>
     new Promise<string>((resolve, reject) => {
@@ -64,7 +69,7 @@ export function createClaudeCliLlm({
           "--strict-mcp-config",
           "--safe-mode",
         ],
-        { stdio: ["pipe", "pipe", "pipe"], cwd: tmpdir(), env: childEnv() },
+        { stdio: ["pipe", "pipe", "pipe"], cwd: tmpdir(), env: childEnv(apiKey) },
       );
       let out = "";
       let err = "";

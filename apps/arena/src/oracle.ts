@@ -1,4 +1,4 @@
-import type { GradedTask, Verdict } from "./schema";
+import type { SubTask, Verdict } from "./schema";
 
 /*
  * Ground truth for grading, written independently of every service. Pure arithmetic: no model, no
@@ -49,7 +49,7 @@ export function expectedCurrency(amount: number, from: string, to: string): numb
 }
 
 /** False when the oracle has no ground truth for the task, so it must not be bought at all. */
-export function gradable(task: GradedTask): boolean {
+export function gradable(task: SubTask): boolean {
   return task.category === "conversion"
     ? expectedConversion(task.input.value, task.input.from, task.input.to) !== null
     : expectedCurrency(task.input.amount, task.input.from, task.input.to) !== null;
@@ -62,7 +62,7 @@ const numberField = (response: unknown, key: string): number | null => {
 };
 
 /** Grades a service response against the oracle. Never throws on malformed responses: they are wrong. */
-export function grade(task: GradedTask, response: unknown): Verdict {
+export function grade(task: SubTask, response: unknown): Verdict {
   if (task.category === "conversion") {
     const { value, from, to } = task.input;
     const expected = expectedConversion(value, from, to);

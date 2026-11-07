@@ -1,12 +1,16 @@
 import { createRequire } from "node:module";
 import { type ServiceStarter, startStack } from "@skeptique/harness";
 import { commitmentHash, type TestCase } from "@skeptique/shared";
-import { createPublicClient, createWalletClient, http } from "viem";
-import { listDemoServices } from "../../../scripts/demo/list-services";
+import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
+import { contractValue } from "@skeptique/shared/deployment";
+import { createPublicClient, createWalletClient, http, parseEventLogs, zeroHash } from "viem";
 import { registerDemoCritic } from "../../../scripts/demo/register-critic";
 import { runServiceReview } from "../../critic/src/review";
 import { serviceByName } from "../../services/catalog";
-import { paywallFromEnv, startService } from "../../services/common/server";
+import { type DemoService, paywallFromEnv, startService } from "../../services/common/server";
+import { fxReference } from "./fx-reference";
+import { grade } from "./oracle";
+import { SubTaskSchema } from "./schema";
 
 /*
  * A real marketplace on a local chain, for when the live Hedera deployment has no reviewed services
@@ -17,39 +21,92 @@ import { paywallFromEnv, startService } from "../../services/common/server";
  * Disclosed shortcuts (the arena UI shows them):
  * - Critics call a free review instance of each service (same handler code). Critic x402 payments are
  *   shown separately on Hedera (ticket 15); paying ~100 critic calls per demo would make it slow.
- * - Probes are the fixed held-out cases below, not LLM-generated, so the scores are reproducible.
- * - flaky-fx is listed but never reviewed, so it stays unrated.
- * - The probe judge always answers "fail" (judge: async () => false), which costs the honest service
- *   about 3 points of median.
- * - The 3 critics per service run identical deterministic code, so their scores agree by construction;
- *   the stake-weighted median here shows the mechanism, not independent opinions.
+ * - Probes are fixed held-out cases below, not LLM-generated, so the scores are reproducible. Each of
+ *   a service's 3 critics gets a different third of its category's probe pool, and judge cases are
+ *   graded by the arena oracle (SI factors, REFERENCE_FX), not a model.
+ * - fx-reference is an honest FX vendor defined in this app (src/fx-reference.ts), not a catalog service.
  * Buyer calls go to the listed endpoints, which require real x402 payment on Hedera testnet.
  */
-const REVIEWED = ["unit-convert", "suite-gamer"] as const;
-const LISTED = [...REVIEWED, "flaky-fx"] as const;
+const named = (name: string) => {
+  const service = serviceByName(name);
+  if (!service) throw new Error(`unknown demo service ${name}`);
+  return service;
+};
+
+const SERVICES: Record<string, DemoService> = {
+  "unit-convert": named("unit-convert"),
+  "suite-gamer": named("suite-gamer"),
+  "flaky-fx": named("flaky-fx"),
+  "fx-reference": fxReference,
+};
+const LISTED = Object.keys(SERVICES);
+const CRITICS_PER_SERVICE = 3;
 const ATTESTOR_KEY = "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6"; // hardhat test key
 const PRICE_TINYBARS = "1"; // matches scripts/demo/list-services.ts
 
-const HELD_OUT_PROBES: TestCase[] = [
-  {
-    id: "negative-length",
-    input: { value: -3, from: "m", to: "cm" },
-    expect: { kind: "exact", value: { result: -300, unit: "cm" } },
-    weight: 1,
-  },
-  {
-    id: "fractional-mass",
-    input: { value: 0.125, from: "kg", to: "g" },
-    expect: { kind: "exact", value: { result: 125, unit: "g" } },
-    weight: 1,
-  },
-  {
-    id: "cold-temperature",
-    input: { value: -10, from: "C", to: "F" },
-    expect: { kind: "exact", value: { result: 14, unit: "F" } },
-    weight: 1,
-  },
-];
+const judged = (id: string, input: Record<string, unknown>, rubric: string): TestCase => ({
+  id,
+  input,
+  expect: { kind: "judge", rubric },
+  weight: 1,
+});
+const unitProbe = (id: string, value: number, from: string, to: string) =>
+  judged(id, { value, from, to }, "result equals the SI conversion and unit is the target unit");
+const fxProbe = (id: string, amount: number, from: string, to: string) =>
+  judged(id, { amount, from, to }, "converted equals amount at the reference rate, rounded to cents");
+
+/** Held-out probe pools, none in a public suite. Critic k of a service gets slice [3k, 3k + 3). */
+const PROBE_POOLS: Record<string, TestCase[]> = {
+  conversion: [
+    {
+      id: "negative-length",
+      input: { value: -3, from: "m", to: "cm" },
+      expect: { kind: "exact", value: { result: -300, unit: "cm" } },
+      weight: 1,
+    },
+    {
+      id: "fractional-mass",
+      input: { value: 0.125, from: "kg", to: "g" },
+      expect: { kind: "exact", value: { result: 125, unit: "g" } },
+      weight: 1,
+    },
+    {
+      id: "cold-temperature",
+      input: { value: -10, from: "C", to: "F" },
+      expect: { kind: "exact", value: { result: 14, unit: "F" } },
+      weight: 1,
+    },
+    unitProbe("feet-metres", 5, "ft", "m"),
+    unitProbe("litres-millilitres", 2, "L", "mL"),
+    unitProbe("kelvin-celsius", 300, "K", "C"),
+    unitProbe("zero-length", 0, "mm", "km"),
+    unitProbe("pounds-kilograms", 10, "lb", "kg"),
+    unitProbe("miles-feet", 3, "mi", "ft"),
+  ],
+  "currency-conversion": [
+    fxProbe("usd-eur-75", 75, "USD", "EUR"),
+    fxProbe("eur-usd-40", 40, "EUR", "USD"),
+    fxProbe("usd-inr-5", 5, "USD", "INR"),
+    fxProbe("inr-usd-2500", 2500, "INR", "USD"),
+    fxProbe("gbp-usd-9", 9, "GBP", "USD"),
+    fxProbe("usd-gbp-60", 60, "USD", "GBP"),
+    fxProbe("usd-eur-300", 300, "USD", "EUR"),
+    fxProbe("eur-usd-18", 18, "EUR", "USD"),
+    fxProbe("gbp-usd-7", 7, "GBP", "USD"),
+  ],
+};
+const DESCRIPTIONS: Record<string, string> = {
+  conversion: "Convert physical units accurately",
+  "currency-conversion": "Convert currency amounts at the reference rate",
+};
+
+/** The probe judge: the arena oracle on the probe's input, so a correct answer always passes. */
+export async function oracleJudge({ input, output }: { input: unknown; output: unknown }): Promise<boolean> {
+  const task = SubTaskSchema.safeParse({ category: "conversion", input });
+  if (task.success) return grade(task.data, output).correct;
+  const fx = SubTaskSchema.safeParse({ category: "currency-conversion", input });
+  return fx.success && grade(fx.data, output).correct;
+}
 
 const require = createRequire(import.meta.url);
 
@@ -63,12 +120,6 @@ async function rpc<T>(url: string, method: string, params: unknown[] = []): Prom
   if (body.error) throw new Error(JSON.stringify(body.error));
   return body.result as T;
 }
-
-const named = (name: string) => {
-  const service = serviceByName(name);
-  if (!service) throw new Error(`unknown demo service ${name}`);
-  return service;
-};
 
 const closer = (server: import("node:http").Server) => () =>
   new Promise<void>((resolve) => server.close(() => resolve()));
@@ -87,12 +138,12 @@ export async function startLocalMarket(env: Record<string, string | undefined> =
   const starters: Record<string, ServiceStarter> = {};
   for (const name of LISTED) {
     starters[name] = async () => {
-      const { server, url } = await startService(named(name), 0, "127.0.0.1", { paywall });
+      const { server, url } = await startService(SERVICES[name] as DemoService, 0, "127.0.0.1", { paywall });
       return { url, close: closer(server) };
     };
   }
   const stack = await startStack({ services: starters });
-  const reviewInstances = await Promise.all(REVIEWED.map((name) => startService(named(name), 0)));
+  const reviewInstances = await Promise.all(LISTED.map((name) => startService(SERVICES[name] as DemoService, 0)));
 
   const client = createPublicClient({ transport: http(stack.rpcUrl) });
   const accounts = await rpc<`0x${string}`[]>(stack.rpcUrl, "eth_accounts");
@@ -102,13 +153,35 @@ export async function startLocalMarket(env: Record<string, string | undefined> =
   if (!roundManager) throw new Error("harness did not deploy RoundManager");
   const wait = (hash: `0x${string}`) => client.waitForTransactionReceipt({ hash });
 
-  const listed = await listDemoServices({
-    rpcUrl: stack.rpcUrl,
-    registry: stack.contracts.ServiceRegistry,
-    seller: accounts[1],
-    origins: stack.services,
-  });
-  const critics = accounts.slice(2, 2 + REVIEWED.length * 3);
+  // Same listing call as scripts/demo/list-services.ts, which only knows catalog services.
+  const seller = createWalletClient({ account: accounts[1], transport: http(stack.rpcUrl) });
+  const registry = stack.contracts.ServiceRegistry;
+  if (!registry) throw new Error("harness did not deploy ServiceRegistry");
+  const fee = await client.readContract({ address: registry, abi: serviceRegistryAbi, functionName: "minListingFee" });
+  const chainId = await client.getChainId();
+  const listed: { name: string; serviceId: number }[] = [];
+  for (const name of LISTED) {
+    const receipt = await wait(
+      await seller.writeContract({
+        address: registry,
+        abi: serviceRegistryAbi,
+        functionName: "listService",
+        args: [
+          (SERVICES[name] as DemoService).specHash as `0x${string}`,
+          new URL("/call", stack.services[name]).href,
+          BigInt(PRICE_TINYBARS),
+          zeroHash,
+        ],
+        value: contractValue(fee, chainId),
+        chain: null,
+      }),
+    );
+    const [log] = parseEventLogs({ abi: serviceRegistryAbi, eventName: "ServiceListed", logs: receipt.logs });
+    if (!log) throw new Error(`Listing ${name} emitted no ServiceListed event`);
+    listed.push({ name, serviceId: serviceListedEvent(log.args).serviceId });
+  }
+  const critics = accounts.slice(2, 2 + LISTED.length * CRITICS_PER_SERVICE);
+  if (critics.length < LISTED.length * CRITICS_PER_SERVICE) throw new Error("not enough local accounts for critics");
   for (const [i, critic] of critics.entries())
     await registerDemoCritic({
       rpcUrl: stack.rpcUrl,
@@ -119,25 +192,29 @@ export async function startLocalMarket(env: Record<string, string | undefined> =
     });
 
   const pending = [];
-  for (const [index, name] of REVIEWED.entries()) {
+  for (const [index, name] of LISTED.entries()) {
     const id = listed.find((l) => l.name === name)?.serviceId;
     if (id === undefined) throw new Error(`${name} was not listed`);
+    const service = SERVICES[name] as DemoService;
     const reviewUrl = reviewInstances[index]?.url as string;
+    const pool = PROBE_POOLS[service.suite.category] ?? [];
     const reviews = [];
-    for (const critic of critics.slice(index * 3, index * 3 + 3)) {
+    const own = critics.slice(index * CRITICS_PER_SERVICE, (index + 1) * CRITICS_PER_SERVICE);
+    for (const [k, critic] of own.entries()) {
+      const probes = pool.slice(k * 3, k * 3 + 3);
       const review = await runServiceReview({
         suiteUrl: `${reviewUrl}/suite.json`,
-        specHash: named(name).specHash,
+        specHash: service.specHash,
         roundId: id,
         critic,
         endpoint: `${reviewUrl}/call`,
         signer: null,
         maxPrice: PRICE_TINYBARS,
-        serviceDescription: "Convert physical units accurately",
+        serviceDescription: DESCRIPTIONS[service.suite.category] ?? service.suite.category,
         seed: id,
         modelName: "fixture/held-out-probes",
         evidenceUrl: `${stack.apiUrl}/evidence`,
-        probeModel: { generateProbes: async () => structuredClone(HELD_OUT_PROBES), judge: async () => false },
+        probeModel: { generateProbes: async () => structuredClone(probes), judge: oracleJudge },
         payAndCall: async ({ url, body, signal }) => {
           const res = await fetch(url, {
             method: "POST",

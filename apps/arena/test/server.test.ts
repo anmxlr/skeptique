@@ -4,10 +4,11 @@ import type { Llm } from "../src/llm";
 import type { BatchEvent } from "../src/schema";
 import { buildArenaServer } from "../src/server";
 import { TASK_PACK } from "../src/tasks";
-import { FX, fakePay, GAMER, GOOD, policy, scriptedLlm } from "./fakes";
+import { FX, FXREF, fakePay, GAMER, GOOD, policy, scriptedLlm } from "./fakes";
 
 const ORIGIN = "http://web.test";
-const PROMPT = "Convert 3 metres to centimetres"; // a TASK_PACK prompt, so the task parser never calls the model
+const PROMPT = "Convert 451 °F to Celsius"; // a TASK_PACK prompt, so the task parser never calls the model
+const SELLER = "0.0.999";
 
 /** The scripted model, held until `release()` so a run can be observed while in progress. */
 function gatedLlm(): Llm & { release: () => void } {
@@ -26,8 +27,9 @@ function gatedLlm(): Llm & { release: () => void } {
   };
 }
 
-function server(llm: Llm = scriptedLlm()) {
+function server(llm: Llm = scriptedLlm(), userPay = fakePay()) {
   const paid: string[] = [];
+  const llmRequests: { model: string; apiKey?: string }[] = [];
   const app = buildArenaServer({
     apiUrl: "http://api.test",
     llm,
@@ -44,9 +46,15 @@ function server(llm: Llm = scriptedLlm()) {
         policy: policy({ minMedian: 70, minRounds: 1 }),
       },
     },
-    fetchImpl: async () => Response.json([GOOD, GAMER, FX]),
+    fetchImpl: async () => Response.json([GOOD, GAMER, FX, FXREF]),
+    llmFor: (options) => {
+      llmRequests.push(options);
+      return scriptedLlm();
+    },
+    userPayAndCall: () => userPay,
+    sellerAccountId: SELLER,
   });
-  return { app, paid };
+  return { app, paid, llmRequests };
 }
 
 let app: ReturnType<typeof buildArenaServer> | null = null;
@@ -90,7 +98,7 @@ describe("arena server: runs", () => {
     const types = sseEvents(streamed.body).map((e) => e.type);
     expect(types[0]).toBe("run-started");
     expect(types.at(-1)).toBe("run-finished");
-    expect(types).toHaveLength(10);
+    expect(types).toHaveLength(8);
 
     const replay = await app.inject(`/runs/${runId}/events`);
     expect(sseEvents(replay.body).map((e) => e.type)).toEqual(types);
@@ -154,8 +162,12 @@ describe("arena server: batches", () => {
     });
     const tasks = events.filter((e) => e.type === "batch-task");
     expect(tasks.map((e) => e.taskId)).toEqual(TASK_PACK.map((t) => t.id));
-    // The gamer echoes its input, so it is only right on -40 °C → °F; the unreviewed FX service is blocked.
-    expect(tasks.find((e) => e.taskId === "suite-c-f")?.sides.baseline.outcome).toBe("correct");
+    // The gamer echoes its input, so it is only right on -40 °C → °F; baseline buys the popular stale FX.
+    expect(tasks.find((e) => e.taskId === "suite-mix")?.sides.baseline).toMatchObject({
+      outcome: "partial",
+      correctParts: 1,
+      totalParts: 3,
+    });
     expect(tasks.find((e) => e.taskId === "usd-inr")?.sides).toEqual({
       baseline: {
         outcome: "wrong",
@@ -163,8 +175,18 @@ describe("arena server: batches", () => {
         noAnswer: false,
         paidTinybars: "1000",
         wastedTinybars: "1000",
+        correctParts: 0,
+        totalParts: 1,
       },
-      skeptique: { outcome: "blocked", answeredCorrect: false, noAnswer: true, paidTinybars: "0", wastedTinybars: "0" },
+      skeptique: {
+        outcome: "correct",
+        answeredCorrect: true,
+        noAnswer: false,
+        paidTinybars: "1000",
+        wastedTinybars: "0",
+        correctParts: 1,
+        totalParts: 1,
+      },
     });
 
     const finished = events.at(-1);
@@ -173,26 +195,32 @@ describe("arena server: batches", () => {
       tasks: 8,
       sides: {
         baseline: {
-          answeredCorrect: 1,
+          answeredCorrect: 0,
           noAnswer: 0,
-          correct: 1,
+          correctParts: 1,
+          totalParts: 17,
+          correct: 0,
+          partial: 1,
           wrong: 7,
           refused: 0,
           blocked: 0,
           error: 0,
-          totalTinybars: "8000",
-          wastedTinybars: "7000",
-          paidToCorrectShare: 0.125,
+          totalTinybars: "17000",
+          wastedTinybars: "16000",
+          paidToCorrectShare: 1 / 17,
         },
         skeptique: {
-          answeredCorrect: 6,
-          noAnswer: 2,
-          correct: 6,
+          answeredCorrect: 8,
+          noAnswer: 0,
+          correctParts: 17,
+          totalParts: 17,
+          correct: 8,
+          partial: 0,
           wrong: 0,
           refused: 0,
-          blocked: 2,
+          blocked: 0,
           error: 0,
-          totalTinybars: "6000",
+          totalTinybars: "17000",
           wastedTinybars: "0",
           paidToCorrectShare: 1,
         },
@@ -218,5 +246,83 @@ describe("arena server: batches", () => {
     expect((await app.inject({ method: "POST", url: "/batches" })).statusCode).toBe(409);
     llm.release();
     await waitFor(async () => (await app?.inject("/health"))?.json().busy === false);
+  });
+});
+
+describe("arena server: user credentials", () => {
+  const KEY = `0x${"ab".repeat(32)}`;
+  const API_KEY = "sk-ant-test-0123456789-secret";
+  const credentials = { hederaAccountId: "0.0.4242", hederaPrivateKey: KEY, anthropicApiKey: API_KEY };
+
+  it("lists the allowed models and says it accepts user credentials", async () => {
+    app = server().app;
+    expect((await app.inject("/health")).json()).toMatchObject({
+      models: ["claude-haiku-5-5", "claude-sonnet-5-5"],
+      acceptsUserCredentials: true,
+    });
+  });
+
+  it("rejects invalid credentials and the seller account with 400, without echoing them", async () => {
+    app = server().app;
+    const bad = [
+      { ...credentials, hederaAccountId: "4242" },
+      { ...credentials, hederaPrivateKey: "not-a-key" },
+      { ...credentials, hederaPrivateKey: KEY.slice(0, 20) },
+      { ...credentials, model: "claude-opus-5-5" },
+      { ...credentials, anthropicApiKey: "short" },
+      { hederaAccountId: "0.0.4242" },
+      { ...credentials, hederaAccountId: SELLER },
+    ];
+    for (const c of bad) {
+      for (const [url, payload] of [
+        ["/runs", { prompt: PROMPT, credentials: c }],
+        ["/batches", { credentials: c }],
+      ] as const) {
+        const res = await app.inject({ method: "POST", url, payload });
+        expect(res.statusCode, JSON.stringify(c)).toBe(400);
+        expect(res.body).toContain("credentials");
+        expect(res.body).not.toContain(KEY);
+        expect(res.body).not.toContain("not-a-key");
+      }
+    }
+    expect((await app.inject("/health")).json().busy).toBe(false);
+  });
+
+  it("pays from the user's account on both sides with the user's model and key, and never leaks the keys", async () => {
+    const userPaid: string[] = [];
+    const pay = fakePay(userPaid);
+    // A payment library error that quotes the key must not carry it into the record or the stream.
+    const leaky: typeof pay = async (a) => {
+      if (a.url === GOOD.endpoint) throw new Error(`signing failed for ${KEY} (${KEY.slice(2)})`);
+      return pay(a);
+    };
+    const s = server(scriptedLlm(), leaky);
+    app = s.app;
+    const started = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: { prompt: PROMPT, credentials: { ...credentials, model: "claude-sonnet-5-5" } },
+    });
+    expect(started.statusCode).toBe(202);
+    const { runId } = started.json();
+    let body = "";
+    await waitFor(async () => {
+      body = (await app?.inject(`/runs/${runId}/events`))?.body ?? "";
+      return body.includes("event: run-finished");
+    });
+    const { record, hash } = (await app.inject(`/runs/${runId}`)).json();
+    expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(s.llmRequests).toEqual([{ model: "claude-sonnet-5-5", apiKey: API_KEY }]);
+    expect(record).toMatchObject({ credentialSource: "user", version: 3 });
+    expect(record.agents.baseline.payer).toBe("0.0.4242");
+    expect(record.agents.skeptique.payer).toBe("0.0.4242");
+    expect(s.paid).toEqual([]); // the server wallets paid nothing
+    expect(userPaid).toEqual([GAMER.endpoint]);
+    expect(record.sides.skeptique.parts[0].error).toContain("[redacted]");
+    for (const text of [JSON.stringify(record), body, JSON.stringify(sseEvents(body))]) {
+      expect(text).not.toContain(KEY);
+      expect(text).not.toContain(KEY.slice(2));
+      expect(text).not.toContain(API_KEY);
+    }
   });
 });

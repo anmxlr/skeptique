@@ -11,7 +11,7 @@ function recordingLlm(systems: string[]): Llm {
     model: "fake-model",
     async ask({ system, schema }) {
       systems.push(system);
-      const value = schema.parse({ option: 1, reason: "first", signalsUsed: [] });
+      const value = schema.parse({ choices: [{ part: 0, option: 1 }], reason: "first", signalsUsed: [] });
       return { value, model: "fake-model", costUsd: 0, ms: 1, raw: "{}" };
     },
   };
@@ -30,7 +30,7 @@ describe("buy mode", () => {
     const { record } = await runArena({
       runId: "r",
       prompt: "Convert 3 metres to centimetres",
-      task: { category: "conversion", input: { value: 3, from: "m", to: "cm" } },
+      task: { kind: "tasks", parts: [{ category: "conversion", input: { value: 3, from: "m", to: "cm" } }] },
       services: [GOOD, GAMER],
       apiUrl: "http://api.test",
       llm: recordingLlm(systems),

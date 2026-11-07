@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { type ServiceView, ServiceViewSchema } from "@skeptique/shared";
+import type { PayAndCall } from "@skeptique/x402-client";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { z } from "zod";
 import { hashBatch, scoreBatch } from "./batch";
 import type { Llm } from "./llm";
-import { runArena, type SideConfig } from "./runner";
-import { type ArenaEvent, type ArenaRecord, type BatchEvent, BUY_MODES, type Side } from "./schema";
+import { message, type RunArenaArgs, runArena, type SideConfig } from "./runner";
+import { type ArenaEvent, type ArenaRecord, type BatchEvent, BUY_MODES, MODELS, type Model, type Side } from "./schema";
 import { parseTask, TASK_PACK } from "./tasks";
 
 export type ArenaServerDeps = {
@@ -22,18 +23,44 @@ export type ArenaServerDeps = {
   /** Startup facts shown in the UI, e.g. which endpoints answered 402 without payment. */
   health?: () => Record<string, unknown>;
   fetchImpl?: typeof fetch;
+  /** Builds the model for a run that brings its own model choice and optional Anthropic key. */
+  llmFor: (options: { model: Model; apiKey?: string }) => Llm;
+  /** A fresh payer for a run with user credentials; both sides share it, so it must serialise payments. */
+  userPayAndCall: () => PayAndCall;
+  /** User credentials naming this account are refused: payments to yourself move no money. */
+  sellerAccountId?: string;
 };
 
 type Stream<E> = { events: E[]; listeners: Set<(e: E) => void>; done: boolean };
 
 const ModeSchema = z.enum(BUY_MODES).default("may-refuse");
-const RunRequestSchema = z.object({ prompt: z.string().trim().min(3).max(300), mode: ModeSchema });
-const BatchRequestSchema = z.object({ mode: ModeSchema }).default({ mode: "may-refuse" });
+/** Optional per-request credentials. Never stored, logged or echoed: the record keeps only the account id. */
+export const CredentialsSchema = z.object({
+  hederaAccountId: z.string().regex(/^0\.0\.\d{1,12}$/),
+  hederaPrivateKey: z.string().regex(/^(0x)?[0-9a-fA-F]{64,100}$/),
+  anthropicApiKey: z.string().trim().min(20).max(300).optional(),
+  model: z.enum(MODELS).default("claude-haiku-5-5"),
+});
+type Credentials = z.infer<typeof CredentialsSchema>;
+const RunRequestSchema = z.object({
+  prompt: z.string().trim().min(3).max(300),
+  mode: ModeSchema,
+  credentials: CredentialsSchema.optional(),
+});
+const BatchRequestSchema = z
+  .object({ mode: ModeSchema, credentials: CredentialsSchema.optional() })
+  .default({ mode: "may-refuse" });
 const KEEPALIVE_MS = 15_000;
 const SERVICES_TIMEOUT_MS = 10_000;
 const MAX_RUNS = 50;
 const TERMINAL = new Set(["run-finished", "run-failed", "batch-finished", "batch-failed"]);
-const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+/** A 400 message naming the invalid fields, never their values (they may be keys). */
+function badRequest(error: z.ZodError, fallback: string): string {
+  const fields = error.issues.filter((i) => i.path[0] === "credentials").map((i) => i.path.join("."));
+  return fields.length > 0 ? `invalid ${[...new Set(fields)].join(", ")}` : fallback;
+}
+
+type RunSetup = Pick<RunArenaArgs, "llm" | "sides" | "credentialSource" | "secrets">;
 
 /** A replayable event log: keeps the last MAX_RUNS streams in `map`. */
 function openStream<E>(map: Map<string, Stream<E>>, id: string) {
@@ -65,6 +92,28 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
     if (req.method === "OPTIONS") return reply.code(204).send();
   });
 
+  /** Server wallets and login, or the user's account (both sides) and model key for this run only. */
+  function setup(credentials: Credentials | undefined): RunSetup {
+    if (!credentials) return { llm: deps.llm, sides: deps.sides, credentialSource: "server", secrets: [] };
+    const { hederaAccountId: accountId, hederaPrivateKey: privateKey, anthropicApiKey: apiKey, model } = credentials;
+    const payAndCall = deps.userPayAndCall();
+    const side = (s: Side): SideConfig => ({
+      payAndCall,
+      signer: { accountId, privateKey },
+      payer: accountId,
+      policy: deps.sides[s].policy,
+    });
+    return {
+      llm: deps.llmFor({ model, apiKey }),
+      sides: { baseline: side("baseline"), skeptique: side("skeptique") },
+      credentialSource: "user",
+      secrets: [privateKey, privateKey.replace(/^0x/, ""), apiKey ?? ""],
+    };
+  }
+  const sameAsSeller = (credentials: Credentials | undefined) =>
+    credentials !== undefined && credentials.hederaAccountId === deps.sellerAccountId;
+  const SELLER_ERROR = "credentials.hederaAccountId must differ from the seller account";
+
   async function listServices(): Promise<ServiceView[]> {
     const res = await fetchImpl(new URL("/services", deps.apiUrl), {
       signal: AbortSignal.timeout(SERVICES_TIMEOUT_MS),
@@ -79,6 +128,8 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
     network: deps.network,
     apiUrl: deps.apiUrl,
     busy,
+    models: MODELS,
+    acceptsUserCredentials: true,
     ...deps.health?.(),
   }));
 
@@ -86,31 +137,33 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
 
   app.post("/runs", async (req, reply) => {
     const body = RunRequestSchema.safeParse(req.body);
-    if (!body.success) return reply.code(400).send({ error: "prompt must be 3-300 characters" });
+    if (!body.success)
+      return reply.code(400).send({ error: badRequest(body.error, "prompt must be 3-300 characters") });
+    if (sameAsSeller(body.data.credentials)) return reply.code(400).send({ error: SELLER_ERROR });
     // One run at a time: both agents share the demo wallet and the budget is per run.
     if (busy) return reply.code(409).send({ error: "a run is in progress" });
     busy = true;
     const runId = randomUUID();
     const { state, emit } = openStream(runs, runId);
+    const run = setup(body.data.credentials);
     void (async () => {
       try {
-        const [{ task, source }, services] = await Promise.all([parseTask(deps.llm, body.data.prompt), listServices()]);
+        const [{ task, source }, services] = await Promise.all([parseTask(run.llm, body.data.prompt), listServices()]);
         await runArena({
+          ...run,
           runId,
           prompt: body.data.prompt,
           mode: body.data.mode,
           task,
           services,
           apiUrl: deps.apiUrl,
-          llm: deps.llm,
-          sides: deps.sides,
           network: deps.network,
           provenance: deps.provenance,
           taskSource: source,
           emit,
         });
       } catch (error) {
-        emit({ type: "run-failed", error: message(error) });
+        emit({ type: "run-failed", error: message(error, run.secrets) });
       } finally {
         state.done = true;
         busy = false;
@@ -129,12 +182,15 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
   // Runs every TASK_PACK task in order through runArena, then publishes a hashed scoreboard.
   app.post("/batches", async (req, reply) => {
     const body = BatchRequestSchema.safeParse(req.body ?? undefined);
-    if (!body.success) return reply.code(400).send({ error: `mode must be one of ${BUY_MODES.join(", ")}` });
-    const { mode } = body.data;
+    if (!body.success)
+      return reply.code(400).send({ error: badRequest(body.error, `mode must be one of ${BUY_MODES.join(", ")}`) });
+    const { mode, credentials } = body.data;
+    if (sameAsSeller(credentials)) return reply.code(400).send({ error: SELLER_ERROR });
     if (busy) return reply.code(409).send({ error: "a run is in progress" });
     busy = true;
     const batchId = randomUUID();
     const batch = openStream(batches, batchId);
+    const setupRun = setup(credentials);
     void (async () => {
       try {
         batch.emit({ type: "batch-started", batchId, tasks: TASK_PACK.map(({ id, prompt }) => ({ id, prompt })) });
@@ -145,14 +201,13 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
           const runId = randomUUID();
           const run = openStream(runs, runId);
           const { record, hash } = await runArena({
+            ...setupRun,
             runId,
             prompt: preset.prompt,
             task: preset.task,
             mode,
             services,
             apiUrl: deps.apiUrl,
-            llm: deps.llm,
-            sides: deps.sides,
             network: deps.network,
             provenance: deps.provenance,
             taskSource: "preset",
@@ -167,7 +222,7 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
         const scoreboard = scoreBatch(records);
         batch.emit({ type: "batch-finished", batchId, scoreboard, runHashes, hash: hashBatch(scoreboard, runHashes) });
       } catch (error) {
-        batch.emit({ type: "batch-failed", batchId, error: message(error) });
+        batch.emit({ type: "batch-failed", batchId, error: message(error, setupRun.secrets) });
       } finally {
         batch.state.done = true;
         busy = false;

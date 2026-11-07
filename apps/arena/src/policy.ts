@@ -10,9 +10,11 @@ export type SpendPolicy = {
   evidence: { minMedian: number; minRounds: number } | null;
 };
 
-/** Deterministic pre-payment checks. The model decides what to buy; this decides whether money moves. */
-/** One purchase per run, so the budget check is against this single price. */
-export function checkPolicy(policy: SpendPolicy, service: ServiceView): PolicyResult {
+/**
+ * Deterministic pre-payment checks. The model decides what to buy; this decides whether money moves.
+ * `spentTinybars` is what this side already committed earlier in the run (one purchase per part).
+ */
+export function checkPolicy(policy: SpendPolicy, service: ServiceView, spentTinybars: bigint): PolicyResult {
   const price = BigInt(service.pricePerCall);
   const checks: PolicyCheck[] = [
     {
@@ -22,8 +24,8 @@ export function checkPolicy(policy: SpendPolicy, service: ServiceView): PolicyRe
     },
     {
       rule: "budget",
-      pass: price <= policy.budgetTinybars,
-      detail: `${price} ≤ ${policy.budgetTinybars} tinybars`,
+      pass: spentTinybars + price <= policy.budgetTinybars,
+      detail: `${spentTinybars} spent + ${price} ≤ ${policy.budgetTinybars} tinybars`,
     },
   ];
   if (policy.evidence) {

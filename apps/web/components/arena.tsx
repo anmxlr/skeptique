@@ -1,7 +1,7 @@
 "use client";
 
 import { hashscanTxUrl } from "@skeptique/shared";
-import { type FormEvent, useEffect, useReducer, useState } from "react";
+import { type FormEvent, type ReactNode, type RefObject, useEffect, useReducer, useRef, useState } from "react";
 import {
   ARENA_EVENTS,
   type ArenaEvent,
@@ -9,6 +9,7 @@ import {
   type ArenaRecord,
   type ArenaState,
   type ArenaTask,
+  answerText,
   arenaReducer,
   arenaUrl,
   BATCH_EVENTS,
@@ -16,192 +17,522 @@ import {
   type BatchState,
   type BuyMode,
   batchReducer,
+  type CredentialErrors,
+  type Credentials,
+  credentialsBody,
   initialArenaState,
   initialBatchState,
-  pickedOption,
+  MODELS,
+  type ModelId,
+  moneySplit,
+  type PartOutcome,
+  type PartResult,
+  paidHonestVendor,
   type Side,
+  type SideOutcome,
   type SideResult,
   type SideState,
+  taskLabel,
+  validateCredentials,
 } from "../lib/arena";
+import { Skeleton, Toast } from "./states";
 
 const SIDES: { side: Side; title: string }[] = [
   { side: "baseline", title: "Without Skeptique" },
   { side: "skeptique", title: "With Skeptique" },
 ];
 
-const STEPS = ["deciding", "policy", "paying", "graded"] as const;
-const STEP_MARK = { done: "✓", skipped: "–", pending: "…" } as const;
+/* ---------- icons: always paired with text, so colour never carries meaning alone ---------- */
 
-const json = (value: unknown) => JSON.stringify(value, null, 2) ?? "undefined";
+type IconName = "check" | "cross" | "dash" | "shield" | "alert" | "half" | "link" | "key";
+const ICON_PATH: Record<IconName, string> = {
+  check: "M5 12.5l4.5 4.5L19 7.5",
+  cross: "M6.5 6.5l11 11M17.5 6.5l-11 11",
+  dash: "M6 12h12",
+  shield: "M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z",
+  alert: "M12 7v6M12 16.5v.5",
+  half: "M12 4a8 8 0 0 1 0 16z",
+  link: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
+  key: "M15 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM12 12v9M12 17h3M12 20h2",
+};
+
+function Icon({ name, className }: { name: IconName; className?: string }) {
+  return (
+    <svg className={`arena-icon ${className ?? ""}`} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {name === "half" && <circle cx="12" cy="12" r="8" fill="none" />}
+      <path d={ICON_PATH[name]} fill={name === "half" ? "currentColor" : "none"} />
+    </svg>
+  );
+}
+
+type Tone = "good" | "warn" | "bad" | "none";
+const SIDE_OUTCOME: Record<SideOutcome, { text: string; tone: Tone; icon: IconName }> = {
+  correct: { text: "All correct", tone: "good", icon: "check" },
+  partial: { text: "Partly correct", tone: "warn", icon: "half" },
+  wrong: { text: "Wrong", tone: "bad", icon: "cross" },
+  refused: { text: "Bought nothing", tone: "none", icon: "dash" },
+  blocked: { text: "Blocked by policy", tone: "none", icon: "shield" },
+  error: { text: "Error", tone: "bad", icon: "alert" },
+};
+const PART_OUTCOME: Record<PartOutcome, { text: string; tone: Tone; icon: IconName }> = {
+  correct: { text: "correct", tone: "good", icon: "check" },
+  wrong: { text: "wrong", tone: "bad", icon: "cross" },
+  refused: { text: "skipped", tone: "none", icon: "dash" },
+  blocked: { text: "blocked", tone: "none", icon: "shield" },
+  error: { text: "error", tone: "bad", icon: "alert" },
+};
+
+function Badge({ outcome }: { outcome: SideOutcome }) {
+  const o = SIDE_OUTCOME[outcome];
+  return (
+    <span className={`arena-badge arena-tone-${o.tone}`}>
+      <Icon name={o.icon} />
+      {o.text}
+    </span>
+  );
+}
+
+function TxLink({ txId }: { txId: string }) {
+  const href = hashscanTxUrl(txId);
+  if (!href) return null;
+  return (
+    <a className="arena-tx" href={href} target="_blank" rel="noreferrer" title={`HashScan: ${txId}`}>
+      <Icon name="link" />
+      <span className="visually-hidden">View payment {txId} on HashScan</span>
+    </a>
+  );
+}
+
+/* ---------- health ---------- */
 
 export type HealthState =
   | { status: "loading" }
   | { status: "offline"; message: string }
   | { status: "ok"; health: ArenaHealth };
 
-export function ArenaHeader({ health }: { health: HealthState }) {
+function HealthPill({ health }: { health: HealthState }) {
+  if (health.status === "loading")
+    return (
+      <span className="arena-pill" role="status">
+        Connecting to the arena…
+      </span>
+    );
+  if (health.status === "offline")
+    return (
+      <span className="arena-pill arena-tone-bad">
+        <Icon name="alert" />
+        Arena offline
+      </span>
+    );
   return (
-    <section className="arena-panel" aria-labelledby="arena-setup">
-      <h2 id="arena-setup">The setup</h2>
-      <table className="arena-table">
-        <caption className="visually-hidden">What the two agents share and what differs</caption>
-        <thead>
-          <tr>
-            <th scope="col">Same for both</th>
-            <th scope="col">Different</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Model, system prompt, task, budget, services, Hedera testnet payments</td>
-            <td>The evidence shown (popularity only, or stake-backed reviews too) and the spend policy</td>
-          </tr>
-        </tbody>
-      </table>
-      {health.status === "loading" && <p>Checking the arena server…</p>}
-      {health.status === "offline" && (
-        <p role="alert" className="notice-error">
-          Arena server offline at {arenaUrl()}: {health.message}
+    <span className="arena-pill arena-tone-good">
+      <Icon name="check" />
+      Arena online · {health.health.network}
+    </span>
+  );
+}
+
+/* ---------- hero ---------- */
+
+function VersusDiagram() {
+  return (
+    <svg
+      className="arena-vs"
+      viewBox="0 0 168 64"
+      role="img"
+      aria-label="Agent A sees no reviews; agent B sees reviews"
+    >
+      <g>
+        <circle cx="28" cy="28" r="20" className="arena-vs-a" />
+        <text x="28" y="34" textAnchor="middle" className="arena-vs-letter">
+          A
+        </text>
+        <text x="28" y="61" textAnchor="middle" className="arena-vs-caption">
+          no reviews
+        </text>
+      </g>
+      <text x="84" y="34" textAnchor="middle" className="arena-vs-caption">
+        vs
+      </text>
+      <g>
+        <circle cx="140" cy="28" r="20" className="arena-vs-b" />
+        <text x="140" y="34" textAnchor="middle" className="arena-vs-letter arena-vs-letter-b">
+          B
+        </text>
+        <path d="M152 6l7 3v5c0 4-3 7-7 9-4-2-7-5-7-9V9z" className="arena-vs-shield" />
+        <text x="140" y="61" textAnchor="middle" className="arena-vs-caption">
+          + reviews
+        </text>
+      </g>
+    </svg>
+  );
+}
+
+export function ArenaHero({ health }: { health: HealthState }) {
+  return (
+    <section className="arena-hero" aria-label="What this is">
+      <div>
+        <p className="arena-lead">Same task. Same AI. One sees Skeptique&apos;s reviews.</p>
+        <HealthPill health={health} />
+        {health.status === "offline" && (
+          <p className="arena-muted arena-small">
+            Start the arena server at <code>{arenaUrl()}</code> to run.
+          </p>
+        )}
+      </div>
+      <VersusDiagram />
+      <details className="arena-details arena-hero-details">
+        <summary>How is this fair?</summary>
+        <table className="arena-table">
+          <caption className="visually-hidden">What the two agents share and what differs</caption>
+          <thead>
+            <tr>
+              <th scope="col">Same for both</th>
+              <th scope="col">Different</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>AI model, instructions, task, budget, vendors (names hidden, order shuffled)</td>
+              <td>B also sees stake-backed review scores and follows a spend policy</td>
+            </tr>
+          </tbody>
+        </table>
+        <p className="arena-small">
+          A fixed calculator, not an AI, grades every answer. Payments are real Hedera testnet.
         </p>
-      )}
-      {health.status === "ok" && (
-        <dl className="arena-stats">
-          <dt>Model</dt>
-          <dd>{health.health.model}</dd>
-          <dt>Network</dt>
-          <dd>{health.health.network}</dd>
-          <dt>Provenance</dt>
-          <dd>
-            {health.health.provenance ?? "unknown"}
-            {health.health.provenance === "local-chain" &&
-              " (review rounds ran on a local chain; payments are real Hedera testnet)"}
-          </dd>
-          {Object.entries(health.health.paywall ?? {}).map(([name, status]) => (
-            <div key={name} className="arena-stat-row">
-              <dt>Paywall: {name}</dt>
-              <dd>{status}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      </details>
     </section>
   );
 }
 
-function stepState(side: SideState, step: (typeof STEPS)[number], runOver: boolean): keyof typeof STEP_MARK {
-  const reached = { deciding: side.decided, policy: side.policy !== null, paying: side.payment !== null };
-  if (step === "graded") return side.result ? "done" : runOver ? "skipped" : "pending";
-  if (reached[step]) return "done";
-  return side.result || runOver ? "skipped" : "pending";
-}
+/* ---------- keys ---------- */
 
-function TxLink({ txId }: { txId: string }) {
-  const href = hashscanTxUrl(txId);
-  return href ? (
-    <a href={href} target="_blank" rel="noreferrer">
-      {txId}
-    </a>
-  ) : (
-    <code>{txId}</code>
-  );
-}
-
-export function SideColumn({ title, side, runOver }: { title: string; side: SideState; runOver: boolean }) {
-  const { result } = side;
-  const decision = result?.decision ?? side.decision;
-  const policy = result?.policy ?? side.policy;
-  const payment = result?.payment ?? side.payment;
-  const error = result?.error ?? side.decideError;
+export function KeysForm({
+  draft,
+  errors,
+  onChange,
+}: {
+  draft: Credentials;
+  errors: CredentialErrors;
+  onChange?: (next: Credentials) => void;
+}) {
+  const set = (patch: Partial<Credentials>) => onChange?.({ ...draft, ...patch });
+  const field = (id: keyof Credentials) => ({
+    id: `arena-key-${id}`,
+    "aria-invalid": errors[id] ? true : undefined,
+    "aria-describedby": errors[id] ? `arena-key-${id}-error` : undefined,
+  });
+  const error = (id: keyof Credentials) =>
+    errors[id] && (
+      <span id={`arena-key-${id}-error`} className="arena-field-error">
+        <Icon name="alert" />
+        {errors[id]}
+      </span>
+    );
   return (
-    <section className="arena-card" aria-label={title}>
-      <h2>{title}</h2>
-      <ol className="arena-steps">
-        {STEPS.map((step) => {
-          const status = stepState(side, step, runOver);
-          return (
-            <li key={step} className={`arena-step-${status}`}>
-              {STEP_MARK[status]} {step}
-              <span className="visually-hidden"> ({status})</span>
-            </li>
-          );
-        })}
-      </ol>
-      {result && (
-        <p className={`arena-badge arena-tone-${DELIVERED[result.outcome].tone}`}>{DELIVERED[result.outcome].text}</p>
-      )}
-      {error && (
-        <p role="alert" className="notice-error">
-          Error: {error}
-        </p>
-      )}
-      {decision && (
-        <>
-          <h3>Decision</h3>
-          <p>
-            {pickedOption(decision) === null ? "Buy nothing." : `Option ${pickedOption(decision)}.`} {decision.reason}
-          </p>
-          <p className="arena-muted">Signals used: {decision.signalsUsed.join(", ") || "none"}</p>
-        </>
-      )}
-      {result?.pick && (
-        <p>
-          Picked <strong>{result.pick.name}</strong> at {result.pick.pricePerCall} tinybars per call
-        </p>
-      )}
-      {policy && (
-        <>
-          <h3>Spend policy: {policy.allowed ? "allowed" : "blocked"}</h3>
-          <ul className="arena-checks">
-            {policy.checks.map((check) => (
-              <li key={check.rule}>
-                <span aria-hidden="true">{check.pass ? "✓" : "✗"}</span>
-                <span className="visually-hidden">{check.pass ? "pass" : "fail"}</span> {check.rule}: {check.detail}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {payment && (
-        <>
-          <h3>Payment</h3>
-          <p>
-            {payment.tinybars} tinybars{" "}
-            {payment.txId ? <TxLink txId={payment.txId} /> : <span>(no transaction id)</span>}
-          </p>
-        </>
-      )}
-      {result && (
-        <>
-          <h3>Response vs oracle</h3>
-          <div className="arena-compare">
-            <div>
-              <p className="arena-muted">Service returned</p>
-              <pre className="arena-pre">{json(result.response)}</pre>
-            </div>
-            <div>
-              <p className="arena-muted">Oracle expected</p>
-              <pre className="arena-pre">{json(result.verdict?.expected ?? null)}</pre>
-            </div>
-          </div>
-          {result.verdict && <p className="arena-muted">{result.verdict.note}</p>}
-          <p>Wasted: {result.wastedTinybars} tinybars</p>
-        </>
-      )}
-    </section>
+    <div className="arena-keys-fields">
+      <label htmlFor="arena-key-hederaAccountId">Hedera testnet account ID</label>
+      <input
+        {...field("hederaAccountId")}
+        value={draft.hederaAccountId}
+        onChange={(e) => set({ hederaAccountId: e.target.value })}
+        placeholder="0.0.12345"
+        autoComplete="off"
+        spellCheck={false}
+      />
+      {error("hederaAccountId")}
+      <label htmlFor="arena-key-hederaPrivateKey">Hedera private key</label>
+      <input
+        {...field("hederaPrivateKey")}
+        type="password"
+        value={draft.hederaPrivateKey}
+        onChange={(e) => set({ hederaPrivateKey: e.target.value })}
+        autoComplete="off"
+        spellCheck={false}
+      />
+      {error("hederaPrivateKey")}
+      <label htmlFor="arena-key-anthropicApiKey">
+        Anthropic API key <span className="arena-muted">(optional)</span>
+      </label>
+      <input
+        {...field("anthropicApiKey")}
+        type="password"
+        value={draft.anthropicApiKey ?? ""}
+        onChange={(e) => set({ anthropicApiKey: e.target.value })}
+        placeholder="Leave blank to use the server's Claude"
+        autoComplete="off"
+        spellCheck={false}
+      />
+      {error("anthropicApiKey")}
+      <label htmlFor="arena-key-model">Model</label>
+      <select
+        {...field("model")}
+        value={draft.model ?? "claude-haiku-5-5"}
+        onChange={(e) => set({ model: e.target.value as ModelId })}
+      >
+        {MODELS.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+      {error("model")}
+    </div>
   );
 }
 
-/** "Correct answer delivered" is the headline; refusing or being blocked is "no answer", never a win by itself. */
-const DELIVERED: Record<SideResult["outcome"], { text: string; tone: "good" | "bad" | "none" }> = {
-  correct: { text: "correct answer delivered", tone: "good" },
-  wrong: { text: "wrong answer", tone: "bad" },
-  error: { text: "error", tone: "bad" },
-  refused: { text: "no answer (refused)", tone: "none" },
-  blocked: { text: "no answer (blocked by policy)", tone: "none" },
+const EMPTY_DRAFT: Credentials = {
+  hederaAccountId: "",
+  hederaPrivateKey: "",
+  anthropicApiKey: "",
+  model: "claude-haiku-5-5",
 };
 
-function downloadRecord(record: ArenaRecord) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(record, null, 2)], { type: "application/json" }));
+/** Rendered outside the run form: a form nested in another form is invalid HTML and submits the outer one. */
+function KeysDialog({
+  dialogRef: ref,
+  onSave,
+}: {
+  dialogRef: RefObject<HTMLDialogElement | null>;
+  onSave: (c: Credentials) => void;
+}) {
+  const [draft, setDraft] = useState<Credentials>(EMPTY_DRAFT);
+  const [errors, setErrors] = useState<CredentialErrors>({});
+  const close = () => {
+    ref.current?.close();
+    setDraft(EMPTY_DRAFT);
+    setErrors({});
+  };
+  function save(event: FormEvent) {
+    event.preventDefault();
+    const found = validateCredentials(draft);
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
+    onSave(credentialsBody(draft));
+    close();
+  }
+  return (
+    <dialog ref={ref} className="arena-dialog" aria-labelledby="arena-keys-title" onClose={close}>
+      <form onSubmit={save} noValidate>
+        <h2 id="arena-keys-title">Use your own keys</h2>
+        <KeysForm draft={draft} errors={errors} onChange={setDraft} />
+        <p className="arena-small arena-muted">
+          Keys are sent only to your local arena server for this run and never stored.
+        </p>
+        <div className="arena-dialog-actions">
+          <button type="button" className="arena-button arena-button-ghost" onClick={close}>
+            Cancel
+          </button>
+          <button type="submit" className="arena-button">
+            Use these keys
+          </button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+/** Shows whose keys a run will use. Only the public account ID is ever rendered. */
+export function KeysPill({ credentials, onClear }: { credentials: Credentials; onClear?: () => void }) {
+  return (
+    <span className="arena-pill arena-tone-good">
+      <Icon name="key" />
+      Using your keys · {credentials.hederaAccountId}
+      <button type="button" className="arena-pill-clear" onClick={onClear}>
+        Clear
+      </button>
+    </span>
+  );
+}
+
+/* ---------- live result ---------- */
+
+const STEPS = ["choosing", "paying", "checking"] as const;
+
+function StepDots({ side, runOver }: { side: SideState; runOver: boolean }) {
+  const done = [
+    side.decided || side.result !== null,
+    side.parts.length > 0 || side.result !== null,
+    side.result !== null,
+  ];
+  const current = runOver ? -1 : done.indexOf(false);
+  return (
+    <ol className="arena-steps" aria-label="Progress">
+      {STEPS.map((step, i) => {
+        const status = done[i] ? "done" : i === current ? "current" : "pending";
+        return (
+          <li key={step} className={`arena-step arena-step-${status}`}>
+            <span className="arena-step-dot" aria-hidden="true" />
+            {step}
+            <span className="visually-hidden"> ({status})</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** What the vendor returned: the oracle's parsed value when it has one, else the raw response. */
+function gotText(part: PartResult): string {
+  const actual = answerText(part.verdict?.actual);
+  return actual === "{}" || actual === "—" ? answerText(part.response) : actual;
+}
+
+const tinybars = (n: string) => `${n} ${n === "1" ? "tinybar" : "tinybars"}`;
+
+function PartRow({ part }: { part: PartResult }) {
+  const o = PART_OUTCOME[part.outcome];
+  const blocked = part.policy && !part.policy.allowed ? part.policy.checks.find((c) => !c.pass) : null;
+  const answered = part.outcome === "correct" || part.outcome === "wrong";
+  return (
+    <li className="arena-part">
+      <span className={`arena-part-mark arena-tone-${o.tone}`}>
+        <Icon name={o.icon} />
+        <span className="visually-hidden">{o.text}</span>
+      </span>
+      <span className="arena-part-task">{taskLabel(part.task)}</span>
+      <span className="arena-part-detail">
+        <span className="arena-part-vendor">{part.pick?.name ?? "no vendor"}</span>
+        <span className="arena-part-answer">
+          {answered ? (
+            <>
+              got <strong>{gotText(part)}</strong>
+              {part.outcome === "wrong" && <> · right: {answerText(part.verdict?.expected)}</>}
+            </>
+          ) : blocked ? (
+            <>
+              <Icon name="shield" /> {blocked.rule}: {blocked.detail}
+            </>
+          ) : part.error ? (
+            part.error
+          ) : (
+            o.text
+          )}
+        </span>
+      </span>
+      <span className="arena-part-paid">
+        {part.payment?.paid ? tinybars(part.payment.tinybars) : "–"}
+        {part.payment?.paid && part.payment.txId && <TxLink txId={part.payment.txId} />}
+      </span>
+    </li>
+  );
+}
+
+/** Thin segmented bar: tinybars that bought correct answers vs tinybars wasted on wrong ones. */
+export function MoneyMeter({ paid, wasted }: { paid: string; wasted: string }) {
+  const split = moneySplit(paid, wasted);
+  const pct = (n: bigint) => (split.total === 0n ? 0 : Number((n * 10000n) / split.total) / 100);
+  const label =
+    split.total === 0n
+      ? "Spent nothing"
+      : `Spent ${split.total} tinybars: ${split.correct} paid for correct, ${split.wasted} wasted on wrong`;
+  return (
+    <div className="arena-money">
+      <div className="arena-money-bar" role="img" aria-label={label} title={label}>
+        {split.correct > 0n && (
+          <span className="arena-seg arena-seg-correct" style={{ flexGrow: pct(split.correct) }} />
+        )}
+        {split.wasted > 0n && <span className="arena-seg arena-seg-wasted" style={{ flexGrow: pct(split.wasted) }} />}
+      </div>
+      <ul className="arena-legend">
+        <li>
+          <span className="arena-swatch arena-seg-correct" aria-hidden="true" />
+          Paid for correct <strong>{String(split.correct)}</strong>
+        </li>
+        <li>
+          <span className="arena-swatch arena-seg-wasted" aria-hidden="true" />
+          Wasted <strong>{String(split.wasted)}</strong>
+        </li>
+        <li className="arena-muted">tinybars</li>
+      </ul>
+    </div>
+  );
+}
+
+export function SideCard({
+  title,
+  side,
+  runOver,
+  expectedParts,
+}: {
+  title: string;
+  side: SideState;
+  runOver: boolean;
+  expectedParts: number;
+}) {
+  const { result } = side;
+  const decision = result?.decision ?? side.decision;
+  const parts = result?.parts ?? side.parts;
+  const error = result?.error ?? side.decideError;
+  const total = result?.totalParts ?? Math.max(expectedParts, parts.length);
+  const correct = result?.correctParts ?? parts.filter((p) => p.outcome === "correct").length;
+  const paid =
+    result?.paidTinybars ??
+    String(parts.reduce((sum, p) => sum + (p.payment?.paid ? BigInt(p.payment.tinybars || "0") : 0n), 0n));
+  const wasted =
+    result?.wastedTinybars ??
+    String(
+      parts.reduce(
+        (sum, p) => sum + (p.payment?.paid && p.outcome !== "correct" ? BigInt(p.payment.tinybars || "0") : 0n),
+        0n,
+      ),
+    );
+  const pending = Math.max(0, total - parts.length);
+  return (
+    <section className={`arena-card arena-card-${result ? "done" : "live"}`} aria-label={title}>
+      <header className="arena-card-head">
+        <h2>{title}</h2>
+        {result ? <Badge outcome={result.outcome} /> : <StepDots side={side} runOver={runOver} />}
+      </header>
+      <p className="arena-score">
+        <span className="arena-score-num">
+          {correct}/{total || "?"}
+        </span>{" "}
+        parts correct
+      </p>
+      {error && (
+        <p className="arena-inline-error">
+          <Icon name="alert" />
+          {error}
+        </p>
+      )}
+      {parts.length === 0 && !result && !runOver && <Skeleton label={`${title} is working`} count={1} />}
+      {parts.length > 0 && (
+        <ul className="arena-parts" aria-label="Parts">
+          {parts.map((p) => (
+            <PartRow key={p.part} part={p} />
+          ))}
+          {!result &&
+            !runOver &&
+            Array.from({ length: pending }, (_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: identical placeholders never reorder
+              <li key={i} className="arena-part arena-part-skeleton" aria-hidden="true" />
+            ))}
+        </ul>
+      )}
+      {(result || parts.length > 0) && <MoneyMeter paid={paid} wasted={wasted} />}
+      {decision && (
+        <details className="arena-details">
+          <summary>Why it chose this</summary>
+          <p>{decision.reason}</p>
+          <p className="arena-muted arena-small">Signals used: {decision.signalsUsed.join(", ") || "none"}</p>
+        </details>
+      )}
+      {result && (
+        <details className="arena-details">
+          <summary>What it saw</summary>
+          <pre className="arena-pre">{result.prompt}</pre>
+        </details>
+      )}
+    </section>
+  );
+}
+
+/* ---------- verdict ---------- */
+
+function downloadRecord(record: ArenaRecord, hash: string) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify({ hash, record }, null, 2)], { type: "application/json" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = `arena-${record.runId}.json`;
@@ -211,15 +542,19 @@ function downloadRecord(record: ArenaRecord) {
 
 export function VerifyRun({ record }: { record: ArenaRecord }) {
   return (
-    <div className="arena-verify">
-      <h3>Verify this run</h3>
+    <details className="arena-details">
+      <summary>Verify this run</summary>
       <dl className="arena-stats">
-        <dt>Provenance</dt>
+        <dt>Model</dt>
+        <dd>{record.model ?? "not recorded"}</dd>
+        <dt>Keys</dt>
+        <dd>
+          {record.credentialSource === "user" ? "your keys" : record.credentialSource ? "server keys" : "not recorded"}
+        </dd>
+        <dt>Buying rule</dt>
+        <dd>{record.mode === "must-buy" ? "Must buy" : "Can skip"}</dd>
+        <dt>Data source</dt>
         <dd>{record.provenance ?? "not recorded"}</dd>
-        <dt>Task source</dt>
-        <dd>{record.taskSource ?? "not recorded"}</dd>
-        <dt>Buyer instruction</dt>
-        <dd>{record.mode ?? "may-refuse"}</dd>
         {SIDES.map(({ side, title }) => {
           const agent = record.agents?.[side];
           const evidence = agent?.policy.evidence;
@@ -228,9 +563,9 @@ export function VerifyRun({ record }: { record: ArenaRecord }) {
               <dt>{title}</dt>
               <dd>
                 {agent
-                  ? `payer ${agent.payer}; budget ${agent.policy.budgetTinybars}, max ${agent.policy.maxPerCallTinybars} per call (tinybars); ${
+                  ? `payer ${agent.payer}; budget ${agent.policy.budgetTinybars}, max ${agent.policy.maxPerCallTinybars}/call; ${
                       evidence
-                        ? `needs median ≥ ${evidence.minMedian} over ≥ ${evidence.minRounds} review round(s)`
+                        ? `needs score ≥ ${evidence.minMedian} over ≥ ${evidence.minRounds} round(s)`
                         : "no evidence rules"
                     }`
                   : "not recorded"}
@@ -241,168 +576,233 @@ export function VerifyRun({ record }: { record: ArenaRecord }) {
         <dt>Option shuffle</dt>
         <dd>
           {record.options
-            ? `${record.options.map((o) => `option ${o.option} = service #${o.serviceId}`).join(", ")} (seed ${record.seed})`
+            ? `${record.options.map((o) => `${o.category ? `${o.category} ` : ""}option ${o.option} = service #${o.serviceId}`).join(", ")} (seed ${record.seed})`
             : "not recorded"}
         </dd>
       </dl>
-    </div>
+      <p className="arena-small arena-muted">The run hash is sha256 over the RFC 8785 canonical JSON of the record.</p>
+    </details>
   );
 }
 
-export function VerdictBar({ record, hash }: { record: ArenaRecord; hash: string }) {
+function YesNo({ yes, label, half }: { yes: boolean; label?: string; half?: boolean }) {
   return (
-    <section className="arena-panel" aria-labelledby="arena-verdict">
+    <span className={`arena-yn arena-tone-${yes ? "good" : half ? "warn" : "bad"}`}>
+      <Icon name={yes ? "check" : half ? "half" : "cross"} />
+      {label ?? (yes ? "yes" : "no")}
+    </span>
+  );
+}
+
+export function VerdictStrip({ record, hash }: { record: ArenaRecord; hash: string }) {
+  const rows: { label: string; cell: (r: SideResult) => ReactNode }[] = [
+    {
+      label: "Correct parts",
+      cell: (r) => (
+        <YesNo
+          yes={r.correctParts === r.totalParts && r.totalParts > 0}
+          half={r.correctParts > 0}
+          label={`${r.correctParts}/${r.totalParts}`}
+        />
+      ),
+    },
+    {
+      label: "Wasted tinybars",
+      cell: (r) => <YesNo yes={moneySplit(r.paidTinybars, r.wastedTinybars).wasted === 0n} label={r.wastedTinybars} />,
+    },
+    { label: "Honest vendor got paid?", cell: (r) => <YesNo yes={paidHonestVendor(r)} /> },
+  ];
+  return (
+    <section className="arena-panel arena-verdict" aria-labelledby="arena-verdict">
       <h2 id="arena-verdict">Verdict</h2>
       <div className="arena-scroll">
-        <table className="arena-table">
+        <table className="arena-table arena-verdict-table">
           <thead>
             <tr>
-              <th scope="col">Agent</th>
-              <th scope="col">Correct answer delivered?</th>
-              <th scope="col">Wasted (tinybars)</th>
-              <th scope="col">Paid (tinybars)</th>
-              <th scope="col">Vendor paid</th>
+              <td />
+              {SIDES.map(({ side, title }) => (
+                <th key={side} scope="col">
+                  {title}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {SIDES.map(({ side, title }) => {
-              const result = record.sides[side];
-              const paid = result.payment?.paid ? result.payment.tinybars : "0";
-              return (
-                <tr key={side}>
-                  <th scope="row">{title}</th>
-                  <td className={`arena-tone-${DELIVERED[result.outcome].tone}`}>
-                    {result.outcome === "correct" ? "yes" : DELIVERED[result.outcome].text}
-                  </td>
-                  <td>{result.wastedTinybars}</td>
-                  <td>{paid}</td>
-                  <td>{result.payment?.paid ? (result.pick?.name ?? "unknown") : "none"}</td>
-                </tr>
-              );
-            })}
+            {rows.map((row) => (
+              <tr key={row.label}>
+                <th scope="row">{row.label}</th>
+                {SIDES.map(({ side }) => (
+                  <td key={side}>{row.cell(record.sides[side])}</td>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-      <p>
-        Run hash: <code className="arena-hash">{hash}</code>
-      </p>
-      <p className="arena-muted">The hash is sha256 over the RFC 8785 canonical JSON of the record.</p>
+      <div className="arena-verdict-foot">
+        <button type="button" className="arena-button" onClick={() => downloadRecord(record, hash)}>
+          Download proof (JSON)
+        </button>
+        <span className="arena-small">
+          Run hash <code className="arena-hash">{hash}</code>
+        </span>
+      </div>
       <VerifyRun record={record} />
-      <button type="button" className="arena-button" onClick={() => downloadRecord(record)}>
-        Download record (JSON)
-      </button>
     </section>
   );
 }
 
 export function ArenaRunView({ state }: { state: ArenaState }) {
   const runOver = state.status === "finished" || state.status === "failed";
+  const expectedParts = state.task?.kind === "tasks" ? state.task.parts.length : 0;
   return (
-    <div aria-live="polite">
-      {state.status === "idle" && <p>No run yet. Pick a task and press Run.</p>}
-      {state.status === "failed" && (
-        <p role="alert" className="notice-error">
-          Run failed: {state.error}
+    <div className="arena-run" aria-live="polite">
+      {state.status === "idle" && (
+        <div className="arena-empty">
+          <p>Pick a task and press Run. Both agents will appear here side by side.</p>
+        </div>
+      )}
+      {state.task?.kind === "unsupported" && (
+        <p className="arena-inline-error">
+          <Icon name="alert" />
+          The arena can&apos;t grade this task: {state.task.reason}
         </p>
       )}
       {state.status !== "idle" && (
         <div className="arena-grid">
           {SIDES.map(({ side, title }) => (
-            <SideColumn key={side} title={title} side={state.sides[side]} runOver={runOver} />
+            <SideCard
+              key={side}
+              title={title}
+              side={state.sides[side]}
+              runOver={runOver}
+              expectedParts={expectedParts}
+            />
           ))}
         </div>
       )}
-      {state.record && state.hash && <VerdictBar record={state.record} hash={state.hash} />}
-      {state.status !== "idle" && (
-        <div className="arena-grid">
-          {SIDES.map(({ side, title }) => {
-            const result = state.sides[side].result;
-            return (
-              <details key={side} className="arena-card">
-                <summary>What this agent saw ({title})</summary>
-                {result ? (
-                  <>
-                    <h3>Prompt</h3>
-                    <pre className="arena-pre">{result.prompt}</pre>
-                    <h3>Raw model output</h3>
-                    <pre className="arena-pre">{result.llm?.raw ?? "(no model output)"}</pre>
-                  </>
-                ) : (
-                  <p>Available once this agent is graded.</p>
-                )}
-              </details>
-            );
-          })}
-        </div>
-      )}
+      {state.record && state.hash && <VerdictStrip record={state.record} hash={state.hash} />}
     </div>
+  );
+}
+
+/* ---------- benchmark ---------- */
+
+/** One horizontal bar chart: one row per agent, one hue, value printed at the bar's end. */
+function BarPair({
+  title,
+  rows,
+  max,
+  hue,
+  format,
+}: {
+  title: string;
+  rows: { label: string; value: number }[];
+  max: number;
+  hue: "correct" | "wasted";
+  format: (v: number) => string;
+}) {
+  return (
+    <figure className="arena-bars">
+      <figcaption>{title}</figcaption>
+      {rows.map((row) => {
+        const text = `${row.label}: ${format(row.value)}`;
+        return (
+          <div key={row.label} className="arena-bar-row" title={text}>
+            <span className="arena-bar-label">{row.label}</span>
+            <span className={`arena-bar-track arena-track-${hue}`} role="img" aria-label={text}>
+              {row.value > 0 && (
+                <span
+                  className={`arena-bar arena-seg-${hue}`}
+                  style={{ width: `${max > 0 ? (row.value / max) * 100 : 0}%` }}
+                />
+              )}
+            </span>
+            <span className="arena-bar-value">{format(row.value)}</span>
+          </div>
+        );
+      })}
+    </figure>
   );
 }
 
 export function BatchView({ batch }: { batch: BatchState }) {
   if (batch.status === "idle") return null;
+  const board = batch.scoreboard;
+  const short = { baseline: "Without", skeptique: "With" } as const;
   return (
     <section className="arena-panel" aria-labelledby="arena-batch" aria-live="polite">
-      <h2 id="arena-batch">Task-pack benchmark</h2>
-      <p>
-        {batch.done} of {batch.total ?? "?"} tasks done{batch.status === "running" && "…"}
-      </p>
-      {batch.status === "failed" && (
-        <p role="alert" className="notice-error">
-          Benchmark failed: {batch.error}
-        </p>
-      )}
-      {batch.scoreboard && (
-        <div className="arena-scroll">
-          <table className="arena-table">
-            <caption className="visually-hidden">Scoreboard over {batch.scoreboard.tasks} tasks</caption>
-            <thead>
-              <tr>
-                <th scope="col">Agent</th>
-                <th scope="col">Correct answers delivered</th>
-                <th scope="col">Wasted (tinybars)</th>
-                <th scope="col">Wrong</th>
-                <th scope="col">No answer (refused or blocked)</th>
-                <th scope="col">Error</th>
-                <th scope="col">Paid (tinybars)</th>
-                <th scope="col">Paid share to correct</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SIDES.map(({ side, title }) => {
-                const score = batch.scoreboard?.sides[side];
-                if (!score) return null;
-                return (
-                  <tr key={side}>
-                    <th scope="row">{title}</th>
-                    <td className="arena-tone-good">
-                      {score.answeredCorrect} of {batch.scoreboard?.tasks}
-                    </td>
-                    <td>{score.wastedTinybars}</td>
-                    <td>{score.wrong}</td>
-                    <td className="arena-tone-none">{score.noAnswer}</td>
-                    <td>{score.error}</td>
-                    <td>{score.totalTinybars}</td>
-                    <td>
-                      {score.paidToCorrectShare === null
-                        ? "nothing paid"
-                        : `${Math.round(score.paidToCorrectShare * 100)}%`}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <h2 id="arena-batch">Benchmark</h2>
+      {batch.status === "running" && (
+        <div className="arena-progress">
+          <progress id="arena-batch-progress" max={batch.total ?? 1} value={batch.done} />
+          <label htmlFor="arena-batch-progress" className="arena-small">
+            {batch.done} of {batch.total ?? "?"} tasks done
+          </label>
         </div>
       )}
+      {board && (
+        <>
+          <p className="arena-small arena-muted">{board.tasks} tasks, both agents</p>
+          <div className="arena-bars-grid">
+            <BarPair
+              title="Correct parts"
+              hue="correct"
+              max={Math.max(board.sides.baseline.totalParts, board.sides.skeptique.totalParts, 1)}
+              rows={SIDES.map(({ side }) => ({ label: short[side], value: board.sides[side].correctParts }))}
+              format={(v) => `${v}/${board.sides.baseline.totalParts}`}
+            />
+            <BarPair
+              title="Wasted tinybars (lower is better)"
+              hue="wasted"
+              max={Math.max(...SIDES.map(({ side }) => Number(board.sides[side].wastedTinybars)), 1)}
+              rows={SIDES.map(({ side }) => ({ label: short[side], value: Number(board.sides[side].wastedTinybars) }))}
+              format={(v) => String(v)}
+            />
+          </div>
+          <details className="arena-details">
+            <summary>Show as table</summary>
+            <div className="arena-scroll">
+              <table className="arena-table">
+                <caption className="visually-hidden">Scoreboard over {board.tasks} tasks</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Agent</th>
+                    <th scope="col">Correct parts</th>
+                    <th scope="col">Wasted (tinybars)</th>
+                    <th scope="col">Paid (tinybars)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SIDES.map(({ side, title }) => {
+                    const s = board.sides[side];
+                    return (
+                      <tr key={side}>
+                        <th scope="row">{title}</th>
+                        <td>
+                          {s.correctParts} of {s.totalParts}
+                        </td>
+                        <td>{s.wastedTinybars}</td>
+                        <td>{s.totalTinybars}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </>
+      )}
       {batch.hash && (
-        <p>
-          Batch hash: <code className="arena-hash">{batch.hash}</code>
+        <p className="arena-small">
+          Batch hash <code className="arena-hash">{batch.hash}</code>
         </p>
       )}
     </section>
   );
 }
+
+/* ---------- transport ---------- */
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -435,17 +835,25 @@ async function post(path: string, body: unknown): Promise<Record<string, string>
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
-  if (res.status === 409) throw new Error("another run is in progress on the arena server; try again shortly");
+  if (res.status === 409) throw new Error("Another run is in progress. Try again shortly.");
   if (!res.ok) throw new Error(json.error ?? `POST ${path} responded ${res.status}`);
   return json;
 }
 
+const MODE_HINT: Record<BuyMode, string> = {
+  "may-refuse": "Agents may buy nothing if no vendor looks good.",
+  "must-buy": "Agents must buy an answer for every part.",
+};
+
 /** Runs one task through both buyer agents on the arena server and shows the events live. */
 export function Arena() {
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
-  const [tasks, setTasks] = useState<ArenaTask[]>([]);
+  const [tasks, setTasks] = useState<ArenaTask[] | null>(null);
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<BuyMode>("may-refuse");
+  // Kept in memory only: never written to storage, URLs or logs.
+  const [credentials, setCredentials] = useState<Credentials | null>(null);
+  const keysRef = useRef<HTMLDialogElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
@@ -466,7 +874,7 @@ export function Arena() {
     );
     get<ArenaTask[]>("/tasks").then(
       (t) => active && setTasks(t),
-      () => {},
+      () => active && setTasks([]),
     );
     return () => {
       active = false;
@@ -480,7 +888,7 @@ export function Arena() {
       ARENA_EVENTS,
       dispatch,
       (event) => event.type === "run-finished" || event.type === "run-failed",
-      () => dispatch({ type: "run-failed", error: "lost the connection to the arena event stream" }),
+      () => dispatch({ type: "run-failed", error: "Lost the connection to the arena event stream." }),
     );
   }, [runId]);
 
@@ -491,11 +899,14 @@ export function Arena() {
       BATCH_EVENTS,
       dispatchBatch,
       (event) => event.type === "batch-finished" || event.type === "batch-failed",
-      () => dispatchBatch({ type: "batch-failed", batchId, error: "lost the connection to the arena event stream" }),
+      () => dispatchBatch({ type: "batch-failed", batchId, error: "Lost the connection to the arena event stream." }),
     );
   }, [batchId]);
 
   const running = submitting || state.status === "running" || batch.status === "running";
+  const offline = health.status !== "ok";
+  const acceptsKeys = health.status !== "ok" || health.health.acceptsUserCredentials !== false;
+  const withKeys = () => (credentials ? { credentials: credentialsBody(credentials) } : {});
 
   async function start(action: () => Promise<void>) {
     setSubmitting(true);
@@ -512,7 +923,7 @@ export function Arena() {
   function run(event: FormEvent) {
     event.preventDefault();
     start(async () => {
-      const { runId } = await post("/runs", { prompt, mode });
+      const { runId } = await post("/runs", { prompt, mode, ...withKeys() });
       dispatch({ type: "run-started", runId, task: null, prompt });
       setRunId(runId);
     });
@@ -520,80 +931,107 @@ export function Arena() {
 
   function runBatch() {
     start(async () => {
-      const { batchId } = await post("/batches", { mode });
+      const { batchId } = await post("/batches", { mode, ...withKeys() });
       dispatchBatch({ type: "batch-started", batchId, tasks: [] });
       setBatchId(batchId);
     });
   }
 
+  const toast =
+    (submitError && `Could not start: ${submitError}`) ||
+    (state.status === "failed" && `Run failed: ${state.error}`) ||
+    (batch.status === "failed" && `Benchmark failed: ${batch.error}`) ||
+    null;
+
   return (
     <>
-      <ArenaHeader health={health} />
-      <form className="arena-panel" onSubmit={run}>
-        <label htmlFor="arena-prompt">Task</label>
-        <div className="arena-input-row">
-          <input
-            id="arena-prompt"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Convert 3 metres to centimetres"
-            minLength={3}
-            maxLength={300}
-            required
-          />
-          <button type="submit" className="arena-button" disabled={running || health.status !== "ok"}>
+      <ArenaHero health={health} />
+      <form className="arena-panel arena-input" onSubmit={run}>
+        <label htmlFor="arena-prompt" className="arena-input-label">
+          Task
+        </label>
+        <textarea
+          id="arena-prompt"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Convert 26.2 miles to km and 100 USD to EUR"
+          minLength={3}
+          maxLength={300}
+          rows={2}
+          required
+        />
+        {tasks === null ? (
+          <div className="arena-chips-skeleton" aria-hidden="true" />
+        ) : (
+          tasks.length > 0 && (
+            <ul className="arena-chips" aria-label="Preset tasks">
+              {tasks.map((task) => (
+                <li key={task.id}>
+                  <button
+                    type="button"
+                    className="arena-chip"
+                    aria-pressed={prompt === task.prompt}
+                    title={`${task.prompt} (${task.why})`}
+                    onClick={() => setPrompt(task.prompt)}
+                  >
+                    {task.prompt}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+        <div className="arena-controls">
+          <fieldset className="arena-mode">
+            <legend className="visually-hidden">Buying rule (same for both agents)</legend>
+            {(
+              [
+                ["may-refuse", "Can skip"],
+                ["must-buy", "Must buy"],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className="arena-mode-pill">
+                <input type="radio" name="arena-mode" checked={mode === value} onChange={() => setMode(value)} />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+          {acceptsKeys &&
+            (credentials ? (
+              <KeysPill credentials={credentials} onClear={() => setCredentials(null)} />
+            ) : (
+              <button
+                type="button"
+                className="arena-button arena-button-ghost"
+                onClick={() => keysRef.current?.showModal()}
+              >
+                <Icon name="key" />
+                Use your own keys
+              </button>
+            ))}
+          <button type="submit" className="arena-button arena-button-run" disabled={running || offline}>
             {running ? "Running…" : "Run"}
           </button>
         </div>
-        <fieldset className="arena-mode">
-          <legend>Buyer instruction (same for both agents)</legend>
-          <label>
-            <input
-              type="radio"
-              name="arena-mode"
-              checked={mode === "may-refuse"}
-              onChange={() => setMode("may-refuse")}
-            />{" "}
-            May refuse: buying nothing is allowed
-          </label>{" "}
-          <label>
-            <input type="radio" name="arena-mode" checked={mode === "must-buy"} onChange={() => setMode("must-buy")} />{" "}
-            Must buy: the user needs an answer
-          </label>
-        </fieldset>
-        {tasks.length > 0 && (
-          <ul className="arena-chips" aria-label="Preset tasks">
-            {tasks.map((task) => (
-              <li key={task.id}>
-                <button type="button" className="arena-chip" title={task.why} onClick={() => setPrompt(task.prompt)}>
-                  {task.prompt}
-                  <small>{task.why}</small>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="arena-batch-row">
-          <button
-            type="button"
-            className="arena-button"
-            onClick={runBatch}
-            disabled={running || health.status !== "ok"}
-          >
-            Run the task pack (benchmark)
-          </button>{" "}
-          <span className="arena-muted">
-            Every preset task, both agents; each paid call spends real testnet tinybars.
-          </span>
-        </p>
-        {submitError && (
-          <p role="alert" className="notice-error">
-            Could not start: {submitError}
-          </p>
-        )}
+        <p className="arena-small arena-muted">{MODE_HINT[mode]}</p>
       </form>
-      <BatchView batch={batch} />
+      <KeysDialog dialogRef={keysRef} onSave={setCredentials} />
       <ArenaRunView state={state} />
+      <section className="arena-panel arena-bench" aria-label="Run all tasks">
+        <button
+          type="button"
+          className="arena-button arena-button-ghost"
+          onClick={runBatch}
+          disabled={running || offline}
+        >
+          Run all tasks
+        </button>
+        <span className="arena-small arena-muted">
+          Benchmark: every preset task, both agents. Spends testnet tinybars.
+        </span>
+      </section>
+      <BatchView batch={batch} />
+      {toast && <Toast message={toast} />}
     </>
   );
 }

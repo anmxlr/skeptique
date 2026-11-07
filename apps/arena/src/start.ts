@@ -78,6 +78,9 @@ export async function startArena(apiUrl: string, env: Record<string, string | un
     provenance,
     port,
     llm: createClaudeCliLlm({ model: env.ARENA_MODEL ?? "claude-haiku-5-5" }),
+    llmFor: ({ model, apiKey }) => createClaudeCliLlm({ model, apiKey }),
+    userPayAndCall: () => serial(createHederaPayAndCall()),
+    sellerAccountId: env.SELLER_ACCOUNT_ID,
     sides: {
       baseline: {
         payAndCall: shared ?? createHederaPayAndCall(),
