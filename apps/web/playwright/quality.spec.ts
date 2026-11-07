@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { MOCK_API_URL } from "../playwright.config";
+import { PLAYWRIGHT_PUBLIC_ENV } from "./fixtures";
 
 // Fixture API responses (test data only), served for the pages' fetches so every page renders real loaded states.
 const service = (id: number, name: string, median: number | null) => ({
@@ -63,7 +64,32 @@ const RUNS = [
   },
 ];
 
+const ARENA_HEALTH = {
+  ok: true,
+  model: "claude-haiku-5-5",
+  network: "hedera:testnet",
+  apiUrl: MOCK_API_URL,
+  busy: false,
+  paywall: { "unit-convert": "402 payment required ✓" },
+  provenance: "local-chain",
+  models: ["claude-haiku-5-5", "claude-sonnet-5-5"],
+  acceptsUserCredentials: true,
+};
+const ARENA_TASKS = [
+  { id: "m-cm", prompt: "Convert 3 metres to centimetres", why: "off the public suite", group: "general" },
+  { id: "hbar-tb", prompt: "Convert 2 HBAR to tinybars", why: "web3 units", group: "web3" },
+];
+
 async function mockApi(page: Page) {
+  await page.route(`${PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_ARENA_URL}/**`, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const body = path === "/health" ? ARENA_HEALTH : path === "/tasks" ? ARENA_TASKS : undefined;
+    await route.fulfill(
+      body === undefined
+        ? { status: 404, json: { error: "Not found" }, headers: { "access-control-allow-origin": "*" } }
+        : { status: 200, json: body, headers: { "access-control-allow-origin": "*" } },
+    );
+  });
   await page.route(`${MOCK_API_URL}/**`, async (route) => {
     const path = new URL(route.request().url()).pathname;
     // The event stream with no rounds yet; tests that need round events route /events themselves.
@@ -104,6 +130,7 @@ const PAGES = [
   { path: "/critics", heading: "Critics" },
   { path: "/sell", heading: "Sell" },
   { path: "/buyer", heading: "Buyer" },
+  { path: "/arena", heading: "Arena" },
   { path: "/audit", heading: "Audit" },
   { path: "/limits", heading: "Limits" },
 ];
@@ -211,4 +238,178 @@ test("live updates: a round phase change appears on an open service page without
   finalized = true;
   await expect(latest).toContainText("Finalized · consensus score 88", { timeout: 10_000 });
   expect(await page.evaluate(() => (window as unknown as { marker?: boolean }).marker)).toBe(true);
+});
+
+test("arena: a multi-part run with user keys renders both cards and the verdict with no accessibility violations", async ({
+  page,
+}) => {
+  await mockApi(page);
+  const arena = PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_ARENA_URL;
+  const headers = { "access-control-allow-origin": "*" };
+  const TX = "0.0.9185802@1793949293.996636002";
+  // Test-only fake key material: never a real account key.
+  const FAKE_KEY = `0x${"ab".repeat(32)}`;
+  const tasks = [
+    { category: "conversion", input: { value: 3, from: "m", to: "cm" } },
+    { category: "currency-conversion", input: { amount: 120, from: "USD", to: "EUR" } },
+  ];
+  // Real service shapes: unit-convert answers {result, unit}; FX answers {from, to, amount, rate, converted}.
+  const answers = [
+    { right: { result: 300, unit: "cm" }, wrong: { result: 1, unit: "cm" }, expected: { result: 300, unit: "cm" } },
+    {
+      right: { from: "USD", to: "EUR", amount: 120, rate: 0.92, converted: 110.4 },
+      wrong: { from: "USD", to: "EUR", amount: 120, rate: 0.01, converted: 1.2 },
+      expected: { converted: 110.4, to: "EUR" },
+    },
+  ];
+  const sources = [
+    { label: "NIST SI units", url: "https://www.nist.gov/pml/owm/metric-si/si-units" },
+    { label: "Demo reference rates (fixed table)", url: "https://example.test/fx" },
+  ];
+  const part = (index: number, outcome: "correct" | "wrong" | "blocked") => ({
+    part: index,
+    task: tasks[index],
+    option: 1,
+    pick: {
+      option: 1,
+      id: 1,
+      name: outcome === "correct" ? "unit-convert" : "suite-gamer",
+      endpoint: "x",
+      pricePerCall: "1",
+    },
+    policy:
+      outcome === "blocked"
+        ? { allowed: false, checks: [{ rule: "evidence", pass: false, detail: "score 40 < 70" }] }
+        : { allowed: true, checks: [{ rule: "budget", pass: true, detail: "ok" }] },
+    payment: outcome === "blocked" ? null : { txId: TX, paid: true, tinybars: "1" },
+    response: outcome === "blocked" ? null : answers[index][outcome === "correct" ? "right" : "wrong"],
+    verdict:
+      outcome === "blocked"
+        ? null
+        : {
+            correct: outcome === "correct",
+            expected: answers[index].expected,
+            actual: answers[index][outcome === "correct" ? "right" : "wrong"],
+            note: "n",
+            source: sources[index],
+          },
+    outcome,
+    error: null,
+  });
+  const side = (name: "baseline" | "skeptique", second: "wrong" | "blocked") => ({
+    side: name,
+    prompt: `listings shown to ${name}`,
+    decision: {
+      choices: [
+        { part: 0, option: 1 },
+        { part: 1, option: 1 },
+      ],
+      reason: `${name} reason`,
+      signalsUsed: [],
+    },
+    llm: { model: "claude-sonnet-5-5", costUsd: null, ms: 1, raw: "{}" },
+    parts: [part(0, "correct"), part(1, second)],
+    correctParts: 1,
+    totalParts: 2,
+    paidTinybars: second === "wrong" ? "2" : "1",
+    wastedTinybars: second === "wrong" ? "1" : "0",
+    outcome: "partial",
+    error: null,
+    grounding:
+      name === "baseline"
+        ? { numbers: [{ value: "94", found: false }], signals: [{ name: "paidCallsByBuyers", found: true }], ok: false }
+        : {
+            numbers: [{ value: "1", found: true }],
+            signals: [{ name: "skeptiqueMedianScore", found: true }],
+            ok: true,
+          },
+  });
+  const baseline = side("baseline", "wrong");
+  const skeptique = side("skeptique", "blocked");
+  const events = [
+    {
+      type: "run-started",
+      runId: "r1",
+      task: { kind: "tasks", parts: tasks },
+      prompt: "Convert 3 metres to centimetres",
+    },
+    { type: "decided", side: "baseline", decision: baseline.decision },
+    { type: "part", side: "baseline", part: 0, result: baseline.parts[0] },
+    { type: "graded", side: "baseline", result: baseline },
+    { type: "graded", side: "skeptique", result: skeptique },
+    {
+      type: "run-finished",
+      record: {
+        version: 3,
+        runId: "r1",
+        prompt: "p",
+        mode: "may-refuse",
+        credentialSource: "user",
+        marketplace: { apiUrl: MOCK_API_URL },
+        sides: { baseline, skeptique },
+      },
+      hash: "0xabc",
+    },
+  ];
+  let posted: Record<string, unknown> | null = null;
+  await page.route(`${arena}/runs`, (route) => {
+    posted = route.request().postDataJSON();
+    return route.fulfill({ status: 202, json: { runId: "r1" }, headers });
+  });
+  await page.route(`${arena}/runs/r1/events`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { ...headers, "content-type": "text/event-stream" },
+      body: events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join(""),
+    }),
+  );
+  await page.goto("/arena");
+
+  await page.getByRole("button", { name: "Use your own keys" }).click();
+  const dialog = page.getByRole("dialog", { name: "Use your own keys" });
+  await dialog.getByLabel("Hedera testnet account ID").fill("12345");
+  await dialog.getByLabel("Hedera private key").fill(FAKE_KEY);
+  await dialog.getByLabel("Model").selectOption("claude-sonnet-5-5");
+  await dialog.getByRole("button", { name: "Use these keys" }).click();
+  await expect(dialog).toContainText("Use the form 0.0.12345.");
+  await dialog.getByLabel("Hedera testnet account ID").fill("0.0.4242");
+  await dialog.getByRole("button", { name: "Use these keys" }).click();
+  await expect(page.getByText("Using your keys · 0.0.4242")).toBeVisible();
+
+  await page.getByRole("button", { name: /Convert 3 metres/ }).click();
+  await page.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Verdict" })).toContainText("0xabc");
+  await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("1/2");
+  await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("score 40 < 70");
+  await expect(page.getByRole("region", { name: "Without Skeptique" })).toContainText("got 1.2 EUR · right: 110.4 EUR");
+  const withCard = page.getByRole("region", { name: "With Skeptique" });
+  await withCard.getByText("Where this came from").click();
+  // One "Test results" link per part; both parts bought the same reviewed vendor here.
+  await expect(withCard.getByRole("link", { name: "Test results" }).first()).toHaveAttribute(
+    "href",
+    `${MOCK_API_URL}/services/1/reviews`,
+  );
+  await expect(withCard).toContainText("Every number it quoted appears in what it was shown");
+  const withoutCard = page.getByRole("region", { name: "Without Skeptique" });
+  await withoutCard.getByText("Where this came from").click();
+  await expect(withoutCard).toContainText("It quoted 94, which was not directly in its data");
+  expect(posted).toMatchObject({
+    prompt: "Convert 3 metres to centimetres",
+    mode: "may-refuse",
+    credentials: { hederaAccountId: "0.0.4242", hederaPrivateKey: FAKE_KEY, model: "claude-sonnet-5-5" },
+  });
+  expect(await page.content()).not.toContain(FAKE_KEY);
+  expect(
+    await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage })),
+  ).not.toContain("abab");
+
+  for (const theme of ["light", "dark"] as const) {
+    await page.evaluate((t) => {
+      document.documentElement.dataset.theme = t;
+    }, theme);
+    const { violations } = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(violations.map((v) => `${theme} ${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  }
 });

@@ -102,6 +102,18 @@ These links are recorded evidence from earlier runs, not claims that the current
 
 Ticket 27 owns the complete integrated evidence run. Tickets 20/21 code is integrated without claiming their still-missing funded acceptance receipts.
 
+## Arena: does Skeptique help a buyer?
+
+`/arena` runs one task through two buyer agents side by side, one without Skeptique and one with it. Both use the same model, prompt and budget, and both pay with real x402 payments on Hedera testnet. A deterministic oracle grades each part. Users can bring their own Hedera testnet and Claude keys.
+
+Across two live must-buy batches (38 paid parts per side, half of them Web3 tasks in HBAR and ETH units):
+- **Without Skeptique:** 66% correct, against an expected 64.5%, with 32% of its spend going to wrong answers.
+- **With Skeptique:** 100% correct, nothing wasted.
+
+Unit answers link to the page that defines them (NIST, Hedera docs, ethereum.org) and currency answers link to the demo's fixed rate table, and a "made-up check" checks that every number an agent quotes appears in the data it was shown.
+
+Method, expected values, tx links and limits: [docs/arena.md](docs/arena.md).
+
 ## Ranking and trust limits
 
 The API computes `confidence = min(1, reveals / 5) × max(0.3, 0.5^(ageDays / 7))` and `rank = median − 15 × (1 − confidence)`. This is a ranking heuristic, not statistical confidence. ENS displays the published snapshot; it does not silently fall back to an API score if resolution fails.

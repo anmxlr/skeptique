@@ -73,6 +73,46 @@ importers:
         specifier: 'catalog:'
         version: 3.2.7(@types/node@20.19.43)(lightningcss@1.33.0)(tsx@4.23.15)
 
+  apps/arena:
+    dependencies:
+      '@skeptique/buyer':
+        specifier: workspace:*
+        version: link:../buyer
+      '@skeptique/harness':
+        specifier: workspace:*
+        version: link:../../packages/harness
+      '@skeptique/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@skeptique/x402-client':
+        specifier: workspace:*
+        version: link:../../packages/x402-client
+      canonicalize:
+        specifier: ^2.1.0
+        version: 2.1.0
+      fastify:
+        specifier: ^5.12.8
+        version: 5.12.8
+      viem:
+        specifier: ^2.57.16
+        version: 2.57.16(typescript@5.9.3)(zod@4.6.7)
+      zod:
+        specifier: ^4
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.43
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@20.19.43)(lightningcss@1.33.0)(tsx@4.23.15)
+
   apps/buyer:
     dependencies:
       '@skeptique/relayer':

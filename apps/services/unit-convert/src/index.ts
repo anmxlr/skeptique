@@ -16,6 +16,12 @@ const units: Record<string, { group: string; factor: number }> = {
   lb: { group: "mass", factor: 453.59237 },
   L: { group: "volume", factor: 1 },
   mL: { group: "volume", factor: 0.001 },
+  // Crypto denominations, in their smallest unit: docs.hedera.com (1 HBAR = 1e8 tinybar), ethereum.org (1 ETH = 1e9 gwei = 1e18 wei).
+  tinybar: { group: "hbar", factor: 1 },
+  HBAR: { group: "hbar", factor: 1e8 },
+  wei: { group: "eth", factor: 1 },
+  gwei: { group: "eth", factor: 1e9 },
+  ETH: { group: "eth", factor: 1e18 },
 };
 
 function round(value: number): number {
@@ -48,7 +54,10 @@ export async function handleUnitConvert(input: unknown): Promise<UnitConvertOutp
     const to = Object.hasOwn(units, value.to) ? units[value.to] : undefined;
     if (!from || !to || from.group !== to.group)
       throw new Error(`Unsupported conversion: ${value.from} to ${value.to}`);
-    result = round(value.value * (from.factor / to.factor));
+    const raw = value.value * (from.factor / to.factor);
+    // Crypto denominations span 18 orders of magnitude: keep 15 significant digits instead of 8 decimals,
+    // so 1 gwei is 1e-9 ETH (not 0) and 0.271 HBAR is 27100000 tinybars (no float noise).
+    result = from.group === "hbar" || from.group === "eth" ? Number(raw.toPrecision(15)) : round(raw);
   }
   return value.format === "text" ? `${result} ${value.to}` : { result, unit: value.to };
 }
