@@ -1,3 +1,4 @@
+import { serviceEnsName, serviceSlug } from "@skeptique/shared";
 import { serviceListedEvent, serviceRegistryAbi } from "@skeptique/shared/abi/ServiceRegistry";
 import { contractValue } from "@skeptique/shared/deployment";
 import {
@@ -6,6 +7,7 @@ import {
   createPublicClient,
   createWalletClient,
   http,
+  namehash,
   parseEventLogs,
   zeroHash,
 } from "viem";
@@ -16,13 +18,16 @@ const PRICE_PER_CALL_TINYBARS = 1n;
 
 /**
  * Lists the named demo services on the ServiceRegistry, each paying the contract's minimum listing fee.
- * `origins` maps a demo service name to the origin it is served from. ENS names come later (ensNode is zero).
+ * `origins` maps a demo service name to the base URL it is served from (an origin, or a path such as
+ * https://site/svc/unit-convert); the endpoint is <base>/call. With `ensParent`, each listing carries the namehash of
+ * <slug>.svc.<parent> (as the seller form does), so the listing relayer can create that subname; otherwise ensNode is zero.
  */
 export async function listDemoServices(options: {
   rpcUrl: string;
   registry: Address;
   seller: Account | Address;
   origins: Record<string, string>;
+  ensParent?: string;
 }): Promise<{ name: string; serviceId: number }[]> {
   const transport = http(options.rpcUrl);
   const publicClient = createPublicClient({ transport });
@@ -42,7 +47,14 @@ export async function listDemoServices(options: {
       address: options.registry,
       abi: serviceRegistryAbi,
       functionName: "listService",
-      args: [service.specHash as `0x${string}`, new URL("/call", origin).href, PRICE_PER_CALL_TINYBARS, zeroHash],
+      args: [
+        service.specHash as `0x${string}`,
+        new URL("call", origin.endsWith("/") ? origin : `${origin}/`).href,
+        PRICE_PER_CALL_TINYBARS,
+        options.ensParent
+          ? namehash(serviceEnsName(serviceSlug(service.suite.serviceName), options.ensParent))
+          : zeroHash,
+      ],
       value: contractValue(fee, chainId),
       chain: null,
     });
