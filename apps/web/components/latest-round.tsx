@@ -3,7 +3,7 @@
 import type { RoundView } from "@skeptique/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiClient } from "../lib/api";
+import { apiClient, apiUrl } from "../lib/api";
 
 export type RoundEvent = { type: string; data: { roundId: number; serviceId?: number } };
 
@@ -69,7 +69,7 @@ export function LatestRound({ serviceId }: { serviceId: number }) {
           (error) =>
             active && setState({ status: "error", message: error instanceof Error ? error.message : "Unknown error" }),
         );
-    const source = new EventSource(new URL("/events", baseUrl));
+    const source = new EventSource(apiUrl("/events", baseUrl));
     const onEvent = (type: string) => (message: MessageEvent<string>) => {
       const event: RoundEvent = { type, data: JSON.parse(message.data) };
       latest = latestRoundFor(serviceId, latest, event);

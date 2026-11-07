@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiClient, createApiClient } from "../lib/api";
+import { ApiError, apiClient, apiUrl, createApiClient, fetchService } from "../lib/api";
 
 describe("typed API client", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -16,6 +16,19 @@ describe("typed API client", () => {
 
     await expect(client.get("/health")).resolves.toEqual({ ok: true, chainId: 296 });
     expect(String((fetchImpl.mock.calls[0] as unknown[])[0])).toBe("http://api.test/health");
+  });
+
+  it("keeps a path prefix in the base URL, so the API can be served from /skq-api on the web origin", async () => {
+    const fetchImpl = vi.fn(async () => Response.json([]));
+    const client = createApiClient("https://web.test/skq-api", fetchImpl as unknown as typeof fetch);
+
+    await client.get("/services");
+    await fetchService(1, "https://web.test/skq-api/", fetchImpl as unknown as typeof fetch);
+    expect((fetchImpl.mock.calls as unknown[][]).map((call) => String(call[0]))).toEqual([
+      "https://web.test/skq-api/services",
+      "https://web.test/skq-api/services/1",
+    ]);
+    expect(String(apiUrl("/events", "https://web.test/skq-api"))).toBe("https://web.test/skq-api/events");
   });
 
   it("throws ApiError with the status on a non-2xx response", async () => {

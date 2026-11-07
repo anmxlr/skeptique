@@ -2,6 +2,7 @@
 
 import { type Approval, type SpendLimits, SpendLimitsSchema } from "@skeptique/shared";
 import { useEffect, useState } from "react";
+import { apiUrl as joinApiUrl } from "../lib/api";
 
 const apiUrl = () => {
   const url = process.env.NEXT_PUBLIC_API_URL;
@@ -10,7 +11,7 @@ const apiUrl = () => {
 };
 
 async function send(path: string, method: string, body?: unknown) {
-  const res = await fetch(new URL(path, apiUrl()), {
+  const res = await fetch(joinApiUrl(path, apiUrl()), {
     method,
     ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
   });

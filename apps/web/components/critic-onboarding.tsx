@@ -4,7 +4,7 @@ import { criticRegistryAbi } from "@skeptique/shared/abi/CriticRegistry";
 import { contractValue } from "@skeptique/shared/deployment";
 import { useState } from "react";
 import { createPublicClient, createWalletClient, custom, type EIP1193Provider } from "viem";
-import { apiClient } from "../lib/api";
+import { apiClient, apiUrl } from "../lib/api";
 import { type OnboardOutcome, type OnboardStep, onboardCritic, type RpContext, type Voucher } from "../lib/onboard";
 
 export type OnboardingState =
@@ -81,7 +81,7 @@ function requiredEnv(value: string | undefined, name: string): string {
 
 // Only public values are read here: the app id, the API origin and the registry address. No secret exists in the browser.
 async function runOnboarding(onChange: (state: OnboardingState) => void, signal: AbortSignal) {
-  const apiUrl = requiredEnv(process.env.NEXT_PUBLIC_API_URL, "NEXT_PUBLIC_API_URL");
+  const apiBase = requiredEnv(process.env.NEXT_PUBLIC_API_URL, "NEXT_PUBLIC_API_URL");
   const appId = requiredEnv(process.env.NEXT_PUBLIC_WORLD_APP_ID, "NEXT_PUBLIC_WORLD_APP_ID");
   const deployment = await apiClient().getDeployment();
   const registry = deployment.contracts.CriticRegistry;
@@ -96,7 +96,7 @@ async function runOnboarding(onChange: (state: OnboardingState) => void, signal:
   const { IDKit, proofOfHuman } = await import("@worldcoin/idkit-core");
 
   const post = async (path: string, body?: object) => {
-    const res = await fetch(new URL(path, apiUrl), {
+    const res = await fetch(apiUrl(path, apiBase), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body ?? {}),
