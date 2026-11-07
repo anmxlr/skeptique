@@ -6,7 +6,7 @@ import { useState } from "react";
 import { createPublicClient, createWalletClient, custom, type EIP1193Provider } from "viem";
 import { apiClient, apiUrl } from "../lib/api";
 import { type OnboardOutcome, type OnboardStep, onboardCritic, type RpContext, type Voucher } from "../lib/onboard";
-import { READ_ONLY_NOTICE, useApiReadOnly } from "../lib/read-only";
+import { useApiReadOnly } from "../lib/read-only";
 
 export type OnboardingState =
   | { status: "idle" }
@@ -31,12 +31,13 @@ export function OnboardingView({
   onCancel?: () => void;
   readOnly?: boolean;
 }) {
+  // Registration needs the full API (World verification and the nullifier store), so it is not offered without it.
+  if (readOnly && state.status === "idle") return null;
   return (
     <section aria-label="Register a critic">
       <h2>Register a critic</h2>
       <p>Verify with World ID Agent Pass, then stake to register your critic agent.</p>
-      {state.status === "idle" && readOnly && <p>{READ_ONLY_NOTICE}</p>}
-      {state.status === "idle" && !readOnly && (
+      {state.status === "idle" && (
         <button type="button" onClick={onStart}>
           Verify with World ID
         </button>

@@ -3,7 +3,7 @@
 import { type Approval, type SpendLimits, SpendLimitsSchema } from "@skeptique/shared";
 import { useEffect, useState } from "react";
 import { apiUrl as joinApiUrl } from "../lib/api";
-import { READ_ONLY_NOTICE, useApiReadOnly } from "../lib/read-only";
+import { useApiReadOnly } from "../lib/read-only";
 
 const apiUrl = () => {
   const url = process.env.NEXT_PUBLIC_API_URL;
@@ -93,7 +93,6 @@ export function SpendControlsView({
       {field("perMerchantCap", "Per-merchant cap", "")}
       {field("approvalThreshold", "Approval threshold", "payments above this need your OK")}
       {field("allowlist", "Merchant allowlist", "one per line; others are denied")}
-      {readOnly && <p className="buyer-muted">{READ_ONLY_NOTICE}</p>}
       <button type="button" onClick={onSave} disabled={readOnly}>
         Save limits
       </button>
