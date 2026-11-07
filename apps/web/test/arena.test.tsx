@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ArenaRunView, BatchView, KeysForm, KeysPill, MoneyMeter } from "../components/arena";
+import { ArenaRunView, BatchView, KeysForm, KeysPill, MoneyMeter, SourcesCorner, TaskChips } from "../components/arena";
 import {
   type ArenaEvent,
   type ArenaRecord,
@@ -13,6 +13,7 @@ import {
   credentialsBody,
   initialArenaState,
   initialBatchState,
+  listingFacts,
   type PartResult,
   type SideResult,
   type SubTask,
@@ -25,6 +26,34 @@ const TX = "0.0.9185802@1794007412.096112920";
 const MI_KM: SubTask = { category: "conversion", input: { value: 26.2, from: "mi", to: "km" } };
 const USD_EUR: SubTask = { category: "currency-conversion", input: { amount: 100, from: "USD", to: "EUR" } };
 const F_C: SubTask = { category: "conversion", input: { value: 451, from: "F", to: "C" } };
+
+const NIST = { label: "NIST SI units", url: "https://www.nist.gov/pml/owm/metric-si/si-units" };
+const API = "http://api.test";
+
+/** The listing block buildPrompt writes for one category (apps/arena/src/agent.ts). */
+const listingBlock = (name: SideResult["side"], category: string) => {
+  const row = (option: number) => ({
+    option,
+    label: `Service #${option}`,
+    category,
+    priceTinybars: "5",
+    paidCallsByBuyers: 0,
+    ...(name === "skeptique"
+      ? {
+          skeptiqueMedianScore: 100,
+          skeptiqueConfidence: 0.9,
+          skeptiqueRank: 91,
+          reviewRounds: 3,
+          lastReviewedAt: null,
+        }
+      : {}),
+  });
+  return `Listings for ${category} (the only data you have):\n${JSON.stringify([row(1), row(2)], null, 2)}`;
+};
+const promptFor = (name: SideResult["side"]) =>
+  [`listings shown to ${name}`, listingBlock(name, "conversion"), listingBlock(name, "currency-conversion")].join(
+    "\n\n",
+  );
 
 const FX_WRONG = { from: "USD", to: "EUR", amount: 100, rate: 0.01, converted: 1 };
 
@@ -41,6 +70,7 @@ const part = (index: number, task: SubTask, over: Partial<PartResult> = {}): Par
     expected: { result: 42.1648128, unit: "km" },
     actual: { result: 42.1648128, unit: "km" },
     note: "",
+    source: NIST,
   },
   outcome: "correct",
   error: null,
@@ -71,7 +101,7 @@ const side = (name: SideResult["side"], parts: PartResult[], over: Partial<SideR
   const correct = parts.filter((p) => p.outcome === "correct").length;
   return {
     side: name,
-    prompt: `listings shown to ${name}`,
+    prompt: promptFor(name),
     decision: {
       choices: parts.map((p) => ({ part: p.part, option: p.option })),
       reason: `${name} reason`,
@@ -85,6 +115,7 @@ const side = (name: SideResult["side"], parts: PartResult[], over: Partial<SideR
     wastedTinybars: String(wasted),
     outcome: correct === parts.length ? "correct" : correct > 0 ? "partial" : "wrong",
     error: null,
+    grounding: { numbers: [{ value: "5", found: true }], signals: [{ name: "priceTinybars", found: true }], ok: true },
     ...over,
   };
 };
@@ -105,6 +136,7 @@ const record = (baseline: SideResult, skeptique: SideResult): ArenaRecord => ({
   },
   seed: "s1",
   options: [{ option: 1, serviceId: 2 }],
+  marketplace: { apiUrl: API },
   sides: { baseline, skeptique },
 });
 
@@ -268,6 +300,107 @@ describe("arenaReducer", () => {
       { type: "run-started", runId: "r1", task: { kind: "unsupported", reason: "no oracle for weather" }, prompt: "a" },
     ]);
     expect(render(<ArenaRunView state={state} />)).toContain("no oracle for weather");
+  });
+});
+
+describe("where this came from", () => {
+  const finished = (baseline: SideResult, skeptique: SideResult) =>
+    run([
+      { type: "run-started", runId: "r1", task: { kind: "tasks", parts: [MI_KM] }, prompt: "p" },
+      { type: "run-finished", record: record(baseline, skeptique), hash: "0xabc" },
+    ]);
+
+  it("links each side's listing, raw data, payment and right answer, with test results only for Skeptique", () => {
+    const html = render(
+      <ArenaRunView state={finished(side("baseline", [part(0, MI_KM)]), side("skeptique", [part(0, MI_KM)]))} />,
+    );
+    expect(html.match(/Where this came from/g)).toHaveLength(2);
+    expect(html).toContain("Price: 5 tinybars · Other buyers: 0</span>");
+    expect(html).toContain(
+      "Price: 5 tinybars · Other buyers: 0 · Review score: 100/100 from 3 review rounds · Rank 91",
+    );
+    expect(html.match(/href="\/services\/1" target="_blank"/g)).toHaveLength(2);
+    expect(html.match(new RegExp(`href="${API}/services/1" target="_blank"`, "g"))).toHaveLength(2);
+    expect(html.match(new RegExp(`href="${API}/services/1/reviews" target="_blank"`, "g"))).toHaveLength(1);
+    expect(html).toContain(`href="https://hashscan.io/testnet/transaction/${TX}" target="_blank"`);
+    expect(html).toContain(`href="${NIST.url}" target="_blank"`);
+    expect(html).toContain("Right answer: NIST SI units");
+    expect(html).toContain("<b>Why</b> skeptique reason");
+  });
+
+  it("takes the API address from health until the record carries one", () => {
+    const state = run([
+      { type: "run-started", runId: "r1", task: { kind: "tasks", parts: [MI_KM] }, prompt: "p" },
+      { type: "graded", side: "skeptique", result: side("skeptique", [part(0, MI_KM)]) },
+    ]);
+    const html = render(<ArenaRunView state={state} apiUrl="http://health.test/" />);
+    expect(html).toContain('href="http://health.test/services/1/reviews"');
+  });
+
+  it("says plainly whether every quoted number is in the agent's data", () => {
+    const ok = render(<SourcesCorner result={side("baseline", [part(0, MI_KM)])} />);
+    expect(ok).toContain("Every number it quoted is in its data");
+    expect(ok).toContain("arena-tone-good");
+
+    const made = side("skeptique", [part(0, MI_KM)], {
+      grounding: {
+        numbers: [
+          { value: "94", found: false },
+          { value: "5", found: true },
+        ],
+        signals: [{ name: "skeptiqueMedianScore", found: true }],
+        ok: false,
+      },
+    });
+    const html = render(<SourcesCorner result={made} />);
+    expect(html).toContain("It quoted 94, which was not directly in its data");
+    expect(html).toContain("arena-tone-warn");
+    expect(html).toContain("94 <svg");
+    expect(html).toContain("not in its data");
+    expect(html).toContain("review score");
+  });
+
+  it("still renders an older record with no grounding, answer source or listing in the prompt", () => {
+    const old = side("baseline", [part(0, MI_KM, { verdict: { correct: true, expected: 1, actual: 1, note: "" } })], {
+      grounding: undefined,
+      prompt: "listings shown to baseline",
+    });
+    const html = render(<SourcesCorner result={old} />);
+    expect(html).toContain("Price: 5 tinybars");
+    expect(html).toContain('href="/services/1"');
+    expect(html).not.toContain("Right answer");
+    expect(html).not.toContain("Raw data");
+    expect(html).not.toContain("in its data");
+  });
+
+  it("puts listing facts in plain words", () => {
+    expect(listingFacts({ priceTinybars: "1", paidCallsByBuyers: 0 })).toBe("Price: 1 tinybar · Other buyers: 0");
+    expect(listingFacts({ priceTinybars: "1", paidCallsByBuyers: 0, skeptiqueMedianScore: null })).toBe(
+      "Price: 1 tinybar · Other buyers: 0 · Review score: not reviewed yet",
+    );
+  });
+});
+
+describe("task chips", () => {
+  const tasks = [
+    { id: "a", prompt: "Convert 2 kg to lb", why: "w", group: "general" as const },
+    { id: "b", prompt: "Convert 1 HBAR to tinybars", why: "w", group: "web3" as const },
+  ];
+
+  it("shows a Web3 row, then an Everyday row", () => {
+    const html = render(<TaskChips tasks={tasks} prompt="" />);
+    expect(html.indexOf("Web3")).toBeGreaterThan(-1);
+    expect(html.indexOf("Web3")).toBeLessThan(html.indexOf("Everyday"));
+    expect(html.indexOf("1 HBAR")).toBeLessThan(html.indexOf("2 kg"));
+    expect(html).toContain('aria-label="Web3 tasks"');
+    expect(html).toContain('aria-label="Everyday tasks"');
+  });
+
+  it("falls back to one row when a task has no group", () => {
+    const html = render(<TaskChips tasks={[...tasks, { id: "c", prompt: "c", why: "w" }]} prompt="c" />);
+    expect(html).not.toContain("Web3");
+    expect(html.match(/<ul /g)).toHaveLength(1);
+    expect(html).toContain('aria-pressed="true"');
   });
 });
 

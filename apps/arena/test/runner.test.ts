@@ -386,3 +386,59 @@ describe("option shuffle", () => {
     expect(firstOptions.size).toBe(2); // the seeds above cover both orderings
   });
 });
+
+describe("grounding: did the agent make anything up?", () => {
+  const RANKED = service({ rank: 91 });
+  const withReason = (reason: string, signalsUsed: string[]) =>
+    fakeLlm((p) => ({ ...choosePer(p, isSkeptique(p) ? byScore : byPopularity), reason, signalsUsed }));
+  const skeptiqueGrounding = async (reason: string, signalsUsed: string[]) => {
+    const { run, events } = arena(withReason(reason, signalsUsed), { services: [RANKED, GAMER, FX] });
+    const { record, hash } = await run();
+    const graded = events.find((e) => e.type === "graded" && e.side === "skeptique");
+    expect(graded?.type === "graded" && graded.result.grounding).toEqual(record.sides.skeptique.grounding);
+    expect(hashRecord(record)).toBe(hash);
+    return record.sides.skeptique.grounding;
+  };
+
+  it("accepts a reason quoting a median that is in the data, ignoring option labels and part indices", async () => {
+    const grounding = await skeptiqueGrounding(
+      "Service #2 (option 2) has skeptiqueMedianScore 100.0 over 1 review round; part 0 goes there for 1,000 tinybars.",
+      ["skeptiqueMedianScore", "ReviewRounds"],
+    );
+    expect(grounding).toEqual({
+      numbers: [
+        { value: "100.0", found: true },
+        { value: "1", found: true },
+        { value: "1,000", found: true },
+      ],
+      signals: [
+        { name: "skeptiqueMedianScore", found: true },
+        { name: "ReviewRounds", found: true },
+      ],
+      ok: true,
+    });
+  });
+
+  it("flags a made-up number: rank 94 when the data says 91", async () => {
+    const grounding = await skeptiqueGrounding("It has skeptiqueRank 94, the best listed.", ["skeptiqueRank"]);
+    expect(grounding?.numbers).toEqual([{ value: "94", found: false }]);
+    expect(grounding?.ok).toBe(false);
+    expect((await skeptiqueGrounding("It has skeptiqueRank 91.", []))?.ok).toBe(true);
+  });
+
+  it("flags a signal that is not in the prompt", async () => {
+    const grounding = await skeptiqueGrounding("Most trusted.", ["skeptiqueMedianScore", "uptimeSla"]);
+    expect(grounding?.signals).toEqual([
+      { name: "skeptiqueMedianScore", found: true },
+      { name: "uptimeSla", found: false },
+    ]);
+    expect(grounding?.ok).toBe(false);
+  });
+
+  it("is null when there is no decision", async () => {
+    const { run } = arena(sideLlm({ baseline: () => new Error("down"), skeptique: (p) => choose(byScore(p)) }));
+    const { record } = await run();
+    expect(record.sides.baseline.grounding).toBeNull();
+    expect(record.sides.skeptique.grounding).toEqual({ numbers: [], signals: [], ok: true });
+  });
+});

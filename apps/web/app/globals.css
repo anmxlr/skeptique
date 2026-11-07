@@ -610,6 +610,23 @@ a {
   background: var(--arena-tint);
 }
 
+.arena-chip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.arena-chip-row .arena-chips {
+  flex: 1;
+}
+
+.arena-chip-group {
+  min-width: 4.5rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .arena-chips-skeleton {
   height: 2rem;
   margin-top: 10px;
@@ -973,6 +990,46 @@ a {
 
 .page .arena-details p {
   margin: 4px 0;
+}
+
+/* "Where this came from": a small collapsed corner under each side card */
+.arena-details.arena-sources summary {
+  font-size: 0.8125rem;
+}
+
+.arena-sources summary .arena-icon {
+  margin-right: 4px;
+}
+
+.arena-sources-list,
+.arena-sources-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.arena-sources-row {
+  display: block;
+}
+
+.arena-sources-list b {
+  margin-right: 4px;
+}
+
+.arena-sources-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.arena-sources-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  padding-left: 1.4em;
+  color: var(--muted);
 }
 
 .arena-pre,

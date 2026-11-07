@@ -20,8 +20,12 @@ import {
   type CredentialErrors,
   type Credentials,
   credentialsBody,
+  FIELD_LABEL,
+  groundingLine,
   initialArenaState,
   initialBatchState,
+  listingFacts,
+  listingSeen,
   MODELS,
   type ModelId,
   moneySplit,
@@ -44,7 +48,7 @@ const SIDES: { side: Side; title: string }[] = [
 
 /* ---------- icons: always paired with text, so colour never carries meaning alone ---------- */
 
-type IconName = "check" | "cross" | "dash" | "shield" | "alert" | "half" | "link" | "key";
+type IconName = "check" | "cross" | "dash" | "shield" | "alert" | "half" | "link" | "key" | "info";
 const ICON_PATH: Record<IconName, string> = {
   check: "M5 12.5l4.5 4.5L19 7.5",
   cross: "M6.5 6.5l11 11M17.5 6.5l-11 11",
@@ -54,12 +58,13 @@ const ICON_PATH: Record<IconName, string> = {
   half: "M12 4a8 8 0 0 1 0 16z",
   link: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
   key: "M15 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM12 12v9M12 17h3M12 20h2",
+  info: "M12 11v5M12 8v.01",
 };
 
 function Icon({ name, className }: { name: IconName; className?: string }) {
   return (
     <svg className={`arena-icon ${className ?? ""}`} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      {name === "half" && <circle cx="12" cy="12" r="8" fill="none" />}
+      {(name === "half" || name === "info") && <circle cx="12" cy="12" r="8" fill="none" />}
       <path d={ICON_PATH[name]} fill={name === "half" ? "currentColor" : "none"} />
     </svg>
   );
@@ -456,16 +461,120 @@ export function MoneyMeter({ paid, wasted }: { paid: string; wasted: string }) {
   );
 }
 
+function Out({ href, children, title }: { href: string; children: ReactNode; title?: string }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" title={title}>
+      {children}
+    </a>
+  );
+}
+
+const trimmed = (text: string, max = 140) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+
+/** Collapsed corner answering "is the agent making things up?": its data, its reason, and links to check both. */
+export function SourcesCorner({ result, apiUrl }: { result: SideResult; apiUrl?: string }) {
+  const api = apiUrl?.replace(/\/+$/, "");
+  const picked = result.parts.filter((p) => p.pick);
+  const label = (p: PartResult) => (result.parts.length > 1 ? `${taskLabel(p.task)}: ` : "");
+  const g = result.grounding;
+  return (
+    <details className="arena-details arena-sources">
+      <summary>
+        <Icon name="info" />
+        Where this came from
+      </summary>
+      <ul className="arena-sources-list">
+        {picked.length === 0 && <li>It picked no vendor, so it used no listing.</li>}
+        {picked.map((p) => {
+          const pick = p.pick as NonNullable<PartResult["pick"]>;
+          const row = listingSeen(result.prompt, p.task.category, pick.option);
+          const pay = p.payment?.paid && p.payment.txId ? hashscanTxUrl(p.payment.txId) : null;
+          const source = p.verdict?.source;
+          return (
+            <li key={p.part}>
+              <span className="arena-sources-row">
+                <b>Used</b> {label(p)}
+                {row ? listingFacts(row) : `Price: ${tinybars(pick.pricePerCall)}`}
+              </span>
+              <span className="arena-sources-row arena-sources-links">
+                <b>Check</b>
+                <Out
+                  href={`/services/${pick.id}`}
+                  title="The marketplace page: listing, review rounds and each tester's score"
+                >
+                  Listing
+                </Out>
+                {api && (
+                  <Out href={`${api}/services/${pick.id}`} title="The listing as raw data">
+                    Raw data
+                  </Out>
+                )}
+                {api && result.side === "skeptique" && (
+                  <Out href={`${api}/services/${pick.id}/reviews`} title="The test results behind the score">
+                    Test results
+                  </Out>
+                )}
+                {pay && (
+                  <Out href={pay} title="The payment on HashScan">
+                    Payment
+                  </Out>
+                )}
+                {source && (
+                  <Out href={source.url} title="Where the right answer comes from">
+                    Right answer: {source.label}
+                  </Out>
+                )}
+              </span>
+            </li>
+          );
+        })}
+        {result.decision && (
+          <li>
+            <b>Why</b> {trimmed(result.decision.reason.trim())}
+          </li>
+        )}
+        {g && (
+          <li>
+            <span className={`arena-yn arena-tone-${g.ok ? "good" : "warn"}`}>
+              <Icon name={g.ok ? "check" : "alert"} />
+              {groundingLine(g)}
+            </span>
+            {g.numbers.length + g.signals.length > 0 && (
+              <ul className="arena-sources-checks" aria-label="What it quoted">
+                {[
+                  ...g.numbers.map((n) => ({ key: `n-${n.value}`, text: n.value, found: n.found })),
+                  ...g.signals.map((s) => ({
+                    key: `s-${s.name}`,
+                    text: FIELD_LABEL[s.name] ?? s.name,
+                    found: s.found,
+                  })),
+                ].map((c) => (
+                  <li key={c.key}>
+                    {c.text} <Icon name={c.found ? "check" : "alert"} />
+                    {c.found ? "in its data" : "not in its data"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        )}
+      </ul>
+    </details>
+  );
+}
+
 export function SideCard({
   title,
   side,
   runOver,
   expectedParts,
+  apiUrl,
 }: {
   title: string;
   side: SideState;
   runOver: boolean;
   expectedParts: number;
+  apiUrl?: string;
 }) {
   const { result } = side;
   const decision = result?.decision ?? side.decision;
@@ -531,6 +640,7 @@ export function SideCard({
           <pre className="arena-pre">{result.prompt}</pre>
         </details>
       )}
+      {result && <SourcesCorner result={result} apiUrl={apiUrl} />}
     </section>
   );
 }
@@ -665,7 +775,8 @@ export function VerdictStrip({ record, hash }: { record: ArenaRecord; hash: stri
   );
 }
 
-export function ArenaRunView({ state }: { state: ArenaState }) {
+export function ArenaRunView({ state, apiUrl }: { state: ArenaState; apiUrl?: string }) {
+  const api = state.record?.marketplace?.apiUrl ?? apiUrl;
   const runOver = state.status === "finished" || state.status === "failed";
   const expectedParts = state.task?.kind === "tasks" ? state.task.parts.length : 0;
   return (
@@ -690,6 +801,7 @@ export function ArenaRunView({ state }: { state: ArenaState }) {
               side={state.sides[side]}
               runOver={runOver}
               expectedParts={expectedParts}
+              apiUrl={api}
             />
           ))}
         </div>
@@ -853,6 +965,53 @@ async function post(path: string, body: unknown): Promise<Record<string, string>
   return json;
 }
 
+const TASK_GROUPS = [
+  ["web3", "Web3"],
+  ["general", "Everyday"],
+] as const;
+
+/** Preset task chips: a "Web3" and an "Everyday" row when every task has a group, else one row. */
+export function TaskChips({
+  tasks,
+  prompt,
+  onPick,
+}: {
+  tasks: ArenaTask[];
+  prompt: string;
+  onPick?: (prompt: string) => void;
+}) {
+  const grouped = tasks.every((t) => TASK_GROUPS.some(([g]) => g === t.group));
+  const rows = grouped
+    ? TASK_GROUPS.map(([g, label]) => ({ label, tasks: tasks.filter((t) => t.group === g) })).filter(
+        (r) => r.tasks.length > 0,
+      )
+    : [{ label: null, tasks }];
+  return rows.map((row) => (
+    <div key={row.label ?? "all"} className="arena-chip-row">
+      {row.label && (
+        <span className="arena-chip-group" aria-hidden="true">
+          {row.label}
+        </span>
+      )}
+      <ul className="arena-chips" aria-label={row.label ? `${row.label} tasks` : "Preset tasks"}>
+        {row.tasks.map((task) => (
+          <li key={task.id}>
+            <button
+              type="button"
+              className="arena-chip"
+              aria-pressed={prompt === task.prompt}
+              title={`${task.prompt} (${task.why})`}
+              onClick={() => onPick?.(task.prompt)}
+            >
+              {task.prompt}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ));
+}
+
 const MODE_HINT: Record<BuyMode, string> = {
   "may-refuse": "Agents may buy nothing if no vendor looks good.",
   "must-buy": "Agents must buy an answer for every part.",
@@ -976,23 +1135,7 @@ export function Arena() {
         {tasks === null ? (
           <div className="arena-chips-skeleton" aria-hidden="true" />
         ) : (
-          tasks.length > 0 && (
-            <ul className="arena-chips" aria-label="Preset tasks">
-              {tasks.map((task) => (
-                <li key={task.id}>
-                  <button
-                    type="button"
-                    className="arena-chip"
-                    aria-pressed={prompt === task.prompt}
-                    title={`${task.prompt} (${task.why})`}
-                    onClick={() => setPrompt(task.prompt)}
-                  >
-                    {task.prompt}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )
+          <TaskChips tasks={tasks} prompt={prompt} onPick={setPrompt} />
         )}
         <div className="arena-controls">
           <fieldset className="arena-mode">
@@ -1029,7 +1172,7 @@ export function Arena() {
         <p className="arena-small arena-muted">{MODE_HINT[mode]}</p>
       </form>
       <KeysDialog dialogRef={keysRef} onSave={setCredentials} />
-      <ArenaRunView state={state} />
+      <ArenaRunView state={state} apiUrl={health.status === "ok" ? health.health.apiUrl : undefined} />
       <section className="arena-panel arena-bench" aria-label="Run all tasks">
         <button
           type="button"

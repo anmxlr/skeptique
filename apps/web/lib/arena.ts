@@ -16,7 +16,14 @@ export type Decision = { choices: { part: number; option: number | null }[]; rea
 
 export type PolicyCheck = { rule: string; pass: boolean; detail: string };
 
-export type Verdict = { correct: boolean; expected: unknown; actual: unknown; note: string };
+/** `source` names where the right answer comes from, e.g. "NIST SI units". Older records lack it. */
+export type Verdict = {
+  correct: boolean;
+  expected: unknown;
+  actual: unknown;
+  note: string;
+  source?: { label: string; url: string };
+};
 
 export type PartOutcome = "correct" | "wrong" | "refused" | "blocked" | "error";
 
@@ -33,6 +40,13 @@ export type PartResult = {
   error: string | null;
 };
 
+/** Whether the numbers and fields in the agent's reason appear in the data it was shown. */
+export type Grounding = {
+  numbers: { value: string; found: boolean }[];
+  signals: { name: string; found: boolean }[];
+  ok: boolean;
+};
+
 export type SideOutcome = "correct" | "partial" | "wrong" | "refused" | "blocked" | "error";
 
 export type SideResult = {
@@ -47,6 +61,8 @@ export type SideResult = {
   wastedTinybars: string;
   outcome: SideOutcome;
   error: string | null;
+  /** null when there was no decision to check; older records lack it. */
+  grounding?: Grounding | null;
 };
 
 export type PolicySettings = {
@@ -73,6 +89,7 @@ export type ArenaRecord = {
   agents?: Record<Side, { payer: string; policy: PolicySettings }>;
   seed?: string;
   options?: { category?: SubTask["category"]; option: number; serviceId: number }[];
+  marketplace?: { apiUrl?: string };
   sides: { baseline: SideResult; skeptique: SideResult };
   summary?: unknown;
 };
@@ -98,7 +115,7 @@ export type ArenaHealth = {
   acceptsUserCredentials?: boolean;
 };
 
-export type ArenaTask = { id: string; prompt: string; why: string };
+export type ArenaTask = { id: string; prompt: string; why: string; group?: "web3" | "general" };
 
 export type SideState = {
   decided: boolean;
@@ -267,6 +284,62 @@ export function moneySplit(paid: string, wasted: string) {
   let waste = big(wasted);
   if (waste > total) waste = total;
   return { total, wasted: waste, correct: total - waste };
+}
+
+/** The listing row the agent was shown for `option` in `category`, read back from its prompt (see buildPrompt in apps/arena/src/agent.ts). */
+export function listingSeen(prompt: string, category: string, option: number): Record<string, unknown> | null {
+  const head = `Listings for ${category} (the only data you have):\n`;
+  const block = prompt.split("\n\n").find((b) => b.startsWith(head));
+  if (!block) return null;
+  try {
+    const rows: unknown = JSON.parse(block.slice(head.length));
+    if (!Array.isArray(rows)) return null;
+    return rows.find((r) => r && typeof r === "object" && r.option === option) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const plural = (n: unknown, word: string) => `${n} ${word}${n === 1 || n === "1" ? "" : "s"}`;
+
+/** A listing row in plain words, e.g. "Price: 1 tinybar · Other buyers: 0 · Review score: 100/100 from 3 review rounds · Rank 91". */
+export function listingFacts(row: Record<string, unknown>): string {
+  const facts = [`Price: ${plural(row.priceTinybars, "tinybar")}`, `Other buyers: ${row.paidCallsByBuyers}`];
+  if ("skeptiqueMedianScore" in row)
+    facts.push(
+      row.skeptiqueMedianScore === null
+        ? "Review score: not reviewed yet"
+        : `Review score: ${row.skeptiqueMedianScore}/100 from ${plural(row.reviewRounds, "review round")}`,
+    );
+  if (typeof row.skeptiqueRank === "number") facts.push(`Rank ${row.skeptiqueRank}`);
+  return facts.join(" · ");
+}
+
+/** Listing field names (as the agent cites them in signalsUsed) in plain words. */
+export const FIELD_LABEL: Record<string, string> = {
+  priceTinybars: "price",
+  paidCallsByBuyers: "other buyers",
+  skeptiqueMedianScore: "review score",
+  skeptiqueConfidence: "confidence",
+  skeptiqueRank: "rank",
+  reviewRounds: "review rounds",
+  lastReviewedAt: "last reviewed",
+};
+
+const listText = (items: string[]) =>
+  items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+
+/** One neutral line on whether the agent's reason sticks to its data. */
+export function groundingLine(g: Grounding): string {
+  if (g.ok) return "Every number it quoted is in its data";
+  const numbers = g.numbers.filter((n) => !n.found).map((n) => n.value);
+  const signals = g.signals.filter((s) => !s.found).map((s) => `"${FIELD_LABEL[s.name] ?? s.name}"`);
+  const said = [numbers.length && `quoted ${listText(numbers)}`, signals.length && `named ${listText(signals)}`].filter(
+    Boolean,
+  );
+  if (said.length === 0) return "Some of what it quoted was not directly in its data";
+  const many = numbers.length + signals.length > 1;
+  return `It ${said.join(" and ")}, which ${many ? "were" : "was"} not directly in its data`;
 }
 
 /** True when this side paid at least one vendor whose answer the oracle graded correct. */

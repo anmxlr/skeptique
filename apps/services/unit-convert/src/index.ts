@@ -16,6 +16,12 @@ const units: Record<string, { group: string; factor: number }> = {
   lb: { group: "mass", factor: 453.59237 },
   L: { group: "volume", factor: 1 },
   mL: { group: "volume", factor: 0.001 },
+  // Crypto denominations, in their smallest unit: docs.hedera.com (1 HBAR = 1e8 tinybar), ethereum.org (1 ETH = 1e9 gwei = 1e18 wei).
+  tinybar: { group: "hbar", factor: 1 },
+  HBAR: { group: "hbar", factor: 1e8 },
+  wei: { group: "eth", factor: 1 },
+  gwei: { group: "eth", factor: 1e9 },
+  ETH: { group: "eth", factor: 1e18 },
 };
 
 function round(value: number): number {

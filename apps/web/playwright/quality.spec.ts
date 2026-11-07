@@ -75,7 +75,10 @@ const ARENA_HEALTH = {
   models: ["claude-haiku-5-5", "claude-sonnet-5-5"],
   acceptsUserCredentials: true,
 };
-const ARENA_TASKS = [{ id: "m-cm", prompt: "Convert 3 metres to centimetres", why: "off the public suite" }];
+const ARENA_TASKS = [
+  { id: "m-cm", prompt: "Convert 3 metres to centimetres", why: "off the public suite", group: "general" },
+  { id: "hbar-tb", prompt: "Convert 2 HBAR to tinybars", why: "web3 units", group: "web3" },
+];
 
 async function mockApi(page: Page) {
   await page.route(`${PLAYWRIGHT_PUBLIC_ENV.NEXT_PUBLIC_ARENA_URL}/**`, async (route) => {
@@ -255,6 +258,10 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
       expected: { converted: 110.4, to: "EUR" },
     },
   ];
+  const sources = [
+    { label: "NIST SI units", url: "https://www.nist.gov/pml/owm/metric-si/si-units" },
+    { label: "Demo reference rates (fixed table)", url: "https://example.test/fx" },
+  ];
   const part = (index: number, outcome: "correct" | "wrong" | "blocked") => ({
     part: index,
     task: tasks[index],
@@ -280,6 +287,7 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
             expected: answers[index].expected,
             actual: answers[index][outcome === "correct" ? "right" : "wrong"],
             note: "n",
+            source: sources[index],
           },
     outcome,
     error: null,
@@ -303,6 +311,14 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
     wastedTinybars: second === "wrong" ? "1" : "0",
     outcome: "partial",
     error: null,
+    grounding:
+      name === "baseline"
+        ? { numbers: [{ value: "94", found: false }], signals: [{ name: "paidCallsByBuyers", found: true }], ok: false }
+        : {
+            numbers: [{ value: "1", found: true }],
+            signals: [{ name: "skeptiqueMedianScore", found: true }],
+            ok: true,
+          },
   });
   const baseline = side("baseline", "wrong");
   const skeptique = side("skeptique", "blocked");
@@ -325,6 +341,7 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
         prompt: "p",
         mode: "may-refuse",
         credentialSource: "user",
+        marketplace: { apiUrl: MOCK_API_URL },
         sides: { baseline, skeptique },
       },
       hash: "0xabc",
@@ -361,6 +378,16 @@ test("arena: a multi-part run with user keys renders both cards and the verdict 
   await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("1/2");
   await expect(page.getByRole("region", { name: "With Skeptique" })).toContainText("score 40 < 70");
   await expect(page.getByRole("region", { name: "Without Skeptique" })).toContainText("got 1.2 EUR · right: 110.4 EUR");
+  const withCard = page.getByRole("region", { name: "With Skeptique" });
+  await withCard.getByText("Where this came from").click();
+  await expect(withCard.getByRole("link", { name: "Test results" })).toHaveAttribute(
+    "href",
+    `${MOCK_API_URL}/services/1/reviews`,
+  );
+  await expect(withCard).toContainText("Every number it quoted is in its data");
+  const withoutCard = page.getByRole("region", { name: "Without Skeptique" });
+  await withoutCard.getByText("Where this came from").click();
+  await expect(withoutCard).toContainText("It quoted 94, which was not directly in its data");
   expect(posted).toMatchObject({
     prompt: "Convert 3 metres to centimetres",
     mode: "may-refuse",

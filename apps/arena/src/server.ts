@@ -142,7 +142,7 @@ export function buildArenaServer(deps: ArenaServerDeps): FastifyInstance {
     ...deps.health?.(),
   }));
 
-  app.get("/tasks", async () => TASK_PACK.map(({ id, prompt, why }) => ({ id, prompt, why })));
+  app.get("/tasks", async () => TASK_PACK.map(({ id, prompt, why, group }) => ({ id, prompt, why, group })));
 
   app.post("/runs", async (req, reply) => {
     const body = RunRequestSchema.safeParse(req.body);

@@ -7,7 +7,8 @@ import { TASK_PACK } from "../src/tasks";
 import { FX, FXREF, fakePay, GAMER, GOOD, policy, scriptedLlm } from "./fakes";
 
 const ORIGIN = "http://web.test";
-const PROMPT = "Convert 451 °F to Celsius"; // a TASK_PACK prompt, so the task parser never calls the model
+// A TASK_PACK prompt (two conversion parts), so the task parser never calls the model.
+const PROMPT = TASK_PACK.find((t) => t.id === "eth-gas")?.prompt ?? "";
 const SELLER = "0.0.999";
 
 /** The scripted model, held until `release()` so a run can be observed while in progress. */
@@ -98,7 +99,7 @@ describe("arena server: runs", () => {
     const types = sseEvents(streamed.body).map((e) => e.type);
     expect(types[0]).toBe("run-started");
     expect(types.at(-1)).toBe("run-finished");
-    expect(types).toHaveLength(8);
+    expect(types).toHaveLength(10); // started, 2 decided, 2 × 2 parts, 2 graded, finished
 
     const replay = await app.inject(`/runs/${runId}/events`);
     expect(sseEvents(replay.body).map((e) => e.type)).toEqual(types);
@@ -110,8 +111,18 @@ describe("arena server: runs", () => {
     expect(record.record.sides.baseline.outcome).toBe("wrong");
     expect(record.record.sides.skeptique.outcome).toBe("correct");
     expect(record.hash).toMatch(/^0x[0-9a-f]{64}$/);
-    expect(s.paid.sort()).toEqual([GAMER.endpoint, GOOD.endpoint].sort());
+    expect(s.paid.sort()).toEqual([GAMER.endpoint, GAMER.endpoint, GOOD.endpoint, GOOD.endpoint].sort());
     expect((await app.inject({ method: "POST", url: "/runs", payload: { prompt: PROMPT } })).statusCode).toBe(202);
+  });
+
+  it("lists the task pack with its group: 4 Web3 tasks, then 4 general ones", async () => {
+    app = server().app;
+    const tasks = (await app.inject("/tasks")).json();
+    expect(tasks).toEqual(TASK_PACK.map(({ id, prompt, why, group }) => ({ id, prompt, why, group })));
+    expect(tasks.map((t: { group: string }) => t.group)).toEqual([
+      ...Array(4).fill("web3"),
+      ...Array(4).fill("general"),
+    ]);
   });
 
   it("rejects a bad prompt and unknown ids", async () => {
@@ -168,24 +179,25 @@ describe("arena server: batches", () => {
       correctParts: 1,
       totalParts: 3,
     });
-    expect(tasks.find((e) => e.taskId === "usd-inr")?.sides).toEqual({
+    // HBAR and ETH denominations are off the public suite, so the gamer's echo is wrong on both parts.
+    expect(tasks.find((e) => e.taskId === "validator-stake")?.sides).toEqual({
       baseline: {
         outcome: "wrong",
         answeredCorrect: false,
         noAnswer: false,
-        paidTinybars: "1000",
-        wastedTinybars: "1000",
+        paidTinybars: "2000",
+        wastedTinybars: "2000",
         correctParts: 0,
-        totalParts: 1,
+        totalParts: 2,
       },
       skeptique: {
         outcome: "correct",
         answeredCorrect: true,
         noAnswer: false,
-        paidTinybars: "1000",
+        paidTinybars: "2000",
         wastedTinybars: "0",
-        correctParts: 1,
-        totalParts: 1,
+        correctParts: 2,
+        totalParts: 2,
       },
     });
 
@@ -198,29 +210,29 @@ describe("arena server: batches", () => {
           answeredCorrect: 0,
           noAnswer: 0,
           correctParts: 1,
-          totalParts: 17,
+          totalParts: 19,
           correct: 0,
           partial: 1,
           wrong: 7,
           refused: 0,
           blocked: 0,
           error: 0,
-          totalTinybars: "17000",
-          wastedTinybars: "16000",
-          paidToCorrectShare: 1 / 17,
+          totalTinybars: "19000",
+          wastedTinybars: "18000",
+          paidToCorrectShare: 1 / 19,
         },
         skeptique: {
           answeredCorrect: 8,
           noAnswer: 0,
-          correctParts: 17,
-          totalParts: 17,
+          correctParts: 19,
+          totalParts: 19,
           correct: 8,
           partial: 0,
           wrong: 0,
           refused: 0,
           blocked: 0,
           error: 0,
-          totalTinybars: "17000",
+          totalTinybars: "19000",
           wastedTinybars: "0",
           paidToCorrectShare: 1,
         },
@@ -317,7 +329,7 @@ describe("arena server: user credentials", () => {
     expect(record.agents.baseline.payer).toBe("0.0.4242");
     expect(record.agents.skeptique.payer).toBe("0.0.4242");
     expect(s.paid).toEqual([]); // the server wallets paid nothing
-    expect(userPaid).toEqual([GAMER.endpoint]);
+    expect(userPaid).toEqual([GAMER.endpoint, GAMER.endpoint]);
     expect(record.sides.skeptique.parts[0].error).toContain("[redacted]");
     for (const text of [JSON.stringify(record), body, JSON.stringify(sseEvents(body))]) {
       expect(text).not.toContain(KEY);

@@ -44,7 +44,25 @@ export type Decision = z.infer<typeof DecisionSchema>;
 
 export type Side = "baseline" | "skeptique";
 
-export type Verdict = { correct: boolean; expected: unknown; actual: unknown; note: string };
+/** `source` = where the right answer is defined (for currency: the arena's fixed demo table, not live rates). */
+export type Verdict = {
+  correct: boolean;
+  expected: unknown;
+  actual: unknown;
+  note: string;
+  source: { label: string; url: string };
+};
+
+/**
+ * Did the agent make anything up? Every number quoted in `decision.reason` and every
+ * `decision.signalsUsed` entry, checked against the exact prompt the agent saw. Exact appearance
+ * only: a value the agent derived (a sum, a ratio) shows as not found ("not directly in its data").
+ */
+export type Grounding = {
+  numbers: { value: string; found: boolean }[];
+  signals: { name: string; found: boolean }[];
+  ok: boolean;
+};
 
 export type PartResult = {
   part: number;
@@ -68,6 +86,8 @@ export type SideResult = {
   side: Side;
   prompt: string;
   decision: Decision | null;
+  /** null when there is no decision to check. */
+  grounding: Grounding | null;
   llm: { model: string; costUsd: number | null; ms: number; raw: string } | null;
   parts: PartResult[];
   correctParts: number;

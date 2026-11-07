@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFlakyFx } from "../../services/flaky-fx/src/index";
-import { handleUnitConvert } from "../../services/unit-convert/src/index";
+import { handleUnitConvert, unitConvertSpecHash } from "../../services/unit-convert/src/index";
 import { fxReference, fxReferenceSuite } from "../src/fx-reference";
 import { oracleJudge } from "../src/local-market";
 import { expectedConversion, expectedCurrency, grade } from "../src/oracle";
@@ -24,6 +24,68 @@ describe("oracle", () => {
       if (part.category !== "conversion") continue;
       expect(grade(part, await handleUnitConvert(part.input)).correct, JSON.stringify(part.input)).toBe(true);
     }
+  });
+
+  it("knows the documented HBAR and ETH denominations exactly", () => {
+    expect(expectedConversion(1, "HBAR", "tinybar")).toBe(100_000_000);
+    expect(expectedConversion(1, "ETH", "gwei")).toBe(1e9);
+    expect(expectedConversion(1, "ETH", "wei")).toBe(1e18);
+    expect(expectedConversion(1, "gwei", "wei")).toBe(1e9);
+    expect(expectedConversion(1, "HBAR", "ETH")).toBeNull();
+    expect(expectedConversion(1, "HBAR", "kg")).toBeNull();
+  });
+
+  it("grades every conversion part with the real unit-convert as correct and the gamer's echo as wrong", async () => {
+    const answers: Record<string, unknown> = {};
+    for (const { id, part } of packParts) {
+      if (part.category !== "conversion") continue;
+      const honest = await handleUnitConvert(part.input);
+      answers[`${id} ${part.input.value} ${part.input.from}→${part.input.to}`] = honest;
+      expect(grade(part, honest).correct, JSON.stringify(part.input)).toBe(true);
+      // -40 °C → °F is the only part where echoing the input is the right answer (public suite).
+      const echoRight = part.input.value === -40 && part.input.from === "C";
+      expect(grade(part, { result: part.input.value, unit: part.input.to }).correct, JSON.stringify(part.input)).toBe(
+        echoRight,
+      );
+    }
+    expect(answers).toMatchObject({
+      "x402-spend 10000000 tinybar→HBAR": { result: 0.1, unit: "HBAR" },
+      "eth-gas 630000 gwei→ETH": { result: 0.00063, unit: "ETH" },
+      "eth-gas 0.05 ETH→gwei": { result: 50_000_000, unit: "gwei" },
+      "validator-stake 2.5 HBAR→tinybar": { result: 250_000_000, unit: "tinybar" },
+      "validator-stake 0.8 ETH→gwei": { result: 800_000_000, unit: "gwei" },
+      "dao-payout 3 HBAR→tinybar": { result: 300_000_000, unit: "tinybar" },
+    });
+  });
+
+  it("leaves unit-convert's public suite unchanged", () => {
+    expect(unitConvertSpecHash).toBe("0x340fb662aa3537d76dd0a23b5ae9488d3394a5a1eb1e8185c79322119ea1f1af");
+  });
+
+  it("is 8 tasks: 4 Web3 first, then 4 general, one of them on the public suite", () => {
+    expect(TASK_PACK.map((t) => t.group)).toEqual([...Array(4).fill("web3"), ...Array(4).fill("general")]);
+    expect(TASK_PACK.map((t) => t.id)).toEqual([
+      "x402-spend",
+      "eth-gas",
+      "validator-stake",
+      "dao-payout",
+      "marathon",
+      "recipe",
+      "india-trip",
+      "suite-mix",
+    ]);
+  });
+
+  it("names where each right answer is defined", () => {
+    const conv = (from: string, to: string) => ({ category: "conversion", input: { value: 1, from, to } }) as const;
+    const source = (task: Parameters<typeof grade>[0]) => grade(task, null).source;
+    expect(source(conv("m", "cm")).url).toBe("https://www.nist.gov/pml/special-publication-811");
+    expect(source(conv("C", "F")).url).toBe("https://www.nist.gov/pml/special-publication-811");
+    expect(source(conv("HBAR", "tinybar")).url).toBe("https://docs.hedera.com/hedera/sdks-and-apis/sdks/hbars");
+    expect(source(conv("ETH", "gwei")).url).toBe("https://ethereum.org/en/developers/docs/intro-to-ether/");
+    expect(source({ category: "currency-conversion", input: { amount: 1, from: "USD", to: "EUR" } }).label).toBe(
+      "Demo reference rates (fixed table)",
+    );
   });
 
   it("has a ground truth for every part of every task-pack task, and the pack is mostly multi-part", () => {

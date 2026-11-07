@@ -3,6 +3,7 @@ import type { ServiceView } from "@skeptique/shared";
 import type { PayAndCall } from "@skeptique/x402-client";
 import { buildPrompt, buyerSystemPrompt, decide } from "./agent";
 import { summarise } from "./batch";
+import { checkGrounding } from "./grounding";
 import type { Llm } from "./llm";
 import { gradable, grade } from "./oracle";
 import { checkPolicy, type SpendPolicy } from "./policy";
@@ -64,6 +65,7 @@ function emptyResult(side: Side, prompt: string, parts: number): SideResult {
     side,
     prompt,
     decision: null,
+    grounding: null,
     llm: null,
     parts: [],
     correctParts: 0,
@@ -156,6 +158,7 @@ async function runSide(
   try {
     const answer = await decide(llm, prompt, args.mode ?? "may-refuse");
     result.decision = answer.value;
+    result.grounding = checkGrounding(answer.value, prompt);
     result.llm = { model: answer.model, costUsd: answer.costUsd, ms: answer.ms, raw: answer.raw };
     emit({ type: "decided", side, decision: answer.value });
   } catch (error) {
