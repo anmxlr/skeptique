@@ -56,7 +56,7 @@ export function ServiceDetailView({ state }: { state: ServiceDetailState }) {
         Could not load service: {state.message}
       </p>
     );
-  if (state.status === "not-found") return <p>No such service.</p>;
+  if (state.status === "not-found") return <p className="empty-state">No such service.</p>;
   const { service, evidence, rounds, reviews = [] } = state;
   return (
     <>
